@@ -378,13 +378,12 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <Printer className="h-4 w-4" />
                 <span className="sr-only">Print</span>
             </Button>
-            { user && <ProductFormDialog
-              onProductAction={onProductAdded}
-            >
-              <Button>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Product
-              </Button>
-            </ProductFormDialog> }
+            { user && <ProductFormDialog onProductAction={onProductAdded} >
+                <Button>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Product
+                </Button>
+              </ProductFormDialog> 
+            }
           </div>
         </div>
       </CardHeader>
@@ -428,7 +427,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                       </CollapsibleTrigger>
                       <CollapsibleContent asChild>
                          <React.Fragment>
-                            {row.original.rates.slice(1).map((rate, index) => {
+                            {row.original.rates.slice(1).map((rate) => {
                                     const finalRate = rate.rate * (1 + row.original.gst / 100);
                                     return (
                                     <TableRow key={rate.id} className="bg-muted/50 hover:bg-muted/70">
