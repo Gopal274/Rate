@@ -8,11 +8,11 @@ import {
   addRate as addRateToDb,
   deleteRate as deleteRateFromDb,
   getProductRates as getProductRatesFromDb,
+  seedDatabase
 } from './data';
 import type { Product, Rate } from './types';
-import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
-import { z } from 'zod';
 import { productSchema } from './types';
+import { z } from 'zod';
 
 type ProductFormData = z.infer<typeof productSchema>;
 
@@ -37,12 +37,13 @@ export async function addProductAction(formData: ProductFormData) {
   }
 }
 
-export async function updateProductAction(productId: string, productData: Partial<Product>) {
+export async function updateProductAction(productId: string, productData: Partial<Omit<Product, 'id'>>) {
   try {
     await updateProductInDb(productId, productData);
     revalidatePath('/');
     return { success: true, message: 'Product updated successfully.' };
   } catch (error) {
+    console.error("updateProductAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to update product.';
     return { success: false, message };
   }
@@ -54,6 +55,7 @@ export async function deleteProductAction(productId: string) {
     revalidatePath('/');
     return { success: true, message: 'Product deleted successfully.' };
   } catch (error) {
+    console.error("deleteProductAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to delete product.';
     return { success: false, message };
   }
@@ -65,6 +67,7 @@ export async function addRateAction(productId: string, rate: number) {
     revalidatePath('/');
     return { success: true, message: 'Rate added successfully.', rate: newRate };
   } catch (error) {
+    console.error("addRateAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to add rate.';
     return { success: false, message };
   }
@@ -76,29 +79,35 @@ export async function deleteRateAction(productId: string, rateId: string) {
     revalidatePath('/');
     return { success: true, message: 'Rate deleted successfully.' };
   } catch (error) {
+    console.error("deleteRateAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to delete rate.';
     return { success: false, message };
   }
 }
 
 export async function getProductRatesAction(productId: string): Promise<Rate[]> {
-    return await getProductRatesFromDb(productId);
+    try {
+        return await getProductRatesFromDb(productId);
+    } catch(error) {
+        console.error("getProductRatesAction Error:", error);
+        return [];
+    }
 }
 
 
 export async function getRateSummaryAction(product: Product, rates: Rate[]) {
-  try {
-    if (rates.length < 2) {
-      return { summary: "Not enough data to generate a summary.", outliers: [], prediction: "At least two rates are needed for a prediction." };
-    }
+  // This function is not currently used but is kept for potential future use.
+  return { summary: "AI Summary not implemented yet.", outliers: [], prediction: "" };
+}
 
-    const summary = await summarizeRateTrends({
-      productName: product.name,
-      rateHistory: rates.map(r => ({ date: new Date(r.createdAt).toISOString(), rate: r.rate })),
-    });
-    return summary;
-  } catch (error) {
-    console.error('AI summary failed:', error);
-    return { error: 'Failed to generate summary.' };
+export async function seedDatabaseAction() {
+  try {
+    await seedDatabase();
+    revalidatePath('/');
+    return { success: true, message: "Dummy data has been added." };
+  } catch(error) {
+    console.error("seedDatabaseAction Error:", error);
+    const message = error instanceof Error ? error.message : 'Failed to seed database.';
+    return { success: false, message };
   }
 }
