@@ -412,58 +412,60 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                    <React.Fragment key={row.original.id}>
-                        <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
-                            <CollapsibleTrigger asChild>
-                                <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
-                                    {row.getVisibleCells().map((cell) => (
-                                    <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
-                                        {flexRender(
-                                        cell.column.columnDef.cell,
-                                        cell.getContext()
-                                        )}
-                                    </TableCell>
-                                    ))}
-                                </TableRow>
-                            </CollapsibleTrigger>
-                        </Collapsible>
-                        <CollapsibleContent asChild>
-                           <React.Fragment>
-                              {row.original.rates.slice(1).map((rate, index) => {
-                                      const finalRate = rate.rate * (1 + row.original.gst / 100);
-                                      return (
-                                      <TableRow key={rate.id} className="bg-muted/50 hover:bg-muted/70">
-                                          <TableCell></TableCell>
-                                          <TableCell></TableCell>
-                                          <TableCell></TableCell>
-                                          <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
-                                          <TableCell>{row.original.unit}</TableCell>
-                                          <TableCell>{row.original.gst}%</TableCell>
-                                          <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
-                                          <TableCell>{row.original.partyName}</TableCell>
-                                          <TableCell>{row.original.pageNo}</TableCell>
-                                          <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
-                                          <TableCell>{row.original.category}</TableCell>
-                                          <TableCell className="no-print">
-                                              <TooltipProvider>
-                                                  <div className="flex items-center justify-center">
-                                                      <Tooltip>
-                                                          <TooltipTrigger>
-                                                              <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
-                                                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                                              </Button>
-                                                          </TooltipTrigger>
-                                                          <TooltipContent>Delete This Rate Entry</TooltipContent>
-                                                      </Tooltip>
-                                                  </div>
-                                              </TooltipProvider>
-                                          </TableCell>
-                                      </TableRow>
-                                      )
-                                  })
-                              }
-                          </React.Fragment>
-                        </CollapsibleContent>
+                   <React.Fragment key={row.original.id}>
+                    <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
+                      <>
+                      <CollapsibleTrigger asChild>
+                          <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
+                              {row.getVisibleCells().map((cell) => (
+                              <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
+                                  {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                  )}
+                              </TableCell>
+                              ))}
+                          </TableRow>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent asChild>
+                         <React.Fragment>
+                            {row.original.rates.slice(1).map((rate, index) => {
+                                    const finalRate = rate.rate * (1 + row.original.gst / 100);
+                                    return (
+                                    <TableRow key={rate.id} className="bg-muted/50 hover:bg-muted/70">
+                                        <TableCell></TableCell>
+                                        <TableCell></TableCell>
+                                        <TableCell></TableCell>
+                                        <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                                        <TableCell>{row.original.unit}</TableCell>
+                                        <TableCell>{row.original.gst}%</TableCell>
+                                        <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
+                                        <TableCell>{row.original.partyName}</TableCell>
+                                        <TableCell>{row.original.pageNo}</TableCell>
+                                        <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
+                                        <TableCell>{row.original.category}</TableCell>
+                                        <TableCell className="no-print">
+                                            <TooltipProvider>
+                                                <div className="flex items-center justify-center">
+                                                    <Tooltip>
+                                                        <TooltipTrigger>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                            </TooltipProvider>
+                                        </TableCell>
+                                    </TableRow>
+                                    )
+                                })
+                            }
+                        </React.Fragment>
+                      </CollapsibleContent>
+                      </>
+                    </Collapsible>
                   </React.Fragment>
                 ))
               ) : (
@@ -712,7 +714,7 @@ function ProductFormDialog({
               )}
             />
             <DialogFooter>
-              <DialogClose><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+              <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
               <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (product ? 'Save Changes' : 'Add Product')}</Button>
             </DialogFooter>
           </form>
@@ -834,7 +836,7 @@ function AddRateDialog({
               )}
             />
             <DialogFooter>
-              <DialogClose><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+              <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
               <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Add Rate'}</Button>
             </DialogFooter>
           </form>
