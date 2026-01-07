@@ -257,7 +257,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                       className="h-8 w-8"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (canDeleteRate) {
+                        if (canDeleteRate && latestRate) {
                             setDeletingRateInfo({ product, rate: latestRate });
                         } else {
                             setDeletingProduct(product);
@@ -412,9 +412,8 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                   <React.Fragment key={row.original.id}>
-                    <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
-                      <>
+                  <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
+                    <React.Fragment>
                       <CollapsibleTrigger asChild>
                           <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
                               {row.getVisibleCells().map((cell) => (
@@ -464,9 +463,8 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                             }
                         </React.Fragment>
                       </CollapsibleContent>
-                      </>
-                    </Collapsible>
-                  </React.Fragment>
+                    </React.Fragment>
+                  </Collapsible>
                 ))
               ) : (
                 <TableRow>
