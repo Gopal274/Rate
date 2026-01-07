@@ -606,7 +606,7 @@ function ProductFormDialog({
         gst: product.gst,
         partyName: product.partyName,
         pageNo: product.pageNo,
-        billDate: product.billDate, // Keep as Date object
+        billDate: product.billDate,
         category: product.category,
         rate: product.rateHistory[0]?.rate ?? 0,
     } : {
@@ -615,9 +615,9 @@ function ProductFormDialog({
         partyName: '',
         billDate: new Date(),
         category: 'Other',
-        gst: undefined,
-        pageNo: undefined,
-        rate: undefined,
+        gst: '' as any,
+        pageNo: '' as any,
+        rate: '' as any,
     },
   });
   const { toast } = useToast();
@@ -659,9 +659,9 @@ function ProductFormDialog({
             partyName: '',
             billDate: new Date(),
             category: 'Other',
-            gst: undefined,
-            pageNo: undefined,
-            rate: undefined,
+            gst: '' as any,
+            pageNo: '' as any,
+            rate: '' as any,
         });
     }
   }, [product, form, isDialogOpen]);
@@ -674,15 +674,12 @@ function ProductFormDialog({
     setIsSubmitting(true);
     const { rate, ...productData } = values;
 
-    // Ensure billDate is a Date object before sending
     const submissionData = {
         ...productData,
         billDate: new Date(productData.billDate),
     };
 
     if (product) {
-      // The rate cannot be edited, so we don't need to handle it here.
-      // We only update the product details.
       const result = await updateProductAction(product.id, submissionData);
       if (result.success) {
         onProductAction(submissionData);
@@ -776,7 +773,6 @@ function ProductFormDialog({
                 control={form.control}
                 name="billDate"
                 render={({ field }) => {
-                    // Check if field.value is a valid Date object
                     const dateValue = field.value instanceof Date && !isNaN(field.value.getTime())
                         ? format(field.value, 'yyyy-MM-dd')
                         : '';
@@ -786,10 +782,8 @@ function ProductFormDialog({
                             <FormControl>
                                 <Input 
                                     type="date" 
-                                    {...field}
                                     value={dateValue}
                                     onChange={(e) => {
-                                        // Add timezone offset to avoid off-by-one day errors
                                         const date = new Date(e.target.value);
                                         const userTimezoneOffset = date.getTimezoneOffset() * 60000;
                                         field.onChange(new Date(date.getTime() + userTimezoneOffset));
@@ -909,4 +903,3 @@ function DeleteRateDialog({
         </AlertDialog>
     );
 }
-
