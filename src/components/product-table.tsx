@@ -384,7 +384,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
+                  <Collapsible key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
                     <>
                       <CollapsibleTrigger asChild>
                           <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
@@ -400,7 +400,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                       </CollapsibleTrigger>
                       <CollapsibleContent asChild>
                           <>
-                          {row.original.rates.slice(1).map((rate, index) => (
+                          {row.original.rates.slice(1).map((rate) => (
                               <TableRow key={rate.id} className="bg-muted/50">
                                   <TableCell colSpan={3} className="border-r"></TableCell>
                                   <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
