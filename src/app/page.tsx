@@ -2,7 +2,7 @@
 
 import AppHeader from '@/components/app-header';
 import { ProductTable } from '@/components/product-table';
-import { useCollection, useFirebase, useUser } from '@/firebase';
+import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, where } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,7 +15,7 @@ export default function Home() {
   const { firestore, auth, isUserLoading } = useFirebase();
   const { user } = useUser();
 
-  const productsQuery = useMemo(() => {
+  const productsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
       collection(firestore, 'products'),
