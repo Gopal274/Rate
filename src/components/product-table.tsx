@@ -19,11 +19,6 @@ import {
   XCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 
 import {
   addProductAction,
@@ -378,12 +373,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <Printer className="h-4 w-4" />
                 <span className="sr-only">Print</span>
             </Button>
-            { user && <ProductFormDialog onProductAction={onProductAdded} >
-                <Button>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Product
-                </Button>
-              </ProductFormDialog> 
-            }
+            { user && <ProductFormDialog onProductAction={onProductAdded} /> }
           </div>
         </div>
       </CardHeader>
@@ -408,82 +398,73 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 </TableRow>
               ))}
             </TableHeader>
-            
+            <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => {
-                    const isOpen = openCollapsibles.has(row.original.id);
-                    const hasHistory = row.original.rates.length > 1;
-
-                    return (
-                        <TableBody key={row.original.id} className="border-b">
-                            <Collapsible open={isOpen} onOpenChange={() => toggleCollapsible(row.original.id)}>
-                                <CollapsibleTrigger asChild>
-                                    <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
-                                        {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
-                                            {flexRender(
-                                            cell.column.columnDef.cell,
-                                            cell.getContext()
-                                            )}
-                                        </TableCell>
-                                        ))}
-                                    </TableRow>
-                                </CollapsibleTrigger>
-                                {hasHistory && (
-                                <CollapsibleContent asChild>
-                                    <React.Fragment>
-                                        {row.original.rates.slice(1).map((rate) => {
-                                                const finalRate = rate.rate * (1 + row.original.gst / 100);
-                                                return (
-                                                <TableRow key={rate.id} className="bg-muted/50 hover:bg-muted/70">
-                                                    <TableCell></TableCell>
-                                                    <TableCell></TableCell>
-                                                    <TableCell></TableCell>
-                                                    <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
-                                                    <TableCell>{row.original.unit}</TableCell>
-                                                    <TableCell>{row.original.gst}%</TableCell>
-                                                    <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
-                                                    <TableCell>{row.original.partyName}</TableCell>
-                                                    <TableCell>{row.original.pageNo}</TableCell>
-                                                    <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
-                                                    <TableCell>{row.original.category}</TableCell>
-                                                    <TableCell className="no-print">
-                                                        <TooltipProvider>
-                                                            <div className="flex items-center justify-center">
-                                                                <Tooltip>
-                                                                    <TooltipTrigger>
-                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
-                                                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>Delete This Rate Entry</TooltipContent>
-                                                                </Tooltip>
-                                                            </div>
-                                                        </TooltipProvider>
-                                                    </TableCell>
-                                                </TableRow>
-                                                )
-                                            })
-                                        }
-                                    </React.Fragment>
-                                </CollapsibleContent>
-                                )}
-                            </Collapsible>
-                        </TableBody>
-                    )
+                  const isOpen = openCollapsibles.has(row.original.id);
+                  const hasHistory = row.original.rates.length > 1;
+                  return (
+                    <React.Fragment key={row.original.id}>
+                      <TableRow
+                        data-state={row.getIsSelected() && 'selected'}
+                        className={cn(hasHistory && "cursor-pointer")}
+                        onClick={() => hasHistory && toggleCollapsible(row.original.id)}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                      {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
+                        const finalRate = rate.rate * (1 + row.original.gst / 100);
+                        return (
+                          <TableRow key={rate.id} className="bg-muted/50 hover:bg-muted/70">
+                            <TableCell></TableCell>
+                            <TableCell></TableCell>
+                            <TableCell></TableCell>
+                            <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                            <TableCell>{row.original.unit}</TableCell>
+                            <TableCell>{row.original.gst}%</TableCell>
+                            <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
+                            <TableCell>{row.original.partyName}</TableCell>
+                            <TableCell>{row.original.pageNo}</TableCell>
+                            <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
+                            <TableCell>{row.original.category}</TableCell>
+                            <TableCell className="no-print">
+                              <TooltipProvider>
+                                <div className="flex items-center justify-center">
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </TooltipProvider>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
                 })
               ) : (
-                <TableBody>
-                    <TableRow>
-                    <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center"
-                    >
-                        No products found. Click "Add Product" to get started.
-                    </TableCell>
-                    </TableRow>
-                </TableBody>
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No products found. Click "Add Product" to get started.
+                  </TableCell>
+                </TableRow>
               )}
+            </TableBody>
           </Table>
         </div>
         <div className="flex items-center justify-end space-x-2 py-4 no-print">
@@ -565,17 +546,15 @@ const getInitialEditFormValues = (product: Product) => {
 };
 
 function ProductFormDialog({
-  children,
+  onProductAction,
   product,
   isOpen,
   setIsOpen,
-  onProductAction,
 }: {
-  children?: React.ReactNode;
+  onProductAction: (product: any, rate?: any) => void;
   product?: Product;
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
-  onProductAction: (product: any, rate?: any) => void;
 }) {
   const isEditing = !!product;
   const formSchema = isEditing ? updateProductSchema : productSchema;
@@ -634,9 +613,17 @@ function ProductFormDialog({
     handleOpenChange(false);
   }
 
+  const dialogTrigger = (
+    <DialogTrigger asChild>
+      <Button>
+        <PlusCircle className="mr-2 h-4 w-4" /> Add Product
+      </Button>
+    </DialogTrigger>
+  );
+
   return (
     <Dialog open={isDialogOpen} onOpenChange={handleOpenChange}>
-      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
+      {!isEditing && dialogTrigger}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{product ? 'Edit Product' : 'Add Product'}</DialogTitle>
