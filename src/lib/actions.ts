@@ -12,6 +12,7 @@ import {
 import type { Product, Rate, UpdateProductSchema } from './types';
 import { productSchema } from './types';
 import { z } from 'zod';
+import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
 
 type ProductFormData = z.infer<typeof productSchema>;
 
@@ -42,9 +43,11 @@ export async function updateProductAction(productId: string, productData: Update
     let createdRate: Rate | undefined = undefined;
 
     if (newRate && newRate > 0) {
+        // If there's a new rate, we add it. The data.ts function will handle the transaction.
         createdRate = await addRateToDb(productId, newRate);
     }
     
+    // We always update the main product document with potentially new details.
     await updateProductInDb(productId, dataToUpdate);
 
     revalidatePath('/');
@@ -64,19 +67,6 @@ export async function deleteProductAction(productId: string) {
   } catch (error) {
     console.error("deleteProductAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to delete product.';
-    return { success: false, message };
-  }
-}
-
-// This is kept for the update logic, but not called from a separate dialog anymore.
-export async function addRateAction(productId: string, rate: number) {
-  try {
-    const newRate = await addRateToDb(productId, rate);
-    revalidatePath('/');
-    return { success: true, message: 'Rate added successfully.', rate: newRate };
-  } catch (error) {
-    console.error("addRateAction Error:", error);
-    const message = error instanceof Error ? error.message : 'Failed to add rate.';
     return { success: false, message };
   }
 }
@@ -103,6 +93,21 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
 }
 
 export async function getRateSummaryAction(product: Product, rates: Rate[]) {
-    // This function is not currently used but is kept for potential future use.
-    return { summary: "AI Summary not implemented yet.", outliers: [], prediction: "" };
+  if (rates.length < 2) {
+    return { error: 'Not enough data to generate a summary. At least two rates are required.' };
+  }
+  try {
+    const rateHistory = rates.map(r => ({
+      date: r.createdAt.toISOString(),
+      rate: r.rate,
+    }));
+    const summary = await summarizeRateTrends({
+      productName: product.name,
+      rateHistory,
+    });
+    return summary;
+  } catch (e: any) {
+    console.error('Error generating summary:', e);
+    return { error: e.message || 'An unknown error occurred while generating the summary.' };
+  }
 }

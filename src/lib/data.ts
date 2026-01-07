@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import type { Product, Rate, ProductSchema } from './types';
+import type { Product, Rate, ProductSchema, UpdateProductSchema } from './types';
 
 // Helper to initialize Firebase
 function getDb() {
@@ -63,7 +63,7 @@ export const addProduct = async (productData: ProductCreationData, initialRate: 
 };
 
 
-export const updateProduct = async (productId: string, updateData: Partial<Omit<Product, 'id'>>): Promise<void> => {
+export const updateProduct = async (productId: string, updateData: Partial<Omit<UpdateProductSchema, 'newRate'>>): Promise<void> => {
   const productDoc = doc(db, PRODUCTS_COLLECTION, productId);
   const dataToUpdate = { ...updateData };
   if (updateData.billDate) {
@@ -127,51 +127,3 @@ export const deleteRate = async (productId: string, rateId: string): Promise<voi
   const rateDoc = doc(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION, rateId);
   await deleteDoc(rateDoc);
 };
-
-export const seedDatabase = async () => {
-    const dummyProducts = [
-        {
-            name: "Basmati Rice",
-            unit: "kg",
-            gst: 5,
-            partyName: "Global Foods",
-            pageNo: 1,
-            billDate: new Date("2023-10-26"),
-            category: "Grocery",
-            rate: 120,
-        },
-        {
-            name: "Wireless Mouse",
-            unit: "piece",
-            gst: 18,
-            partyName: "Tech Supplies",
-            pageNo: 2,
-            billDate: new Date("2023-10-25"),
-            category: "Electronics",
-            rate: 850.50,
-        },
-        {
-            name: "Cotton Fabric",
-            unit: "meter",
-            gst: 12,
-            partyName: "Fine Textiles",
-            pageNo: 3,
-            billDate: new Date("2023-10-24"),
-            category: "Textiles",
-            rate: 300,
-        },
-    ];
-
-    const batch = writeBatch(db);
-
-    for (const product of dummyProducts) {
-        const { rate, ...productData } = product;
-        const productRef = doc(collection(db, PRODUCTS_COLLECTION));
-        batch.set(productRef, productData);
-        
-        const rateRef = doc(collection(productRef, RATES_SUBCOLLECTION));
-        batch.set(rateRef, { rate, createdAt: serverTimestamp() });
-    }
-
-    await batch.commit();
-}
