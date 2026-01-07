@@ -7,12 +7,8 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    match /products/{productId} {
+    match /{document=**} {
       allow read, write: if isSignedIn();
-      
-      match /rates/{rateId} {
-        allow read, write: if isSignedIn();
-      }
     }
   }
 }

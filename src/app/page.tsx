@@ -17,7 +17,8 @@ export default function Home() {
 
   const productsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    // Fetch all products, removing the ownerId filter.
+    // Fetch all products, removing the server-side ordering.
+    // The sorting will now happen on the client.
     return query(collection(firestore, 'products'));
   }, [firestore]);
 
