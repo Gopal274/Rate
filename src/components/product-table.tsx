@@ -31,12 +31,11 @@ import {
   addProductAction,
   deleteProductAction,
   updateProductAction,
-  addRateAction,
   deleteRateAction,
   getProductRatesAction,
 } from '@/lib/actions';
-import type { Product, ProductSchema, Rate } from '@/lib/types';
-import { categories, productSchema, units } from '@/lib/types';
+import type { Product, ProductSchema, Rate, UpdateProductSchema } from '@/lib/types';
+import { categories, productSchema, units, updateProductSchema } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -189,75 +188,6 @@ const RateHistory = ({ productId, onDeleteRate }: { productId: string, onDeleteR
     );
 };
 
-const AddRateDialog = ({ 
-    product,
-    onRateAdded,
-    children,
-    isOpen,
-    setIsOpen,
-} : {
-    product: ProductWithRates, 
-    onRateAdded: (newRate: Rate) => void,
-    children: React.ReactNode,
-    isOpen: boolean,
-    setIsOpen: (open: boolean) => void,
-}) => {
-    const [newRate, setNewRate] = React.useState('');
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const { toast } = useToast();
-
-    const handleAddRate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const rateValue = parseFloat(newRate);
-        if(isNaN(rateValue) || rateValue <= 0) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Please enter a valid positive rate.'});
-            return;
-        }
-
-        setIsSubmitting(true);
-        const result = await addRateAction(product.id, rateValue);
-        if(result.success && result.rate) {
-            onRateAdded(result.rate);
-            toast({ title: 'Success', description: result.message });
-            setNewRate('');
-            setIsOpen(false);
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: result.message });
-        }
-        setIsSubmitting(false);
-    }
-    
-    const handleOpenChange = (open: boolean) => {
-        if(!open) setNewRate('');
-        setIsOpen(open);
-    }
-
-    return (
-        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Add New Rate for {product.name}</DialogTitle>
-                    <DialogDescription>The current rate is {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(product.rateHistory[0]?.rate ?? 0)}. Enter the new rate below.</DialogDescription>
-                </DialogHeader>
-                 <form onSubmit={handleAddRate} className="flex items-center gap-2 py-4">
-                    <Input 
-                        type="number"
-                        placeholder="Enter New Rate"
-                        value={newRate}
-                        onChange={(e) => setNewRate(e.target.value)}
-                        className="h-9"
-                        step="0.01"
-                    />
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? 'Adding...' : 'Add Rate'}
-                    </Button>
-                </form>
-            </DialogContent>
-        </Dialog>
-    )
-}
-
 export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = React.useState<ProductWithRates[]>(initialProducts.map(p => ({...p, rateHistory: []})));
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'billDate', desc: true }]);
@@ -266,7 +196,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
 
   const [editingProduct, setEditingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<ProductWithRates | null>(null);
-  const [addingRateProduct, setAddingRateProduct] = React.useState<ProductWithRates | null>(null);
   
   const { user } = useUser();
   const { toast } = useToast();
@@ -396,19 +325,11 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <div className="flex items-center justify-center gap-1 no-print">
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAddingRateProduct(product)}>
-                                <PlusCircle className="h-4 w-4 text-green-600" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Add New Rate</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingProduct(product)}>
                                 <Edit className="h-4 w-4 text-blue-600" />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Edit Product</TooltipContent>
+                        <TooltipContent>Edit Product / Add Rate</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -453,10 +374,15 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     setProducts(prev => [newProductWithRate, ...prev]);
   };
 
-  const onProductUpdated = (updatedProductData: Partial<Product>) => {
+  const onProductUpdated = (updatedProductData: Partial<Product>, newRate?: Rate) => {
     setProducts(prev => prev.map(p => {
         if (p.id === editingProduct?.id) {
-            return { ...p, ...updatedProductData, billDate: new Date(updatedProductData.billDate ?? p.billDate) };
+            const updatedProduct = { ...p, ...updatedProductData, billDate: new Date(updatedProductData.billDate ?? p.billDate) };
+            if (newRate) {
+              const newRateWithDate = { ...newRate, createdAt: new Date(newRate.createdAt) };
+              updatedProduct.rateHistory = [newRateWithDate, ...p.rateHistory];
+            }
+            return updatedProduct;
         }
         return p;
     }));
@@ -464,11 +390,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   
   const onProductDeleted = (deletedProductId: string) => {
     setProducts(prev => prev.filter(p => p.id !== deletedProductId));
-  }
-
-  const onRateAdded = (productId: string, newRate: Rate) => {
-    const newRateWithDate = { ...newRate, createdAt: new Date(newRate.createdAt) };
-    setProducts(prev => prev.map(p => p.id === productId ? { ...p, rateHistory: [newRateWithDate, ...p.rateHistory]} : p));
   }
 
   const onRateDeleted = (productId: string, rateId: string) => {
@@ -605,18 +526,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         />
       )}
 
-      {addingRateProduct && (
-        <AddRateDialog
-            product={addingRateProduct}
-            isOpen={!!addingRateProduct}
-            setIsOpen={(isOpen) => !isOpen && setAddingRateProduct(null)}
-            onRateAdded={(newRate) => onRateAdded(addingRateProduct.id, newRate)}
-        >
-            {/* This is a dialog, so it doesn't need a visible trigger child here */}
-            <span/>
-        </AddRateDialog>
-      )}
-
       <DeleteProductDialog
         product={deletingProduct}
         isOpen={!!deletingProduct}
@@ -627,19 +536,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   );
 }
 
-const getInitialFormValues = (product?: ProductWithRates) => {
-    if (product) {
-        return {
-            name: product.name,
-            unit: product.unit,
-            gst: product.gst,
-            partyName: product.partyName,
-            pageNo: product.pageNo,
-            billDate: new Date(product.billDate),
-            category: product.category,
-            rate: product.rateHistory[0]?.rate ?? 0,
-        };
-    }
+const getInitialAddFormValues = () => {
     return {
         name: '',
         unit: 'piece' as const,
@@ -651,6 +548,20 @@ const getInitialFormValues = (product?: ProductWithRates) => {
         rate: '' as any,
     };
 };
+
+const getInitialEditFormValues = (product: ProductWithRates) => {
+    return {
+        name: product.name,
+        unit: product.unit,
+        gst: product.gst,
+        partyName: product.partyName,
+        pageNo: product.pageNo,
+        billDate: new Date(product.billDate),
+        category: product.category,
+        newRate: '' as any, // Optional new rate
+    };
+};
+
 
 function ProductFormDialog({
   children,
@@ -665,9 +576,10 @@ function ProductFormDialog({
   setIsOpen?: (open: boolean) => void;
   onProductAction: (product: any, rate?: any) => void;
 }) {
-  const form = useForm<ProductSchema>({
-    resolver: zodResolver(productSchema),
-    defaultValues: getInitialFormValues(product),
+  const isEditing = !!product;
+  const form = useForm({
+    resolver: zodResolver(isEditing ? updateProductSchema : productSchema),
+    defaultValues: isEditing ? getInitialEditFormValues(product) : getInitialAddFormValues(),
   });
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -679,7 +591,7 @@ function ProductFormDialog({
   
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-        form.reset(getInitialFormValues());
+        form.reset(isEditing ? getInitialEditFormValues(product) : getInitialAddFormValues());
     }
     if (setIsOpen) {
       setIsOpen(open);
@@ -689,23 +601,22 @@ function ProductFormDialog({
   };
 
   React.useEffect(() => {
-    form.reset(getInitialFormValues(product));
-  }, [product, form]);
+    form.reset(isEditing ? getInitialEditFormValues(product) : getInitialAddFormValues());
+  }, [product, form, isEditing]);
 
-  async function onSubmit(values: ProductSchema) {
+  async function onSubmit(values: ProductSchema | UpdateProductSchema) {
     setIsSubmitting(true);
 
-    if (product) {
-      const { rate, ...productData } = values; 
-      const result = await updateProductAction(product.id, productData);
+    if (isEditing) {
+      const result = await updateProductAction(product.id, values as UpdateProductSchema);
       if (result.success) {
-        onProductAction(productData);
+        onProductAction(values, result.rate);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
     } else {
-      const result = await addProductAction(values);
+      const result = await addProductAction(values as ProductSchema);
        if (result.success && result.product && result.rate) {
         onProductAction(result.product, result.rate);
         toast({ title: 'Success', description: result.message });
@@ -725,7 +636,7 @@ function ProductFormDialog({
           <DialogTitle>{product ? 'Edit Product' : 'Add Product'}</DialogTitle>
           <DialogDescription>
             {product
-              ? 'Update the details of your product.'
+              ? 'Update product details. You can optionally add a new rate.'
               : 'Add a new product to your records.'}
           </DialogDescription>
         </DialogHeader>
@@ -738,13 +649,23 @@ function ProductFormDialog({
                 <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input placeholder="e.g. Basmati Rice" {...field} /></FormControl><FormMessage /></FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="rate"
-              render={({ field }) => (
-                <FormItem><FormLabel>{product ? 'Latest Rate (not editable)' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} disabled={!!product} /></FormControl><FormMessage /></FormItem>
-              )}
-            />
+            {isEditing ? (
+                 <FormField
+                    control={form.control}
+                    name="newRate"
+                    render={({ field }) => (
+                        <FormItem><FormLabel>New Rate (Optional)</FormLabel><FormControl><Input type="number" step="0.01" placeholder={`Current is ${product.rateHistory[0]?.rate ?? 0}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                    )}
+                />
+            ) : (
+                <FormField
+                    control={form.control}
+                    name="rate"
+                    render={({ field }) => (
+                        <FormItem><FormLabel>Initial Rate</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                    )}
+                />
+            )}
             <FormField
               control={form.control}
               name="partyName"

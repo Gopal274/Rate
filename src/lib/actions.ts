@@ -8,9 +8,8 @@ import {
   addRate as addRateToDb,
   deleteRate as deleteRateFromDb,
   getProductRates as getProductRatesFromDb,
-  seedDatabase
 } from './data';
-import type { Product, Rate } from './types';
+import type { Product, Rate, UpdateProductSchema } from './types';
 import { productSchema } from './types';
 import { z } from 'zod';
 
@@ -37,11 +36,19 @@ export async function addProductAction(formData: ProductFormData) {
   }
 }
 
-export async function updateProductAction(productId: string, productData: Partial<Omit<Product, 'id'>>) {
+export async function updateProductAction(productId: string, productData: UpdateProductSchema) {
   try {
-    await updateProductInDb(productId, productData);
+    const { newRate, ...dataToUpdate } = productData;
+    let createdRate: Rate | undefined = undefined;
+
+    if (newRate && newRate > 0) {
+        createdRate = await addRateToDb(productId, newRate);
+    }
+    
+    await updateProductInDb(productId, dataToUpdate);
+
     revalidatePath('/');
-    return { success: true, message: 'Product updated successfully.' };
+    return { success: true, message: 'Product updated successfully.', rate: createdRate };
   } catch (error) {
     console.error("updateProductAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to update product.';
@@ -61,6 +68,7 @@ export async function deleteProductAction(productId: string) {
   }
 }
 
+// This is kept for the update logic, but not called from a separate dialog anymore.
 export async function addRateAction(productId: string, rate: number) {
   try {
     const newRate = await addRateToDb(productId, rate);
@@ -94,20 +102,7 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
     }
 }
 
-
 export async function getRateSummaryAction(product: Product, rates: Rate[]) {
-  // This function is not currently used but is kept for potential future use.
-  return { summary: "AI Summary not implemented yet.", outliers: [], prediction: "" };
-}
-
-export async function seedDatabaseAction() {
-  try {
-    await seedDatabase();
-    revalidatePath('/');
-    return { success: true, message: "Dummy data has been added." };
-  } catch(error) {
-    console.error("seedDatabaseAction Error:", error);
-    const message = error instanceof Error ? error.message : 'Failed to seed database.';
-    return { success: false, message };
-  }
+    // This function is not currently used but is kept for potential future use.
+    return { summary: "AI Summary not implemented yet.", outliers: [], prediction: "" };
 }
