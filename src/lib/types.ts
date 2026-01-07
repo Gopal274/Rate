@@ -9,7 +9,10 @@ export const productSchema = z.object({
   gst: z.coerce.number().min(0, { message: "GST must be a positive number." }),
   partyName: z.string().min(3, { message: "Party name must be at least 3 characters." }),
   pageNo: z.coerce.number().int().min(1, { message: "Page number must be at least 1." }),
-  billDate: z.date(),
+  billDate: z.date({
+    required_error: "A bill date is required.",
+    invalid_type_error: "That's not a valid date!",
+  }),
   category: z.enum(categories),
   rate: z.coerce.number().min(0, { message: "Rate must be a positive number." }),
 });

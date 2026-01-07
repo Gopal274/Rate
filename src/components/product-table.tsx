@@ -25,7 +25,7 @@ import {
   ChevronRight,
   Printer,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 import {
   addProductAction,
@@ -606,7 +606,7 @@ function ProductFormDialog({
         gst: product.gst,
         partyName: product.partyName,
         pageNo: product.pageNo,
-        billDate: new Date(product.billDate),
+        billDate: product.billDate, // Keep as Date object
         category: product.category,
         rate: product.rateHistory[0]?.rate ?? 0,
     } : {
@@ -634,6 +634,9 @@ function ProductFormDialog({
     } else {
       setIsDialogOpen(open);
     }
+     if (!open) {
+      form.reset();
+    }
   };
 
 
@@ -645,7 +648,7 @@ function ProductFormDialog({
         gst: product.gst,
         partyName: product.partyName,
         pageNo: product.pageNo,
-        billDate: new Date(product.billDate),
+        billDate: product.billDate,
         category: product.category,
         rate: product.rateHistory[0]?.rate ?? 0,
       });
@@ -671,16 +674,24 @@ function ProductFormDialog({
     setIsSubmitting(true);
     const { rate, ...productData } = values;
 
+    // Ensure billDate is a Date object before sending
+    const submissionData = {
+        ...productData,
+        billDate: new Date(productData.billDate),
+    };
+
     if (product) {
-      const result = await updateProductAction(product.id, productData);
+      // The rate cannot be edited, so we don't need to handle it here.
+      // We only update the product details.
+      const result = await updateProductAction(product.id, submissionData);
       if (result.success) {
-        onProductAction(productData);
+        onProductAction(submissionData);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
     } else {
-      const result = await addProductAction({ ...productData, ownerId: user.uid }, rate);
+      const result = await addProductAction({ ...submissionData, ownerId: user.uid }, rate);
        if (result.success && result.product) {
         onProductAction(result.product, rate);
         toast({ title: 'Success', description: result.message });
@@ -717,7 +728,7 @@ function ProductFormDialog({
               control={form.control}
               name="rate"
               render={({ field }) => (
-                <FormItem><FormLabel>{product ? 'Latest Rate' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" placeholder="e.g. 120" {...field} disabled={!!product} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{product ? 'Latest Rate' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" placeholder="e.g. 120" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} disabled={!!product} /></FormControl><FormMessage /></FormItem>
               )}
             />
             <FormField
@@ -753,31 +764,41 @@ function ProductFormDialog({
             </div>
              <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="gst" render={({ field }) => (
-                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name="pageNo" render={({ field }) => (
-                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
             </div>
-            <FormField control={form.control} name="billDate" render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Bill Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal',!field.value && 'text-muted-foreground')}>
-                          {field.value ? (format(field.value, 'PPP')) : (<span>Pick a date</span>)}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button></FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date('1900-01-01')} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
+            <FormField
+                control={form.control}
+                name="billDate"
+                render={({ field }) => {
+                    const dateValue = field.value instanceof Date && !isNaN(field.value.getTime())
+                        ? field.value.toISOString().split('T')[0]
+                        : '';
+                    return (
+                        <FormItem>
+                            <FormLabel>Bill Date</FormLabel>
+                            <FormControl>
+                                <Input 
+                                    type="date" 
+                                    {...field}
+                                    value={dateValue}
+                                    onChange={(e) => {
+                                        // Add timezone offset to avoid off-by-one day errors
+                                        const date = new Date(e.target.value);
+                                        const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+                                        field.onChange(new Date(date.getTime() + userTimezoneOffset));
+                                    }}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    );
+                }}
             />
             <DialogFooter>
               <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
