@@ -4,10 +4,12 @@ import * as React from 'react';
 import {
   ColumnDef,
   ColumnFiltersState,
+  SortingState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
+  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 import {
@@ -17,6 +19,7 @@ import {
   Printer,
   ChevronDown,
   XCircle,
+  Filter,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -42,6 +45,12 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,11 +100,15 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/t
 import { z } from 'zod';
 
 type ProductWithRates = Product & { rates: Rate[] };
+type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc';
 
 export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = React.useState<Product[]>(initialProducts);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [activeSort, setActiveSort] = React.useState<SortDirection>('newest');
+
 
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
@@ -131,12 +144,24 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     }
   }, [initialProducts, toast]);
 
-  const tableData: ProductWithRates[] = React.useMemo(() => {
-    return products.map(p => ({
-        ...p,
-        rates: rateHistories[p.id] ?? []
-    })).map((p, index) => ({ ...p, sNo: index + 1 }));
-  }, [products, rateHistories]);
+  const sortedData = React.useMemo(() => {
+    const dataToSort = products.map(p => ({
+      ...p,
+      rates: rateHistories[p.id] ?? [],
+    }));
+
+    switch (activeSort) {
+      case 'oldest':
+        return dataToSort.sort((a, b) => new Date(a.billDate).getTime() - new Date(b.billDate).getTime());
+      case 'asc':
+        return dataToSort.sort((a, b) => a.name.localeCompare(b.name));
+      case 'desc':
+        return dataToSort.sort((a, b) => b.name.localeCompare(a.name));
+      case 'newest':
+      default:
+        return dataToSort.sort((a, b) => new Date(b.billDate).getTime() - new Date(a.billDate).getTime());
+    }
+  }, [products, rateHistories, activeSort]);
 
 
   const columns: ColumnDef<ProductWithRates>[] = [
@@ -150,16 +175,37 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         return (
              <ChevronDown className={cn("h-4 w-4 transition-transform", openCollapsibles.has(row.original.id) && "rotate-180" )} />
         )
-      }
+      },
+      enableSorting: false,
     },
     {
       id: 'sNo',
       header: 'S.No',
       cell: ({ row }) => row.index + 1,
+      enableSorting: false,
     },
     {
       accessorKey: 'name',
-      header: 'Product Name',
+      header: () => {
+        return (
+          <div className="flex items-center gap-2">
+            Product Name
+             <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => setActiveSort('newest')}>Newest first</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveSort('oldest')}>Oldest first</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveSort('asc')}>A-Z</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveSort('desc')}>Z-A</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
+      },
       cell: ({ row }) => row.original.name,
     },
     {
@@ -173,16 +219,19 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             </div>
         )
       },
+      enableSorting: false,
     },
     {
       accessorKey: 'unit',
       header: 'Unit',
       cell: ({ row }) => row.original.unit,
+      enableSorting: false,
     },
     {
       accessorKey: 'gst',
       header: 'GST %',
       cell: ({ row }) => `${row.original.gst}%`,
+      enableSorting: false,
     },
     {
       id: 'finalRate',
@@ -196,26 +245,31 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
           </div>
         );
       },
+      enableSorting: false,
     },
     {
       accessorKey: 'partyName',
       header: 'Party Name',
       cell: ({ row }) => row.original.partyName,
+      enableSorting: false,
     },
     {
       accessorKey: 'pageNo',
       header: 'Page No',
        cell: ({ row }) => row.original.pageNo,
+       enableSorting: false,
     },
     {
       accessorKey: 'billDate',
       header: 'Bill Date',
       cell: ({ row }) => format(new Date(row.original.billDate), 'PPP'),
+      enableSorting: false,
     },
     {
       accessorKey: 'category',
       header: 'Category',
       cell: ({ row }) => row.original.category,
+      enableSorting: false,
     },
     {
       id: 'actions',
@@ -280,15 +334,18 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
           </TooltipProvider>
         );
       },
+      enableSorting: false,
     },
   ];
 
   const table = useReactTable({
-    data: tableData,
+    data: sortedData,
     columns,
-    state: { columnFilters },
+    state: { columnFilters, sorting },
     onColumnFiltersChange: setColumnFilters,
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
