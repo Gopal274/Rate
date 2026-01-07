@@ -13,12 +13,20 @@ import {
   orderBy,
   writeBatch
 } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase/index.ts';
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 import type { Product, Rate } from './types';
 
-// This file is executed on the server, so we can use the client SDK here
-// as long as we initialize it properly for the server environment.
-const { firestore } = initializeFirebase();
+// This function initializes Firebase for server-side use.
+// It's safe to call this multiple times; it will only initialize once.
+function getDb() {
+    if (!getApps().length) {
+        initializeApp(firebaseConfig);
+    }
+    return getFirestore();
+}
+
+const firestore = getDb();
 
 export const getProducts = async (): Promise<Product[]> => {
   const productsCol = collection(firestore, 'products');
@@ -54,7 +62,7 @@ export const addProduct = async (productData: Omit<Product, 'id'>, initialRate: 
     
     await batch.commit();
 
-    return { id: newProductRef.id, ...productData, billDate: new Date(productData.billDate) };
+    return { id: newProductRef.id, ...productData, billDate: new Date(productData.billDate as any) };
 };
 
 export const updateProduct = async (id: string, updateData: Partial<Omit<Product, 'id' | 'ownerId'>>) => {
