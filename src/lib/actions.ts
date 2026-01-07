@@ -12,21 +12,22 @@ import {
 import type { Product, Rate, ProductSchema } from './types';
 import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
 
-// Define a type for the product data coming from the form, excluding the rate
-type ProductFormData = Omit<ProductSchema, 'rate'>;
+type ProductFormData = z.infer<typeof ProductSchema>;
 
-export async function addProductAction(productData: ProductFormData, initialRate: number) {
+export async function addProductAction(formData: ProductFormData) {
   try {
-    const newProduct = await addProductToDb({ ...productData }, initialRate);
+    const { rate, ...productData } = formData;
+    const newProduct = await addProductToDb(productData, rate);
     revalidatePath('/');
     return { success: true, message: 'Product added successfully.', product: newProduct };
   } catch (error) {
+    console.error("addProductAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to add product.';
     return { success: false, message };
   }
 }
 
-export async function updateProductAction(productId: string, productData: Partial<Omit<Product, 'id'>>) {
+export async function updateProductAction(productId: string, productData: Partial<Product>) {
   try {
     await updateProductInDb(productId, productData);
     revalidatePath('/');

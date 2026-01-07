@@ -17,23 +17,26 @@ export default function Home() {
 
   const productsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    // Fetch all products, removing the server-side ordering.
-    // The sorting will now happen on the client.
+    // Simple query to fetch all products. Sorting will be done on the client.
     return query(collection(firestore, 'products'));
   }, [firestore]);
 
   const { data: products, isLoading, error } = useCollection<Product>(productsQuery);
   
+  // Memoize the client-side sorting and date conversion
   const enrichedProducts = useMemo(() => {
     if (!products) return [];
-    // Sort products by billDate on the client side
+    
     const sorted = [...products].sort((a, b) => {
+        // Handle both Firebase Timestamps and Date objects
         const dateA = (a.billDate as any).toDate ? (a.billDate as any).toDate() : new Date(a.billDate);
         const dateB = (b.billDate as any).toDate ? (b.billDate as any).toDate() : new Date(b.billDate);
         return dateB.getTime() - dateA.getTime();
     });
+
     return sorted.map(p => ({
         ...p,
+        // Ensure billDate is always a JS Date object for the components
         billDate: (p.billDate as any).toDate ? (p.billDate as any).toDate() : new Date(p.billDate),
     }));
   }, [products]);
@@ -70,7 +73,7 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-background">
       <AppHeader />
       <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
-        {isLoading && (
+        {isLoading && !error && (
             <div className="space-y-4">
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-20 w-full" />
@@ -83,7 +86,7 @@ export default function Home() {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>
-                    There was an error fetching products. Please check your security rules and network connection.
+                    There was an error fetching products: {error.message}
                 </AlertDescription>
             </Alert>
         )}

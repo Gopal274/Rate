@@ -25,7 +25,7 @@ import {
   ChevronRight,
   Printer,
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 
 import {
   addProductAction,
@@ -122,25 +122,18 @@ const RateHistory = ({ productId }: { productId: string }) => {
     React.useEffect(() => {
         const fetchRates = async () => {
             setIsLoading(true);
-            const fetchedRates = await getProductRatesAction(productId);
-            setRates(fetchedRates);
-            setIsLoading(false);
+            try {
+                const fetchedRates = await getProductRatesAction(productId);
+                setRates(fetchedRates);
+            } catch (e) {
+                toast({ variant: 'destructive', title: 'Error', description: "Could not fetch rate history." });
+            } finally {
+                setIsLoading(false);
+            }
         };
         fetchRates();
-    }, [productId]);
+    }, [productId, toast]);
 
-    const handleDeleteRate = async (rateId: string) => {
-        const optimisticRates = rates.filter(r => r.id !== rateId);
-        setRates(optimisticRates);
-
-        const result = await deleteRateAction(productId, rateId);
-        if(!result.success) {
-            toast({ variant: 'destructive', title: 'Error', description: result.message });
-            setRates(rates); // revert
-        } else {
-            toast({ title: 'Success', description: result.message });
-        }
-    }
 
     if (isLoading) {
         return (
@@ -151,7 +144,6 @@ const RateHistory = ({ productId }: { productId: string }) => {
         )
     }
     
-    // The first rate is the latest, but we don't show it here as it's in the main row
     const previousRates = rates.slice(1);
 
     if (previousRates.length === 0) {
@@ -166,17 +158,13 @@ const RateHistory = ({ productId }: { productId: string }) => {
                     <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Rate</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {previousRates.map((rate, index) => (
-                        <TableRow key={rate.id || index}>
+                    {previousRates.map((rate) => (
+                        <TableRow key={rate.id}>
                             <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
                             <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
-                            <TableCell className="text-right">
-                                {/* Only allow deleting the latest rate, which is handled outside */}
-                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
@@ -228,36 +216,27 @@ const AddRateForm = ({ product, onRateAdded }: { product: ProductWithRates, onRa
 
 export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = React.useState<ProductWithRates[]>([]);
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([{ id: 'billDate', desc: true }]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [expanded, setExpanded] = React.useState<ExpandedState>({});
 
-  const [isAddDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingRateInfo, setDeletingRateInfo] = React.useState<{product: ProductWithRates, rate: Rate} | null>(null);
-
   const [sortOption, setSortOption] = React.useState<SortOption>('newest');
-  const [ratesCache, setRatesCache] = React.useState<{[productId: string]: Rate[]}>({});
-  const [loadingRates, setLoadingRates] = React.useState<{[productId: string]: boolean}>({});
-
+  
   const { user } = useUser();
   const { toast } = useToast();
 
   React.useEffect(() => {
     const fetchAllRates = async () => {
-        const allRates: {[productId: string]: Rate[]} = {};
-        const allProductsWithRates: ProductWithRates[] = [];
-        setLoadingRates(initialProducts.reduce((acc, p) => ({...acc, [p.id]: true}), {}));
-
-        for(const product of initialProducts) {
-            const fetchedRates = await getProductRatesAction(product.id);
-            allRates[product.id] = fetchedRates;
-            allProductsWithRates.push({ ...product, rateHistory: fetchedRates });
-            setLoadingRates(prev => ({...prev, [product.id]: false}));
-        }
-        setRatesCache(allRates);
-        setProducts(allProductsWithRates);
+        const productsWithRates = await Promise.all(
+            initialProducts.map(async (product) => {
+                const fetchedRates = await getProductRatesAction(product.id);
+                return { ...product, rateHistory: fetchedRates };
+            })
+        );
+        setProducts(productsWithRates);
     }
     if(initialProducts.length > 0) {
         fetchAllRates();
@@ -299,9 +278,11 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         id: 'sNo',
         header: 'S.No',
         cell: ({ row, table }) => {
-            const sortedRowIndex = table.getSortedRowModel().rows.findIndex(sortedRow => sortedRow.id === row.id);
-            return sortedRowIndex + 1;
+            const sortedRows = table.getSortedRowModel().rows;
+            const rowIndex = sortedRows.findIndex(sortedRow => sortedRow.id === row.id);
+            return rowIndex + 1;
         },
+         enableSorting: false,
     },
     {
       accessorKey: 'name',
@@ -314,7 +295,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             const latestRate = row.original.rateHistory[0]?.rate;
             return (
                 <div className="text-right font-medium">
-                    {latestRate ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(latestRate) : 'N/A'}
+                    {latestRate != null ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(latestRate) : 'N/A'}
                 </div>
             );
         },
@@ -342,7 +323,8 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       header: 'Bill Date',
       cell: ({ row }) => {
           const billDate = row.getValue('billDate');
-          return format(new Date(billDate as string | number | Date), 'PPP');
+          // Check if billDate is a valid date
+          return billDate instanceof Date ? format(billDate, 'PPP') : 'Invalid Date';
       },
     },
     { accessorKey: 'category', header: 'Category'},
@@ -366,10 +348,10 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Product
               </DropdownMenuItem>
-              {product.rateHistory.length > 0 && (
+              {product.rateHistory.length > 0 && latestRate?.id && (
                 <DropdownMenuItem 
                     className="text-orange-600 focus:text-orange-600 focus:bg-orange-50"
-                    onClick={() => latestRate && setDeletingRateInfo({ product, rate: latestRate })}>
+                    onClick={() => setDeletingRateInfo({ product, rate: latestRate })}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete Latest Rate
                 </DropdownMenuItem>
@@ -406,17 +388,16 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     getFilteredRowModel: getFilteredRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
     getRowCanExpand: () => true,
-    initialState: {
-        sorting: [{ id: 'billDate', desc: true }]
-    }
   });
 
   const onProductAdded = (newProduct: Product, initialRate: number) => {
     const newProductWithRate: ProductWithRates = {
         ...newProduct,
-        rateHistory: [{ rate: initialRate, createdAt: new Date() }] // Optimistic
+        rateHistory: [{ id: 'temp-id', rate: initialRate, createdAt: new Date() }] // Optimistic
     }
+    // Manually trigger a re-sort by re-applying the sort state
     setProducts(prev => [newProductWithRate, ...prev]);
+    handleSortChange(sortOption);
   };
 
   const onProductUpdated = (updatedProductData: Partial<Product>) => {
@@ -469,14 +450,14 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <SelectItem value="name-desc">Name (Z-A)</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={handlePrint} variant="outline" size="icon">
+            <Button onClick={handlePrint} variant="outline" size="icon" className="no-print">
                 <Printer className="h-4 w-4" />
                 <span className="sr-only">Print</span>
             </Button>
             { user && <ProductFormDialog
               onProductAction={onProductAdded}
             >
-              <Button>
+              <Button className="no-print">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Product
               </Button>
             </ProductFormDialog> }
@@ -491,7 +472,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
                     return (
-                      <TableHead key={header.id}>
+                      <TableHead key={header.id} className="no-print">
                         {header.isPlaceholder
                           ? null
                           : flexRender(
@@ -510,7 +491,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   <React.Fragment key={row.id}>
                     <TableRow data-state={row.getIsSelected() && 'selected'}>
                         {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
+                        <TableCell key={cell.id} className={cell.column.id === 'actions' ? 'no-print' : ''}>
                             {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext()
@@ -519,7 +500,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                         ))}
                     </TableRow>
                     {row.getIsExpanded() && (
-                        <TableRow>
+                        <TableRow className="no-print">
                             <TableCell colSpan={columns.length}>
                                 <AddRateForm product={row.original} onRateAdded={(newRate) => onRateAdded(row.original.id, newRate)} />
                                 <RateHistory productId={row.original.id} />
@@ -534,14 +515,14 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    No products found.
+                    No products found. Click "Add Product" to get started.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
-        <div className="flex items-center justify-end space-x-2 py-4">
+        <div className="flex items-center justify-end space-x-2 py-4 no-print">
           <Button
             variant="outline"
             size="sm"
@@ -587,6 +568,31 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   );
 }
 
+const getInitialFormValues = (product?: ProductWithRates) => {
+    if (product) {
+        return {
+            name: product.name,
+            unit: product.unit,
+            gst: product.gst,
+            partyName: product.partyName,
+            pageNo: product.pageNo,
+            billDate: new Date(product.billDate),
+            category: product.category,
+            rate: product.rateHistory[0]?.rate ?? 0,
+        };
+    }
+    return {
+        name: '',
+        unit: 'piece' as const,
+        gst: '' as any,
+        partyName: '',
+        pageNo: '' as any,
+        billDate: new Date(),
+        category: 'Other' as const,
+        rate: '' as any,
+    };
+};
+
 function ProductFormDialog({
   children,
   product,
@@ -600,28 +606,9 @@ function ProductFormDialog({
   setIsOpen?: (open: boolean) => void;
   onProductAction: (product: any, rate?: any) => void;
 }) {
-  const { user } = useUser();
   const form = useForm<ProductSchema>({
     resolver: zodResolver(productSchema),
-    defaultValues: product ? {
-        name: product.name,
-        unit: product.unit,
-        gst: product.gst,
-        partyName: product.partyName,
-        pageNo: product.pageNo,
-        billDate: product.billDate,
-        category: product.category,
-        rate: product.rateHistory[0]?.rate ?? 0,
-    } : {
-        name: '',
-        unit: 'piece',
-        partyName: '',
-        billDate: new Date(),
-        category: 'Other',
-        gst: '' as any,
-        pageNo: '' as any,
-        rate: '' as any,
-    },
+    defaultValues: getInitialFormValues(product),
   });
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -632,70 +619,36 @@ function ProductFormDialog({
   }, [isOpen]);
   
   const handleOpenChange = (open: boolean) => {
+    if (!open) {
+        form.reset(getInitialFormValues());
+    }
     if (setIsOpen) {
       setIsOpen(open);
     } else {
       setIsDialogOpen(open);
     }
-     if (!open) {
-      form.reset();
-    }
   };
 
-
   React.useEffect(() => {
-    if (product) {
-      form.reset({
-        name: product.name,
-        unit: product.unit,
-        gst: product.gst,
-        partyName: product.partyName,
-        pageNo: product.pageNo,
-        billDate: product.billDate,
-        category: product.category,
-        rate: product.rateHistory[0]?.rate ?? 0,
-      });
-    } else {
-        form.reset({
-            name: '',
-            unit: 'piece',
-            partyName: '',
-            billDate: new Date(),
-            category: 'Other',
-            gst: '' as any,
-            pageNo: '' as any,
-            rate: '' as any,
-        });
-    }
-  }, [product, form, isDialogOpen]);
+    form.reset(getInitialFormValues(product));
+  }, [product, form]);
 
   async function onSubmit(values: ProductSchema) {
-    if (!user) {
-        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
-        return;
-    }
     setIsSubmitting(true);
-    const { rate, ...productData } = values;
-
-    const submissionData = {
-        ...productData,
-        billDate: new Date(productData.billDate),
-    };
 
     if (product) {
-      // Logic for updating an existing product
-      const result = await updateProductAction(product.id, submissionData);
+      const { rate, ...productData } = values; // rate is not updatable here
+      const result = await updateProductAction(product.id, productData);
       if (result.success) {
-        onProductAction(submissionData);
+        onProductAction(productData);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
     } else {
-      // Logic for adding a new product
-      const result = await addProductAction(submissionData, rate);
+      const result = await addProductAction(values);
        if (result.success && result.product) {
-        onProductAction(result.product, rate);
+        onProductAction(result.product, values.rate);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -730,7 +683,7 @@ function ProductFormDialog({
               control={form.control}
               name="rate"
               render={({ field }) => (
-                <FormItem><FormLabel>{product ? 'Latest Rate' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" placeholder="e.g. 120" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} disabled={!!product} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{product ? 'Latest Rate (not editable)' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120" {...field} disabled={!!product} /></FormControl><FormMessage /></FormItem>
               )}
             />
             <FormField
@@ -766,11 +719,11 @@ function ProductFormDialog({
             </div>
              <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="gst" render={({ field }) => (
-                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" placeholder="e.g. 5" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name="pageNo" render={({ field }) => (
-                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} onChange={e => field.onChange(parseInt(e.target.value) || undefined)} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
             </div>
@@ -780,21 +733,34 @@ function ProductFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Bill Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      value={
-                        field.value instanceof Date
-                          ? format(field.value, 'yyyy-MM-dd')
-                          : ''
-                      }
-                      onChange={(e) => {
-                        const date = new Date(e.target.value);
-                        const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-                        field.onChange(new Date(date.getTime() + userTimezoneOffset));
-                      }}
-                    />
-                  </FormControl>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

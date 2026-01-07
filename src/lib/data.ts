@@ -1,5 +1,3 @@
-'use server';
-
 import { 
   getFirestore, 
   collection, 
@@ -12,70 +10,53 @@ import {
   query, 
   orderBy,
   writeBatch,
-  Timestamp
+  Timestamp,
+  runTransaction
 } from 'firebase/firestore';
-import { getApp, getApps, initializeApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
-import type { Product, Rate } from './types';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import type { Product, Rate, ProductSchema } from './types';
 
-// This function initializes Firebase for server-side use.
-// It's safe to call this multiple times; it will only initialize once.
+// This function initializes Firebase for server-side actions.
 function getDb() {
-    if (!getApps().length) {
-        initializeApp(firebaseConfig);
-    }
-    return getFirestore();
+  if (!getApps().length) {
+    initializeApp(firebaseConfig);
+  }
+  return getFirestore();
 }
 
-const firestore = getDb();
+const db = getDb();
+const PRODUCTS_COLLECTION = 'products';
+const RATES_SUBCOLLECTION = 'rates';
 
-export const getProducts = async (): Promise<Product[]> => {
-  const productsCol = collection(firestore, 'products');
-  const productSnapshot = await getDocs(productsCol);
-  const productList = productSnapshot.docs.map(doc => {
-    const data = doc.data();
-    return { 
-      id: doc.id, 
-      ...data,
-      // Firestore timestamps need to be converted to Date objects
-      billDate: (data.billDate as Timestamp).toDate()
-    } as Product;
+export const addProduct = async (productData: Omit<ProductSchema, 'rate'>, initialRate: number): Promise<Product> => {
+  const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
+  
+  const newProduct = {
+    ...productData,
+    billDate: new Date(productData.billDate), // Ensure it's a date object
+  };
+
+  const newRate = {
+    rate: initialRate,
+    createdAt: serverTimestamp(),
+  };
+
+  await runTransaction(db, async (transaction) => {
+    const rateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
+    transaction.set(newProductRef, newProduct);
+    transaction.set(rateRef, newRate);
   });
-  return productList;
+
+  return {
+    id: newProductRef.id,
+    ...productData,
+    billDate: new Date(productData.billDate), // Return a client-compatible object
+  };
 };
 
-export const getProductById = async (id: string): Promise<Product | undefined> => {
-  const products = await getProducts();
-  return products.find(p => p.id === id);
-}
-
-export const addProduct = async (productData: Omit<Product, 'id'>, initialRate: number) => {
-    const batch = writeBatch(firestore);
-
-    const newProductData = {
-        ...productData,
-        billDate: new Date(productData.billDate as any),
-    };
-
-    const newProductRef = doc(collection(firestore, 'products'));
-    batch.set(newProductRef, newProductData);
-    
-    const ratesColRef = collection(newProductRef, 'rates');
-    const newRateRef = doc(ratesColRef);
-    batch.set(newRateRef, {
-        rate: initialRate,
-        createdAt: serverTimestamp(),
-    });
-    
-    await batch.commit();
-    
-    // Return a client-compatible version of the product
-    return { id: newProductRef.id, ...newProductData };
-};
-
-export const updateProduct = async (id: string, updateData: Partial<Omit<Product, 'id'>>) => {
-  const productDoc = doc(firestore, 'products', id);
-  // Ensure date is a Firestore-compatible object if it exists
+export const updateProduct = async (productId: string, updateData: Partial<Product>): Promise<void> => {
+  const productDoc = doc(db, PRODUCTS_COLLECTION, productId);
   const dataToUpdate = { ...updateData };
   if (updateData.billDate) {
     dataToUpdate.billDate = new Date(updateData.billDate as any);
@@ -83,27 +64,31 @@ export const updateProduct = async (id: string, updateData: Partial<Omit<Product
   await updateDoc(productDoc, dataToUpdate);
 };
 
-export const deleteProduct = async (id: string) => {
-    const productDoc = doc(firestore, 'products', id);
-    const ratesCol = collection(productDoc, 'rates');
-    const ratesSnapshot = await getDocs(ratesCol);
-    
-    const batch = writeBatch(firestore);
-    ratesSnapshot.forEach(rateDoc => {
-        batch.delete(rateDoc.ref);
-    });
-    batch.delete(productDoc);
-    
-    await batch.commit();
+export const deleteProduct = async (productId: string): Promise<void> => {
+  const productDocRef = doc(db, PRODUCTS_COLLECTION, productId);
+  const ratesQuery = query(collection(productDocRef, RATES_SUBCOLLECTION));
+  
+  const batch = writeBatch(db);
+  
+  const ratesSnapshot = await getDocs(ratesQuery);
+  ratesSnapshot.forEach((rateDoc) => {
+    batch.delete(rateDoc.ref);
+  });
+  
+  batch.delete(productDocRef);
+  
+  await batch.commit();
 };
 
+
 export const getProductRates = async (productId: string): Promise<Rate[]> => {
-  const ratesCol = collection(firestore, 'products', productId, 'rates');
+  const ratesCol = collection(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION);
   const q = query(ratesCol, orderBy('createdAt', 'desc'));
   const ratesSnapshot = await getDocs(q);
+
   return ratesSnapshot.docs.map(doc => {
       const data = doc.data();
-      // Firestore timestamps need to be converted to Date objects
+      // Firestore timestamps need to be converted to Date objects for the client
       const createdAt = (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date();
       return { 
           id: doc.id, 
@@ -114,17 +99,17 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
 };
 
 export const addRate = async (productId: string, rate: number): Promise<Rate> => {
-  const ratesCol = collection(firestore, 'products', productId, 'rates');
-  const newRateRef = await addDoc(ratesCol, {
+  const ratesCol = collection(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION);
+  const newRateData = {
     rate,
     createdAt: serverTimestamp()
-  });
-  // For optimistic update, we can't wait for server timestamp.
-  // We'll return a client-side date, and the real-time listener will get the server one.
-  return { id: newRateRef.id, rate, createdAt: new Date() }; 
+  };
+  const newRateRef = await addDoc(ratesCol, newRateData);
+
+  return { id: newRateRef.id, rate, createdAt: new Date() }; // Return optimistic date for UI
 };
 
-export const deleteRate = async (productId: string, rateId: string) => {
-  const rateDoc = doc(firestore, 'products', productId, 'rates', rateId);
+export const deleteRate = async (productId: string, rateId: string): Promise<void> => {
+  const rateDoc = doc(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION, rateId);
   await deleteDoc(rateDoc);
 };
