@@ -10,10 +10,8 @@ service cloud.firestore {
     match /products/{productId} {
       // Allow users to read products they own, either individually (get) or in a query (list).
       // This is the standard and correct way to secure user-owned data queries.
-      allow read: if isSignedIn() && (
-        resource.data.ownerId == request.auth.uid || 
-        request.query.where.ownerId == request.auth.uid
-      );
+      allow read: if isSignedIn() && request.query.where.ownerId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.ownerId == request.auth.uid;
 
       // Allow users to create, update, or delete products they own.
       allow write: if isSignedIn() && request.auth.uid == request.resource.data.ownerId;
