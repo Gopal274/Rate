@@ -680,6 +680,7 @@ function ProductFormDialog({
     };
 
     if (product) {
+      // Logic for updating an existing product
       const result = await updateProductAction(product.id, submissionData);
       if (result.success) {
         onProductAction(submissionData);
@@ -688,6 +689,7 @@ function ProductFormDialog({
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
     } else {
+      // Logic for adding a new product
       const result = await addProductAction(submissionData, rate);
        if (result.success && result.product) {
         onProductAction(result.product, rate);
@@ -770,30 +772,29 @@ function ProductFormDialog({
                 />
             </div>
             <FormField
-                control={form.control}
-                name="billDate"
-                render={({ field }) => {
-                    const dateValue = field.value instanceof Date && !isNaN(field.value.getTime())
-                        ? format(field.value, 'yyyy-MM-dd')
-                        : '';
-                    return (
-                        <FormItem>
-                            <FormLabel>Bill Date</FormLabel>
-                            <FormControl>
-                                <Input 
-                                    type="date" 
-                                    value={dateValue}
-                                    onChange={(e) => {
-                                        const date = new Date(e.target.value);
-                                        const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-                                        field.onChange(new Date(date.getTime() + userTimezoneOffset));
-                                    }}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    );
-                }}
+              control={form.control}
+              name="billDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Bill Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      value={
+                        field.value instanceof Date
+                          ? format(field.value, 'yyyy-MM-dd')
+                          : ''
+                      }
+                      onChange={(e) => {
+                        const date = new Date(e.target.value);
+                        const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+                        field.onChange(new Date(date.getTime() + userTimezoneOffset));
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
             <DialogFooter>
               <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
