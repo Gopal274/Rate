@@ -229,7 +229,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   const [editingProduct, setEditingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingRateInfo, setDeletingRateInfo] = React.useState<{product: ProductWithRates, rate: Rate} | null>(null);
-  const [sortOption, setSortOption] = React.useState<SortOption>('newest');
   
   const { user } = useUser();
   const { toast } = useToast();
@@ -256,18 +255,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         setProducts([]);
     }
   }, [initialProducts, toast]);
-  
-
-  const handleSortChange = (value: string) => {
-    const option = value as SortOption;
-    setSortOption(option);
-    let newSorting: SortingState = [];
-    if (option === 'newest') newSorting = [{ id: 'billDate', desc: true }];
-    else if (option === 'oldest') newSorting = [{ id: 'billDate', desc: false }];
-    else if (option === 'name-asc') newSorting = [{ id: 'name', desc: false }];
-    else if (option === 'name-desc') newSorting = [{ id: 'name', desc: true }];
-    setSorting(newSorting);
-  };
   
   const columns: ColumnDef<ProductWithRates>[] = [
     {
@@ -299,7 +286,17 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     },
     {
       accessorKey: 'name',
-      header: 'Product Name',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Product Name
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
     },
     {
         id: 'rate',
@@ -333,7 +330,17 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     { accessorKey: 'pageNo', header: 'Page No'},
     {
       accessorKey: 'billDate',
-      header: 'Bill Date',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Bill Date
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
       cell: ({ row }) => {
           const billDate = row.getValue('billDate');
           return billDate instanceof Date ? format(billDate, 'PPP') : 'Invalid Date';
@@ -409,7 +416,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     }
     setProducts(prev => {
         const newProducts = [newProductWithRate, ...prev];
-        handleSortChange(sortOption); 
         return newProducts;
     });
   };
@@ -453,17 +459,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
               }
               className="max-w-sm"
             />
-            <Select onValueChange={handleSortChange} defaultValue={sortOption}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest First</SelectItem>
-                <SelectItem value="oldest">Oldest First</SelectItem>
-                <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-                <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-              </SelectContent>
-            </Select>
             <Button onClick={handlePrint} variant="outline" size="icon">
                 <Printer className="h-4 w-4" />
                 <span className="sr-only">Print</span>
