@@ -16,6 +16,7 @@ import {
   Trash2,
   Printer,
   ChevronDown,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -23,6 +24,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 import {
   addProductAction,
@@ -384,7 +387,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <Collapsible key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
+                  <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
                     <>
                       <CollapsibleTrigger asChild>
                           <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
@@ -399,33 +402,31 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                           </TableRow>
                       </CollapsibleTrigger>
                       <CollapsibleContent asChild>
-                          <>
-                          {row.original.rates.slice(1).map((rate) => (
-                              <TableRow key={rate.id} className="bg-muted/50">
-                                  <TableCell colSpan={3} className="border-r"></TableCell>
-                                  <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
-                                  <TableCell>{row.original.unit}</TableCell>
-                                  <TableCell>{row.original.gst}%</TableCell>
-                                  <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate * (1 + row.original.gst / 100))}</TableCell>
-                                  <TableCell>{row.original.partyName}</TableCell>
-                                  <TableCell>{row.original.pageNo}</TableCell>
-                                  <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
-                                  <TableCell>{row.original.category}</TableCell>
-                                  <TableCell className="no-print">
-                                      <TooltipProvider>
-                                          <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingRateInfo({ product: row.original, rate })}>
-                                                      <Trash2 className="h-4 w-4 text-destructive hover:text-destructive" />
-                                                  </Button>
-                                              </TooltipTrigger>
-                                              <TooltipContent>Delete This Rate Entry</TooltipContent>
-                                          </Tooltip>
-                                      </TooltipProvider>
-                                  </TableCell>
-                              </TableRow>
-                          ))}
-                          </>
+                          <TableRow className="bg-muted/10">
+                            <TableCell colSpan={columns.length} className="p-0">
+                                <div className="p-4">
+                                <h4 className="font-bold mb-2">Rate History for {row.original.name}</h4>
+                                {row.original.rates.slice(1).map((rate) => (
+                                    <div key={rate.id} className="flex justify-between items-center p-2 border-b last:border-b-0">
+                                        <div className="flex-1">
+                                            <span className="font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</span>
+                                            <span className="text-muted-foreground text-sm ml-2">({format(new Date(rate.createdAt), 'PPP')})</span>
+                                        </div>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingRateInfo({ product: row.original, rate })}>
+                                                        <Trash2 className="h-4 w-4 text-destructive hover:text-destructive" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
+                                ))}
+                                </div>
+                            </TableCell>
+                          </TableRow>
                       </CollapsibleContent>
                     </>
                   </Collapsible>
