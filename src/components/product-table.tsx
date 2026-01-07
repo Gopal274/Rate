@@ -24,6 +24,7 @@ import {
   ChevronDown,
   ChevronRight,
   Printer,
+  Sparkles,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -109,6 +110,8 @@ import {
   CardHeader,
   CardTitle,
 } from './ui/card';
+import RateSummary from './rate-summary';
+
 
 type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc';
 
@@ -126,6 +129,7 @@ const RateHistory = ({ productId }: { productId: string }) => {
                 const fetchedRates = await getProductRatesAction(productId);
                 setRates(fetchedRates);
             } catch (e) {
+                console.error(e);
                 toast({ variant: 'destructive', title: 'Error', description: "Could not fetch rate history." });
             } finally {
                 setIsLoading(false);
@@ -143,12 +147,13 @@ const RateHistory = ({ productId }: { productId: string }) => {
             </div>
         )
     }
+
+    if (rates.length <= 1) {
+        return <div className="p-4 text-center text-sm text-muted-foreground">No previous rate history.</div>;
+    }
     
     const previousRates = rates.slice(1);
 
-    if (previousRates.length === 0) {
-        return <div className="p-4 text-center text-sm text-muted-foreground">No previous rate history.</div>;
-    }
 
     return (
         <div className="p-4 bg-muted/50">
@@ -157,14 +162,14 @@ const RateHistory = ({ productId }: { productId: string }) => {
                 <TableHeader>
                     <TableRow>
                         <TableHead>Date</TableHead>
-                        <TableHead>Rate</TableHead>
+                        <TableHead className="text-right">Rate</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {previousRates.map((rate) => (
                         <TableRow key={rate.id}>
                             <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
-                            <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                            <TableCell className="text-right">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
@@ -199,13 +204,14 @@ const AddRateForm = ({ product, onRateAdded }: { product: ProductWithRates, onRa
     }
 
     return (
-        <form onSubmit={handleAddRate} className="flex items-center gap-2 p-2">
+        <form onSubmit={handleAddRate} className="flex items-center gap-2 p-2 border-b">
             <Input 
                 type="number"
-                placeholder="New Rate"
+                placeholder="Enter New Rate"
                 value={newRate}
                 onChange={(e) => setNewRate(e.target.value)}
                 className="h-8"
+                step="0.01"
             />
             <Button type="submit" size="sm" disabled={isSubmitting}>
                 {isSubmitting ? 'Adding...' : 'Add Rate'}
@@ -215,7 +221,7 @@ const AddRateForm = ({ product, onRateAdded }: { product: ProductWithRates, onRa
 }
 
 export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
-  const [products, setProducts] = React.useState<ProductWithRates[]>([]);
+  const [products, setProducts] = React.useState<ProductWithRates[]>(initialProducts.map(p => ({...p, rateHistory: []})));
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'billDate', desc: true }]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [expanded, setExpanded] = React.useState<ExpandedState>({});
@@ -232,8 +238,14 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     const fetchAllRates = async () => {
         const productsWithRates = await Promise.all(
             initialProducts.map(async (product) => {
-                const fetchedRates = await getProductRatesAction(product.id);
-                return { ...product, rateHistory: fetchedRates };
+                try {
+                    const fetchedRates = await getProductRatesAction(product.id);
+                    return { ...product, rateHistory: fetchedRates };
+                } catch (error) {
+                    console.error(`Failed to fetch rates for product ${product.id}:`, error);
+                    toast({ variant: 'destructive', title: 'Fetch Error', description: `Could not load rates for ${product.name}.` });
+                    return { ...product, rateHistory: [] };
+                }
             })
         );
         setProducts(productsWithRates);
@@ -243,7 +255,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     } else {
         setProducts([]);
     }
-  }, [initialProducts]);
+  }, [initialProducts, toast]);
   
 
   const handleSortChange = (value: string) => {
@@ -268,6 +280,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 onClick: row.getToggleExpandedHandler(),
                 style: { cursor: 'pointer' },
               }}
+              className="no-print"
             >
               {row.getIsExpanded() ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </button>
@@ -323,7 +336,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       header: 'Bill Date',
       cell: ({ row }) => {
           const billDate = row.getValue('billDate');
-          // Check if billDate is a valid date
           return billDate instanceof Date ? format(billDate, 'PPP') : 'Invalid Date';
       },
     },
@@ -337,7 +349,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
+              <Button variant="ghost" className="h-8 w-8 p-0 no-print">
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -390,14 +402,16 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     getRowCanExpand: () => true,
   });
 
-  const onProductAdded = (newProduct: Product, initialRate: number) => {
+  const onProductAdded = (newProduct: Product, initialRate: Rate) => {
     const newProductWithRate: ProductWithRates = {
         ...newProduct,
-        rateHistory: [{ id: 'temp-id', rate: initialRate, createdAt: new Date() }] // Optimistic
+        rateHistory: [initialRate]
     }
-    // Manually trigger a re-sort by re-applying the sort state
-    setProducts(prev => [newProductWithRate, ...prev]);
-    handleSortChange(sortOption);
+    setProducts(prev => {
+        const newProducts = [newProductWithRate, ...prev];
+        handleSortChange(sortOption); 
+        return newProducts;
+    });
   };
 
   const onProductUpdated = (updatedProductData: Partial<Product>) => {
@@ -430,7 +444,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             <CardTitle>Products</CardTitle>
             <CardDescription>Manage your products and their rates.</CardDescription>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto no-print">
             <Input
               placeholder="Filter products..."
               value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
@@ -450,14 +464,14 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <SelectItem value="name-desc">Name (Z-A)</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={handlePrint} variant="outline" size="icon" className="no-print">
+            <Button onClick={handlePrint} variant="outline" size="icon">
                 <Printer className="h-4 w-4" />
                 <span className="sr-only">Print</span>
             </Button>
             { user && <ProductFormDialog
               onProductAction={onProductAdded}
             >
-              <Button className="no-print">
+              <Button>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Product
               </Button>
             </ProductFormDialog> }
@@ -472,7 +486,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
                     return (
-                      <TableHead key={header.id} className="no-print">
+                      <TableHead key={header.id} className={header.id === 'actions' || header.id === 'expander' ? 'no-print' : ''}>
                         {header.isPlaceholder
                           ? null
                           : flexRender(
@@ -491,7 +505,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   <React.Fragment key={row.id}>
                     <TableRow data-state={row.getIsSelected() && 'selected'}>
                         {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className={cell.column.id === 'actions' ? 'no-print' : ''}>
+                        <TableCell key={cell.id} className={cell.column.id === 'actions' || cell.column.id === 'expander' ? 'no-print' : ''}>
                             {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext()
@@ -502,8 +516,16 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                     {row.getIsExpanded() && (
                         <TableRow className="no-print">
                             <TableCell colSpan={columns.length}>
-                                <AddRateForm product={row.original} onRateAdded={(newRate) => onRateAdded(row.original.id, newRate)} />
-                                <RateHistory productId={row.original.id} />
+                                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                                    <div>
+                                        <AddRateForm product={row.original} onRateAdded={(newRate) => onRateAdded(row.original.id, newRate)} />
+                                        <RateHistory productId={row.original.id} />
+                                    </div>
+                                    <div className='p-4'>
+                                        <h4 className="font-semibold mb-2 text-sm flex items-center gap-2"><Sparkles className='w-4 h-4 text-primary' />AI Summary</h4>
+                                        <RateSummary product={row.original} />
+                                    </div>
+                                </div>
                             </TableCell>
                         </TableRow>
                     )}
@@ -637,7 +659,7 @@ function ProductFormDialog({
     setIsSubmitting(true);
 
     if (product) {
-      const { rate, ...productData } = values; // rate is not updatable here
+      const { rate, ...productData } = values; 
       const result = await updateProductAction(product.id, productData);
       if (result.success) {
         onProductAction(productData);
@@ -647,8 +669,8 @@ function ProductFormDialog({
       }
     } else {
       const result = await addProductAction(values);
-       if (result.success && result.product) {
-        onProductAction(result.product, values.rate);
+       if (result.success && result.product && result.rate) {
+        onProductAction(result.product, result.rate);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -683,7 +705,7 @@ function ProductFormDialog({
               control={form.control}
               name="rate"
               render={({ field }) => (
-                <FormItem><FormLabel>{product ? 'Latest Rate (not editable)' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120" {...field} disabled={!!product} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{product ? 'Latest Rate (not editable)' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value)} disabled={!!product} /></FormControl><FormMessage /></FormItem>
               )}
             />
             <FormField
@@ -719,11 +741,11 @@ function ProductFormDialog({
             </div>
              <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="gst" render={({ field }) => (
-                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value)}/></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name="pageNo" render={({ field }) => (
-                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value)} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
             </div>
@@ -731,7 +753,7 @@ function ProductFormDialog({
               control={form.control}
               name="billDate"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Bill Date</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -815,7 +837,7 @@ function DeleteProductDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+          <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className='bg-destructive hover:bg-destructive/90'>
             {isDeleting ? 'Deleting...' : 'Continue'}
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -865,7 +887,7 @@ function DeleteRateDialog({
             </AlertDialogHeader>
             <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className='bg-destructive hover:bg-destructive/90'>
                 {isDeleting ? 'Deleting...' : 'Continue'}
             </AlertDialogAction>
             </AlertDialogFooter>
