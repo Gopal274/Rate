@@ -8,12 +8,17 @@ service cloud.firestore {
     }
     
     match /products/{productId} {
-      allow read: if isSignedIn();
+      // Allow listing products if the query is filtered by the user's ownerId
+      allow list: if isSignedIn() && request.query.where.get('ownerId', '') == request.auth.uid;
+      
+      // Allow reading, updating, and deleting a specific product if the user is the owner
+      allow get, update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      
+      // Allow creating a product if the user is signed in and sets themselves as the owner
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
       
       match /rates/{rateId} {
-        allow read: if isSignedIn();
+        allow read: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
         allow create: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
         allow update, delete: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
       }
