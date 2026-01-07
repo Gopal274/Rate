@@ -412,8 +412,9 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   const isOpen = openCollapsibles.has(row.original.id);
                   const hasHistory = row.original.rates.length > 1;
                   return (
-                    <React.Fragment key={row.original.id}>
+                    <React.Fragment key={`product-${row.original.id}`}>
                       <TableRow
+                        key={`main-${row.original.id}`}
                         data-state={row.getIsSelected() && 'selected'}
                         className={cn(hasHistory && "cursor-pointer")}
                         onClick={() => hasHistory && toggleCollapsible(row.original.id)}
