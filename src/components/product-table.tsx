@@ -92,7 +92,7 @@ import {
   CardHeader,
   CardTitle,
 } from './ui/card';
-import { Tooltip, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { z } from 'zod';
 
 type ProductWithRates = Product & { rates: Rate[] };
@@ -408,15 +408,15 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 </TableRow>
               ))}
             </TableHeader>
-            <TableBody>
+            
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => {
                     const isOpen = openCollapsibles.has(row.original.id);
                     const hasHistory = row.original.rates.length > 1;
 
                     return (
-                        <Collapsible asChild key={row.original.id} open={isOpen} onOpenChange={() => toggleCollapsible(row.original.id)}>
-                            <React.Fragment>
+                        <TableBody key={row.original.id} className="border-b">
+                            <Collapsible open={isOpen} onOpenChange={() => toggleCollapsible(row.original.id)}>
                                 <CollapsibleTrigger asChild>
                                     <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
                                         {row.getVisibleCells().map((cell) => (
@@ -468,21 +468,22 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                                     </React.Fragment>
                                 </CollapsibleContent>
                                 )}
-                            </React.Fragment>
-                        </Collapsible>
+                            </Collapsible>
+                        </TableBody>
                     )
                 })
               ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    No products found. Click "Add Product" to get started.
-                  </TableCell>
-                </TableRow>
+                <TableBody>
+                    <TableRow>
+                    <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center"
+                    >
+                        No products found. Click "Add Product" to get started.
+                    </TableCell>
+                    </TableRow>
+                </TableBody>
               )}
-            </TableBody>
           </Table>
         </div>
         <div className="flex items-center justify-end space-x-2 py-4 no-print">
