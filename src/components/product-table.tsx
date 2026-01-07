@@ -95,6 +95,8 @@ import {
 } from './ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { z } from 'zod';
+import RateSummary from './rate-summary';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 
 // Combined type for flattened data structure
 type TableRowData = {
@@ -154,7 +156,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       }
       return history.map((rate, index) => ({
         isProductRow: index === 0, // First rate is the main product row
-        product: index === 0 ? { ...product, gst: product.gst, billDate: new Date(rate.createdAt) } : product,
+        product,
         rate,
         sNo: sNoCounter,
       }));
@@ -170,7 +172,19 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'name',
       header: 'Product Name',
-      cell: ({ row }) => (row.original.isProductRow ? row.original.product.name : ''),
+      cell: ({ row }) => {
+        if (!row.original.isProductRow) return null;
+        return (
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="item-1" className="border-b-0">
+                <AccordionTrigger className="p-0 hover:no-underline">{row.original.product.name}</AccordionTrigger>
+                <AccordionContent>
+                    <RateSummary product={row.original.product} />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+        );
+      },
     },
     {
       id: 'rate',
@@ -189,7 +203,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'gst',
       header: 'GST %',
-      cell: ({ row }) => `${row.original.product.gst}%`,
+      cell: ({ row }) => (row.original.isProductRow ? `${row.original.product.gst}%` : ''),
     },
     {
       id: 'finalRate',
@@ -392,7 +406,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   <React.Fragment key={row.id}>
                     <TableRow data-state={row.getIsSelected() && 'selected'} className={!row.original.isProductRow ? 'bg-muted/50' : ''}>
                         {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '', !row.original.isProductRow && 'py-2')}>
+                        <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '', !row.original.isProductRow && 'py-2', !row.original.isProductRow && ['sNo', 'name', 'unit', 'partyName', 'pageNo', 'category', 'gst'].includes(cell.column.id) ? 'border-r' : '')}>
                             {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext()
