@@ -13,11 +13,11 @@ import type { Product, Rate, ProductSchema } from './types';
 import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
 
 // Define a type for the product data coming from the form, excluding the rate
-type ProductFormData = Omit<ProductSchema, 'rate'> & { ownerId: string };
+type ProductFormData = Omit<ProductSchema, 'rate'>;
 
-export async function addProductAction(productData: ProductFormData, initialRate: number) {
+export async function addProductAction(productData: ProductFormData, initialRate: number, ownerId: string) {
   try {
-    const newProduct = await addProductToDb(productData, initialRate);
+    const newProduct = await addProductToDb({ ...productData, ownerId }, initialRate);
     revalidatePath('/');
     return { success: true, message: 'Product added successfully.', product: newProduct };
   } catch (error) {
