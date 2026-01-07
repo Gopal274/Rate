@@ -612,12 +612,12 @@ function ProductFormDialog({
     } : {
         name: '',
         unit: 'piece',
-        gst: 0,
         partyName: '',
-        pageNo: 1,
         billDate: new Date(),
         category: 'Other',
-        rate: 0,
+        gst: undefined,
+        pageNo: undefined,
+        rate: undefined,
     },
   });
   const { toast } = useToast();
@@ -656,15 +656,15 @@ function ProductFormDialog({
         form.reset({
             name: '',
             unit: 'piece',
-            gst: 0,
             partyName: '',
-            pageNo: 1,
             billDate: new Date(),
             category: 'Other',
-            rate: 0,
+            gst: undefined,
+            pageNo: undefined,
+            rate: undefined,
         });
     }
-  }, [product, form]);
+  }, [product, form, isDialogOpen]);
 
   async function onSubmit(values: ProductSchema) {
     if (!user) {
@@ -728,7 +728,7 @@ function ProductFormDialog({
               control={form.control}
               name="rate"
               render={({ field }) => (
-                <FormItem><FormLabel>{product ? 'Latest Rate' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" placeholder="e.g. 120" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} disabled={!!product} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{product ? 'Latest Rate' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" placeholder="e.g. 120" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} disabled={!!product} /></FormControl><FormMessage /></FormItem>
               )}
             />
             <FormField
@@ -764,11 +764,11 @@ function ProductFormDialog({
             </div>
              <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="gst" render={({ field }) => (
-                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" placeholder="e.g. 5" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name="pageNo" render={({ field }) => (
-                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} onChange={e => field.onChange(parseInt(e.target.value) || undefined)} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
             </div>
@@ -776,8 +776,9 @@ function ProductFormDialog({
                 control={form.control}
                 name="billDate"
                 render={({ field }) => {
+                    // Check if field.value is a valid Date object
                     const dateValue = field.value instanceof Date && !isNaN(field.value.getTime())
-                        ? field.value.toISOString().split('T')[0]
+                        ? format(field.value, 'yyyy-MM-dd')
                         : '';
                     return (
                         <FormItem>
@@ -908,3 +909,4 @@ function DeleteRateDialog({
         </AlertDialog>
     );
 }
+
