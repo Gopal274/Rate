@@ -8,10 +8,8 @@ service cloud.firestore {
     }
     
     match /products/{productId} {
-      // Allow users to list products they own. The query must filter by ownerId.
-      // Also allow users to read a single product document if they are the owner.
-      allow read: if isSignedIn() && 
-                    (resource.data.ownerId == request.auth.uid || request.query.where.ownerId == request.auth.uid);
+      // Allow users to list products they own (via a query) or get a single product they own.
+      allow read: if isSignedIn() && (request.query.where.ownerId == request.auth.uid || resource.data.ownerId == request.auth.uid);
 
       // Allow users to create, update, or delete products they own.
       allow write: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
