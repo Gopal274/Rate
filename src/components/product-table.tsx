@@ -307,7 +307,9 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
 
   const onProductAdded = (newProduct: Product, initialRate: Rate) => {
     setProducts(prev => [newProduct, ...prev]);
-    setRateHistories(prev => ({...prev, [newProduct.id]: [initialRate]}));
+    // Ensure the initial rate has a temporary unique ID for the key
+    const rateWithId = { ...initialRate, id: `temp-${Date.now()}` };
+    setRateHistories(prev => ({...prev, [newProduct.id]: [rateWithId]}));
   };
 
   const onProductUpdated = (updatedProductData: Partial<Product>) => {
@@ -428,7 +430,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                       {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
                         const finalRate = rate.rate * (1 + row.original.gst / 100);
                         return (
-                          <TableRow key={rate.id} className="bg-muted/50 hover:bg-muted/70">
+                          <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
                             <TableCell></TableCell>
                             <TableCell></TableCell>
                             <TableCell></TableCell>
