@@ -9,10 +9,12 @@ import {
   deleteRate as deleteRateFromDb,
   getProductRates as getProductRatesFromDb,
 } from './data';
-import type { Product, Rate, ProductSchema } from './types';
+import type { Product, Rate, ProductSchema as ProductFormSchema } from './types';
 import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
+import { z } from 'zod';
+import { productSchema } from './types';
 
-type ProductFormData = z.infer<typeof ProductSchema>;
+type ProductFormData = z.infer<typeof productSchema>;
 
 export async function addProductAction(formData: ProductFormData) {
   try {
