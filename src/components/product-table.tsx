@@ -412,21 +412,22 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                   <Collapsible key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
-                      <React.Fragment>
-                        <CollapsibleTrigger>
-                            <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
-                                {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
-                                    {flexRender(
-                                    cell.column.columnDef.cell,
-                                    cell.getContext()
-                                    )}
-                                </TableCell>
-                                ))}
-                            </TableRow>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
+                    <React.Fragment key={row.original.id}>
+                        <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
+                            <CollapsibleTrigger asChild>
+                                <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
+                                    {row.getVisibleCells().map((cell) => (
+                                    <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
+                                        {flexRender(
+                                        cell.column.columnDef.cell,
+                                        cell.getContext()
+                                        )}
+                                    </TableCell>
+                                    ))}
+                                </TableRow>
+                            </CollapsibleTrigger>
+                        </Collapsible>
+                        <CollapsibleContent asChild>
                            <React.Fragment>
                               {row.original.rates.slice(1).map((rate, index) => {
                                       const finalRate = rate.rate * (1 + row.original.gst / 100);
@@ -463,8 +464,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                               }
                           </React.Fragment>
                         </CollapsibleContent>
-                      </React.Fragment>
-                  </Collapsible>
+                  </React.Fragment>
                 ))
               ) : (
                 <TableRow>
@@ -629,7 +629,7 @@ function ProductFormDialog({
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={handleOpenChange}>
-      {children && <DialogTrigger>{children}</DialogTrigger>}
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{product ? 'Edit Product' : 'Add Product'}</DialogTitle>
