@@ -9,7 +9,7 @@ import {
   deleteRate as deleteRateFromDb,
   getProductRates as getProductRatesFromDb,
 } from './data';
-import type { Product, Rate, ProductSchema as ProductFormSchema } from './types';
+import type { Product, Rate } from './types';
 import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
 import { z } from 'zod';
 import { productSchema } from './types';
@@ -20,8 +20,16 @@ export async function addProductAction(formData: ProductFormData) {
   try {
     const { rate, ...productData } = formData;
     const newProduct = await addProductToDb(productData, rate);
+    
+    // The rate is created within the transaction, so we need a representation of it for the client
+    const newRate: Rate = {
+      id: '', // The ID is not immediately available on the client this way, but the data is consistent
+      rate: rate,
+      createdAt: new Date(),
+    };
+
     revalidatePath('/');
-    return { success: true, message: 'Product added successfully.', product: newProduct };
+    return { success: true, message: 'Product added successfully.', product: newProduct, rate: newRate };
   } catch (error) {
     console.error("addProductAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to add product.';

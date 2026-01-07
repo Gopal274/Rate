@@ -1,23 +1,23 @@
+'use server';
+
 import { 
   getFirestore, 
   collection, 
-  addDoc, 
-  serverTimestamp, 
-  getDocs, 
   doc, 
+  serverTimestamp, 
   updateDoc, 
   deleteDoc, 
   query, 
   orderBy,
   writeBatch,
   Timestamp,
-  runTransaction
+  runTransaction,
+  getDocs
 } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import type { Product, Rate, ProductSchema } from './types';
 
-// This function initializes Firebase for server-side actions.
 function getDb() {
   if (!getApps().length) {
     initializeApp(firebaseConfig);
@@ -34,15 +34,16 @@ export const addProduct = async (productData: Omit<ProductSchema, 'rate'>, initi
   
   const newProduct = {
     ...productData,
-    billDate: new Date(productData.billDate), // Ensure it's a date object
+    billDate: new Date(productData.billDate),
   };
 
   const newRate = {
     rate: initialRate,
     createdAt: serverTimestamp(),
   };
-
+  
   await runTransaction(db, async (transaction) => {
+    // Correctly reference the subcollection for the new document
     const rateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
     transaction.set(newProductRef, newProduct);
     transaction.set(rateRef, newRate);
@@ -50,8 +51,7 @@ export const addProduct = async (productData: Omit<ProductSchema, 'rate'>, initi
 
   return {
     id: newProductRef.id,
-    ...productData,
-    billDate: new Date(productData.billDate), // Return a client-compatible object
+    ...newProduct,
   };
 };
 
@@ -88,7 +88,6 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
 
   return ratesSnapshot.docs.map(doc => {
       const data = doc.data();
-      // Firestore timestamps need to be converted to Date objects for the client
       const createdAt = (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date();
       return { 
           id: doc.id, 
@@ -104,9 +103,13 @@ export const addRate = async (productId: string, rate: number): Promise<Rate> =>
     rate,
     createdAt: serverTimestamp()
   };
-  const newRateRef = await addDoc(ratesCol, newRateData);
+  // We need to get the doc reference first to return the ID
+  const newRateRef = doc(collection(ratesCol));
+  await runTransaction(db, async (transaction) => {
+    transaction.set(newRateRef, newRateData);
+  });
 
-  return { id: newRateRef.id, rate, createdAt: new Date() }; // Return optimistic date for UI
+  return { id: newRateRef.id, rate, createdAt: new Date() };
 };
 
 export const deleteRate = async (productId: string, rateId: string): Promise<void> => {
