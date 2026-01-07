@@ -12,7 +12,7 @@ import {
 import type { Product, Rate, UpdateProductSchema } from './types';
 import { productSchema } from './types';
 import { z } from 'zod';
-import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
+
 
 type ProductFormData = z.infer<typeof productSchema>;
 
@@ -93,24 +93,4 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
         console.error("getProductRatesAction Error:", error);
         return [];
     }
-}
-
-export async function getRateSummaryAction(product: Product, rates: Rate[]) {
-  if (rates.length < 2) {
-    return { error: 'Not enough data to generate a summary. At least two rates are required.' };
-  }
-  try {
-    const rateHistory = rates.map(r => ({
-      date: r.createdAt.toISOString(),
-      rate: r.rate,
-    }));
-    const summary = await summarizeRateTrends({
-      productName: product.name,
-      rateHistory,
-    });
-    return summary;
-  } catch (e: any) {
-    console.error('Error generating summary:', e);
-    return { error: e.message || 'An unknown error occurred while generating the summary.' };
-  }
 }

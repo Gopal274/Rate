@@ -11,12 +11,10 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import {
-  CalendarIcon,
   Edit,
   PlusCircle,
   Trash2,
   Printer,
-  Sparkles,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -89,8 +87,6 @@ import {
 } from './ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { z } from 'zod';
-import RateSummary from './rate-summary';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 
 // Combined type for flattened data structure
 type TableRowData = {
@@ -168,16 +164,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       header: 'Product Name',
       cell: ({ row }) => {
         if (!row.original.isProductRow) return null;
-        return (
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="item-1" className="border-b-0">
-                <AccordionTrigger className="p-0 hover:no-underline">{row.original.product.name}</AccordionTrigger>
-                <AccordionContent>
-                    <RateSummary product={row.original.product} />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-        );
+        return row.original.product.name;
       },
     },
     {
