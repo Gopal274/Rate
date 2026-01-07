@@ -8,17 +8,16 @@ service cloud.firestore {
     }
     
     match /products/{productId} {
-      // Users can list products if they are signed in and the query is filtered by their UID.
-      allow list: if isSignedIn() && request.query.where.ownerId == request.auth.uid;
+      // Allow users to list products they own. The query must filter by ownerId.
+      // Also allow users to read a single product document if they are the owner.
+      allow read: if isSignedIn() && 
+                    (resource.data.ownerId == request.auth.uid || request.query.where.ownerId == request.auth.uid);
 
-      // Users can read, update, or delete a product if they are the owner.
-      allow get, update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
-      
-      // Users can create a product if they are signed in and set themselves as the owner.
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      // Allow users to create, update, or delete products they own.
+      allow write: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       
       match /rates/{rateId} {
-        // Users can read, create, update, or delete rates for products they own.
+        // Allow full read/write access to rates for the product owner.
         allow read, write: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
       }
     }
