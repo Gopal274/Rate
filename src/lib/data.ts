@@ -11,7 +11,8 @@ import {
   deleteDoc, 
   query, 
   orderBy,
-  writeBatch
+  writeBatch,
+  Timestamp
 } from 'firebase/firestore';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
@@ -36,7 +37,8 @@ export const getProducts = async (): Promise<Product[]> => {
     return { 
       id: doc.id, 
       ...data,
-      billDate: (data.billDate as any).toDate()
+      // Firestore timestamps need to be converted to Date objects
+      billDate: (data.billDate as Timestamp).toDate()
     } as Product;
   });
   return productList;
@@ -66,16 +68,19 @@ export const addProduct = async (productData: Omit<Product, 'id'>, initialRate: 
     });
     
     await batch.commit();
-
+    
+    // Return a client-compatible version of the product
     return { id: newProductRef.id, ...newProductData };
 };
 
 export const updateProduct = async (id: string, updateData: Partial<Omit<Product, 'id'>>) => {
   const productDoc = doc(firestore, 'products', id);
-  await updateDoc(productDoc, {
-      ...updateData,
-      billDate: new Date(updateData.billDate as any),
-  });
+  // Ensure date is a Firestore-compatible object if it exists
+  const dataToUpdate = { ...updateData };
+  if (updateData.billDate) {
+    dataToUpdate.billDate = new Date(updateData.billDate as any);
+  }
+  await updateDoc(productDoc, dataToUpdate);
 };
 
 export const deleteProduct = async (id: string) => {
@@ -99,7 +104,7 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
   return ratesSnapshot.docs.map(doc => {
       const data = doc.data();
       // Firestore timestamps need to be converted to Date objects
-      const createdAt = (data.createdAt as any)?.toDate ? (data.createdAt as any).toDate() : new Date();
+      const createdAt = (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date();
       return { 
           id: doc.id, 
           rate: data.rate,

@@ -340,7 +340,10 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'billDate',
       header: 'Bill Date',
-      cell: ({ row }) => format(new Date(row.getValue('billDate')), 'PPP'),
+      cell: ({ row }) => {
+          const billDate = row.getValue('billDate');
+          return format(new Date(billDate as string | number | Date), 'PPP');
+      },
     },
     { accessorKey: 'category', header: 'Category'},
     {
