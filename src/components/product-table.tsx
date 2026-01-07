@@ -15,8 +15,14 @@ import {
   PlusCircle,
   Trash2,
   Printer,
+  ChevronDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 import {
   addProductAction,
@@ -88,17 +94,12 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { z } from 'zod';
 
-// Combined type for flattened data structure
-type TableRowData = {
-  isProductRow: boolean; // True for the main product row
-  product: Product;
-  rate: Rate;
-  sNo: number; // Keep track of the product serial number
-};
+type ProductWithRates = Product & { rates: Rate[] };
 
 export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = React.useState<Product[]>(initialProducts);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
 
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
@@ -134,63 +135,65 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     }
   }, [initialProducts, toast]);
 
-  const flattenedData = React.useMemo(() => {
-    let sNoCounter = 0;
-    return products.flatMap((product) => {
-      const history = rateHistories[product.id] ?? [];
-      sNoCounter++;
-      if (history.length === 0) {
-        // Create a dummy rate if none exist, so the product still shows up
-        const dummyRate: Rate = { id: 'dummy', rate: 0, createdAt: product.billDate };
-        return [{ isProductRow: true, product, rate: dummyRate, sNo: sNoCounter }];
-      }
-      return history.map((rate, index) => ({
-        isProductRow: index === 0, // First rate is the main product row
-        product,
-        rate,
-        sNo: sNoCounter,
-      }));
-    });
+  const tableData: ProductWithRates[] = React.useMemo(() => {
+    return products.map(p => ({
+        ...p,
+        rates: rateHistories[p.id] ?? []
+    })).map((p, index) => ({ ...p, sNo: index + 1 }));
   }, [products, rateHistories]);
 
-  const columns: ColumnDef<TableRowData>[] = [
+
+  const columns: ColumnDef<ProductWithRates>[] = [
+     {
+      id: 'expander',
+      header: () => null,
+      cell: ({ row }) => {
+        const hasHistory = row.original.rates.length > 1;
+        if (!hasHistory) return <div className="w-4" />;
+        
+        return (
+             <ChevronDown className={cn("h-4 w-4 transition-transform", openCollapsibles.has(row.original.id) && "rotate-180" )} />
+        )
+      }
+    },
     {
       id: 'sNo',
       header: 'S.No',
-      cell: ({ row }) => (row.original.isProductRow ? row.original.sNo : ''),
+      cell: ({ row }) => row.index + 1,
     },
     {
       accessorKey: 'name',
       header: 'Product Name',
-      cell: ({ row }) => {
-        if (!row.original.isProductRow) return null;
-        return row.original.product.name;
-      },
+      cell: ({ row }) => row.original.name,
     },
     {
       id: 'rate',
       header: () => <div className="text-right">Rate</div>,
-      cell: ({ row }) => (
-        <div className="text-right font-medium">
-          {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(row.original.rate.rate)}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const latestRate = row.original.rates[0]?.rate ?? 0;
+        return (
+            <div className="text-right font-medium">
+            {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(latestRate)}
+            </div>
+        )
+      },
     },
     {
       accessorKey: 'unit',
       header: 'Unit',
-      cell: ({ row }) => row.original.product.unit,
+      cell: ({ row }) => row.original.unit,
     },
     {
       accessorKey: 'gst',
       header: 'GST %',
-      cell: ({ row }) => `${row.original.product.gst}%`,
+      cell: ({ row }) => `${row.original.gst}%`,
     },
     {
       id: 'finalRate',
       header: () => <div className="text-right">Final Rate</div>,
       cell: ({ row }) => {
-        const finalRate = row.original.rate.rate * (1 + row.original.product.gst / 100);
+        const latestRate = row.original.rates[0]?.rate ?? 0;
+        const finalRate = latestRate * (1 + row.original.gst / 100);
         return (
           <div className="text-right font-bold">
             {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}
@@ -201,32 +204,31 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'partyName',
       header: 'Party Name',
-      cell: ({ row }) => row.original.product.partyName,
+      cell: ({ row }) => row.original.partyName,
     },
     {
       accessorKey: 'pageNo',
       header: 'Page No',
-       cell: ({ row }) => row.original.product.pageNo,
+       cell: ({ row }) => row.original.pageNo,
     },
     {
       accessorKey: 'billDate',
       header: 'Bill Date',
-      cell: ({ row }) => format(new Date(row.original.rate.createdAt), 'PPP'),
+      cell: ({ row }) => format(new Date(row.original.billDate), 'PPP'),
     },
     {
       accessorKey: 'category',
       header: 'Category',
-      cell: ({ row }) => row.original.product.category,
+      cell: ({ row }) => row.original.category,
     },
     {
       id: 'actions',
       header: () => <div className="text-center no-print">Actions</div>,
       cell: ({ row }) => {
-        const { product, rate, isProductRow } = row.original;
+        const product = row.original;
         return (
           <TooltipProvider>
             <div className="flex items-center justify-center gap-1 no-print">
-              {isProductRow && (
                  <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAddingRateToProduct(product)}>
@@ -235,8 +237,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                     </TooltipTrigger>
                     <TooltipContent>Add New Rate</TooltipContent>
                   </Tooltip>
-              )}
-               {isProductRow && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingProduct(product)}>
@@ -245,8 +245,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                     </TooltipTrigger>
                     <TooltipContent>Edit Product Details</TooltipContent>
                   </Tooltip>
-               )}
-              {isProductRow ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingProduct(product)}>
@@ -255,16 +253,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   </TooltipTrigger>
                   <TooltipContent>Delete Product & All History</TooltipContent>
                 </Tooltip>
-              ) : (
-                <Tooltip>
-                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingRateInfo({ product, rate })}>
-                      <Trash2 className="h-4 w-4 text-destructive hover:text-destructive" />
-                    </Button>
-                   </TooltipTrigger>
-                   <TooltipContent>Delete This Rate Entry</TooltipContent>
-                </Tooltip>
-              )}
             </div>
           </TooltipProvider>
         );
@@ -273,7 +261,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   ];
 
   const table = useReactTable({
-    data: flattenedData,
+    data: tableData,
     columns,
     state: { columnFilters },
     onColumnFiltersChange: setColumnFilters,
@@ -281,6 +269,18 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
+
+  const toggleCollapsible = (productId: string) => {
+    setOpenCollapsibles(prev => {
+        const newSet = new Set(prev);
+        if(newSet.has(productId)) {
+            newSet.delete(productId);
+        } else {
+            newSet.add(productId);
+        }
+        return newSet;
+    });
+  }
 
   const onProductAdded = (newProduct: Product, initialRate: Rate) => {
     setProducts(prev => [newProduct, ...prev]);
@@ -384,18 +384,51 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <React.Fragment key={row.id}>
-                    <TableRow data-state={row.getIsSelected() && 'selected'} className={!row.original.isProductRow ? 'bg-muted/50' : ''}>
-                        {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '', !row.original.isProductRow && 'py-2', !row.original.isProductRow && ['sNo', 'name'].includes(cell.column.id) ? 'border-r' : '')}>
-                            {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                            )}
-                        </TableCell>
+                  <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
+                    <>
+                    <CollapsibleTrigger asChild>
+                        <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
+                            {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
+                                {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                                )}
+                            </TableCell>
+                            ))}
+                        </TableRow>
+                    </CollapsibleTrigger>
+                     <CollapsibleContent asChild>
+                        <>
+                        {row.original.rates.slice(1).map((rate, index) => (
+                            <TableRow key={rate.id} className="bg-muted/50">
+                                <TableCell colSpan={3} className="border-r"></TableCell>
+                                <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                                <TableCell>{row.original.unit}</TableCell>
+                                <TableCell>{row.original.gst}%</TableCell>
+                                <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate * (1 + row.original.gst / 100))}</TableCell>
+                                <TableCell>{row.original.partyName}</TableCell>
+                                <TableCell>{row.original.pageNo}</TableCell>
+                                <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
+                                <TableCell>{row.original.category}</TableCell>
+                                <TableCell className="no-print">
+                                     <TooltipProvider>
+                                         <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingRateInfo({ product: row.original, rate })}>
+                                                    <Trash2 className="h-4 w-4 text-destructive hover:text-destructive" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                        </Tooltip>
+                                     </TooltipProvider>
+                                </TableCell>
+                            </TableRow>
                         ))}
-                    </TableRow>
-                  </React.Fragment>
+                        </>
+                    </CollapsibleContent>
+                    </>
+                  </Collapsible>
                 ))
               ) : (
                 <TableRow>
