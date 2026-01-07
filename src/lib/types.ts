@@ -19,7 +19,7 @@ export type ProductSchema = z.infer<typeof productSchema>;
 export type Rate = {
   id?: string;
   rate: number;
-  createdAt: any; // Firestore Timestamp
+  createdAt: Date; // Should be a Date object on the client
 };
 
 export type Product = {
@@ -29,7 +29,7 @@ export type Product = {
   gst: number;
   partyName: string;
   pageNo: number;
-  billDate: Date;
+  billDate: Date; // Should be a Date object on the client
   category: typeof categories[number];
   ownerId: string;
 };

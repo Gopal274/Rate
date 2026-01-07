@@ -7,7 +7,7 @@ import {
   deleteProduct as deleteProductFromDb,
   addRate as addRateToDb,
   deleteRate as deleteRateFromDb,
-  getProductRates,
+  getProductRates as getProductRatesFromDb,
 } from './data';
 import type { Product, Rate } from './types';
 import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
@@ -23,7 +23,7 @@ export async function addProductAction(productData: Omit<Product, 'id'>, initial
   }
 }
 
-export async function updateProductAction(productId: string, productData: Partial<Omit<Product, 'id'>>) {
+export async function updateProductAction(productId: string, productData: Partial<Omit<Product, 'id' | 'ownerId'>>) {
   try {
     await updateProductInDb(productId, productData);
     revalidatePath('/');
@@ -67,6 +67,10 @@ export async function deleteRateAction(productId: string, rateId: string) {
   }
 }
 
+export async function getProductRatesAction(productId: string): Promise<Rate[]> {
+    return await getProductRatesFromDb(productId);
+}
+
 
 export async function getRateSummaryAction(product: Product, rates: Rate[]) {
   try {
@@ -76,7 +80,7 @@ export async function getRateSummaryAction(product: Product, rates: Rate[]) {
 
     const summary = await summarizeRateTrends({
       productName: product.name,
-      rateHistory: rates.map(r => ({ date: r.createdAt.toDate().toISOString(), rate: r.rate })),
+      rateHistory: rates.map(r => ({ date: new Date(r.createdAt).toISOString(), rate: r.rate })),
     });
     return summary;
   } catch (error) {

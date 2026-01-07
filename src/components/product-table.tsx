@@ -33,8 +33,8 @@ import {
   updateProductAction,
   addRateAction,
   deleteRateAction,
+  getProductRatesAction,
 } from '@/lib/actions';
-import { getProductRates } from '@/lib/data';
 import type { Product, ProductSchema, Rate } from '@/lib/types';
 import { categories, productSchema, units } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -122,7 +122,7 @@ const RateHistory = ({ productId }: { productId: string }) => {
     React.useEffect(() => {
         const fetchRates = async () => {
             setIsLoading(true);
-            const fetchedRates = await getProductRates(productId);
+            const fetchedRates = await getProductRatesAction(productId);
             setRates(fetchedRates);
             setIsLoading(false);
         };
@@ -172,7 +172,7 @@ const RateHistory = ({ productId }: { productId: string }) => {
                 <TableBody>
                     {previousRates.map((rate, index) => (
                         <TableRow key={rate.id || index}>
-                            <TableCell>{format(rate.createdAt.toDate(), 'PPP')}</TableCell>
+                            <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
                             <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
                             <TableCell className="text-right">
                                 {/* Only allow deleting the latest rate, which is handled outside */}
@@ -251,7 +251,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         setLoadingRates(initialProducts.reduce((acc, p) => ({...acc, [p.id]: true}), {}));
 
         for(const product of initialProducts) {
-            const fetchedRates = await getProductRates(product.id);
+            const fetchedRates = await getProductRatesAction(product.id);
             allRates[product.id] = fetchedRates;
             allProductsWithRates.push({ ...product, rateHistory: fetchedRates });
             setLoadingRates(prev => ({...prev, [product.id]: false}));
@@ -340,7 +340,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'billDate',
       header: 'Bill Date',
-      cell: ({ row }) => format(row.getValue('billDate'), 'PPP'),
+      cell: ({ row }) => format(new Date(row.getValue('billDate')), 'PPP'),
     },
     { accessorKey: 'category', header: 'Category'},
     {
@@ -425,7 +425,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   }
 
   const onRateAdded = (productId: string, newRate: Rate) => {
-    const newRateWithDate = { ...newRate, createdAt: new Date() };
+    const newRateWithDate = { ...newRate, createdAt: new Date(newRate.createdAt) };
     setProducts(prev => prev.map(p => p.id === productId ? { ...p, rateHistory: [newRateWithDate, ...p.rateHistory]} : p));
   }
 
@@ -606,7 +606,7 @@ function ProductFormDialog({
         gst: product.gst,
         partyName: product.partyName,
         pageNo: product.pageNo,
-        billDate: product.billDate,
+        billDate: new Date(product.billDate),
         category: product.category,
         rate: product.rateHistory[0]?.rate ?? 0,
     } : {
@@ -645,7 +645,7 @@ function ProductFormDialog({
         gst: product.gst,
         partyName: product.partyName,
         pageNo: product.pageNo,
-        billDate: product.billDate,
+        billDate: new Date(product.billDate),
         category: product.category,
         rate: product.rateHistory[0]?.rate ?? 0,
       });

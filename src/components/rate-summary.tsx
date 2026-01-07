@@ -1,14 +1,13 @@
 'use client';
 
-import { getRateSummaryAction } from '@/lib/actions';
-import React, { useEffect, useState, useTransition } from 'react';
+import { getRateSummaryAction, getProductRatesAction } from '@/lib/actions';
+import React, { useState, useTransition } from 'react';
 import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Skeleton } from './ui/skeleton';
 import { Lightbulb, AlertTriangle, TrendingUp, Sparkles } from 'lucide-react';
 import { SummarizeRateTrendsOutput } from '@/ai/flows/summarize-rate-trends';
 import type { Product, Rate } from '@/lib/types';
-import { getProductRates } from '@/lib/data';
 
 type RateSummaryProps = {
   product: Product;
@@ -24,7 +23,7 @@ export default function RateSummary({ product }: RateSummaryProps) {
   React.useEffect(() => {
     const fetchRates = async () => {
         setIsLoadingRates(true);
-        const fetchedRates = await getProductRates(product.id);
+        const fetchedRates = await getProductRatesAction(product.id);
         setRates(fetchedRates);
         setIsLoadingRates(false);
     };
@@ -104,9 +103,9 @@ export default function RateSummary({ product }: RateSummaryProps) {
   return (
     <div className="text-center space-y-2">
         <p className="text-sm text-muted-foreground">Click to get an AI-powered analysis of the rate trends.</p>
-        <Button onClick={handleGenerateSummary} disabled={isPending}>
+        <Button onClick={handleGenerateSummary} disabled={isPending || rates.length < 2}>
           <Sparkles className="mr-2 h-4 w-4" />
-          Generate Summary
+          {rates.length < 2 ? 'Need more data' : 'Generate Summary'}
         </Button>
     </div>
   );
