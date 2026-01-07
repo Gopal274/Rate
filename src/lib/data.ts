@@ -16,7 +16,8 @@ import {
 import { initializeFirebase } from '@/firebase/index.ts';
 import type { Product, Rate } from './types';
 
-
+// This file is executed on the server, so we can use the client SDK here
+// as long as we initialize it properly for the server environment.
 const { firestore } = initializeFirebase();
 
 export const getProducts = async (): Promise<Product[]> => {
@@ -84,10 +85,12 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
   const ratesSnapshot = await getDocs(q);
   return ratesSnapshot.docs.map(doc => {
       const data = doc.data();
+      // Firestore timestamps need to be converted to Date objects
+      const createdAt = (data.createdAt as any)?.toDate ? (data.createdAt as any).toDate() : new Date();
       return { 
           id: doc.id, 
           rate: data.rate,
-          createdAt: (data.createdAt as any).toDate()
+          createdAt: createdAt
         } as Rate
     });
 };
@@ -98,6 +101,8 @@ export const addRate = async (productId: string, rate: number): Promise<Rate> =>
     rate,
     createdAt: serverTimestamp()
   });
+  // For optimistic update, we can't wait for server timestamp.
+  // We'll return a client-side date, and the real-time listener will get the server one.
   return { id: newRateRef.id, rate, createdAt: new Date() }; 
 };
 
