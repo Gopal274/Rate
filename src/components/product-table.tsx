@@ -32,7 +32,6 @@ import type { Product, ProductSchema, Rate, UpdateProductSchema } from '@/lib/ty
 import { categories, productSchema, units, updateProductSchema } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
@@ -62,11 +61,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -482,56 +476,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   );
 }
 
-// Custom Date Picker component with Set/Cancel buttons
-function DatePickerWithButtons({
-  field,
-  trigger,
-}: {
-  field: { value: Date; onChange: (date: Date) => void };
-  trigger: React.ReactNode;
-}) {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const [tempDate, setTempDate] = React.useState<Date | undefined>(field.value);
-
-  const handleSet = () => {
-    if (tempDate) {
-      field.onChange(tempDate);
-    }
-    setIsOpen(false);
-  };
-
-  const handleCancel = () => {
-    setTempDate(field.value); // Reset to original value
-    setIsOpen(false);
-  };
-
-  const handleOpenChange = (open: boolean) => {
-    if (open) {
-      setTempDate(field.value); // Set temp date when opening
-    }
-    setIsOpen(open);
-  };
-
-  return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent className="w-auto p-0">
-        <Calendar
-          mode="single"
-          selected={tempDate}
-          onSelect={setTempDate}
-          initialFocus
-        />
-        <div className="flex justify-end gap-2 p-2 border-t">
-            <Button variant="outline" size="sm" onClick={handleCancel}>Cancel</Button>
-            <Button size="sm" onClick={handleSet}>Set</Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-
 const getInitialAddFormValues = () => {
     return {
         name: '',
@@ -539,7 +483,7 @@ const getInitialAddFormValues = () => {
         gst: '' as any,
         partyName: '',
         pageNo: '' as any,
-        billDate: new Date(),
+        billDate: format(new Date(), 'yyyy-MM-dd'),
         category: 'Other' as const,
         rate: '' as any,
     };
@@ -552,7 +496,7 @@ const getInitialEditFormValues = (product: Product) => {
         partyName: product.partyName,
         category: product.category,
         pageNo: product.pageNo,
-        billDate: new Date(product.billDate),
+        billDate: format(new Date(product.billDate), 'yyyy-MM-dd'),
         gst: product.gst,
     };
 };
@@ -602,17 +546,20 @@ function ProductFormDialog({
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
+    
+    // Convert string date to Date object before sending
+    const valuesWithDate = { ...values, billDate: new Date(values.billDate) };
 
     if (isEditing) {
-      const result = await updateProductAction(product.id, values as UpdateProductSchema);
+      const result = await updateProductAction(product.id, valuesWithDate as UpdateProductSchema);
       if (result.success) {
-        onProductAction(values);
+        onProductAction(valuesWithDate);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
     } else {
-      const result = await addProductAction(values as ProductSchema);
+      const result = await addProductAction(valuesWithDate as ProductSchema);
        if (result.success && result.product && result.rate) {
         onProductAction(result.product, result.rate);
         toast({ title: 'Success', description: result.message });
@@ -701,30 +648,9 @@ function ProductFormDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Bill Date</FormLabel>
-                  <DatePickerWithButtons
-                    field={{
-                      value: field.value,
-                      onChange: field.onChange,
-                    }}
-                    trigger={
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    }
-                  />
+                   <FormControl>
+                        <Input type="date" {...field} />
+                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -743,7 +669,7 @@ function ProductFormDialog({
 
 const addRateSchema = z.object({
   rate: z.coerce.number().min(0.01, { message: "Rate must be a positive number." }),
-  billDate: z.date({ required_error: "A bill date is required." }),
+  billDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }),
   pageNo: z.coerce.number().int().min(1, { message: "Page number must be at least 1." }),
   gst: z.coerce.number().min(0, { message: "GST must be a positive number." }),
 });
@@ -766,7 +692,7 @@ function AddRateDialog({
     resolver: zodResolver(addRateSchema),
     defaultValues: {
       rate: '' as any,
-      billDate: new Date(),
+      billDate: format(new Date(), 'yyyy-MM-dd'),
       pageNo: product?.pageNo,
       gst: product?.gst,
     },
@@ -778,7 +704,7 @@ function AddRateDialog({
     if(product) {
         form.reset({
             rate: '' as any,
-            billDate: new Date(),
+            billDate: format(new Date(), 'yyyy-MM-dd'),
             pageNo: product.pageNo,
             gst: product.gst,
         })
@@ -788,9 +714,10 @@ function AddRateDialog({
   async function onSubmit(values: AddRateSchema) {
     if (!product) return;
     setIsSubmitting(true);
-    const result = await addRateAction(product.id, values.rate, values.billDate, values.pageNo, values.gst);
+    const billDate = new Date(values.billDate);
+    const result = await addRateAction(product.id, values.rate, billDate, values.pageNo, values.gst);
     if (result.success && result.rate) {
-      onRateAdded(product.id, result.rate, values.billDate, values.pageNo, values.gst);
+      onRateAdded(product.id, result.rate, billDate, values.pageNo, values.gst);
       toast({ title: 'Success', description: 'New rate added.' });
       setIsOpen(false);
     } else {
@@ -843,26 +770,9 @@ function AddRateDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>New Bill Date</FormLabel>
-                    <DatePickerWithButtons
-                        field={{
-                        value: field.value,
-                        onChange: field.onChange,
-                        }}
-                        trigger={
-                        <FormControl>
-                            <Button
-                            variant={"outline"}
-                            className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                            )}
-                            >
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                        </FormControl>
-                        }
-                    />
+                    <FormControl>
+                        <Input type="date" {...field} />
+                    </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

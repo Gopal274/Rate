@@ -3,6 +3,10 @@ import { z } from "zod";
 export const units = ['kg', 'piece', 'liter', 'meter', 'dozen'] as const;
 export const categories = ['Grocery', 'Electronics', 'Hardware', 'Textiles', 'Stationery', 'Other'] as const;
 
+const billDateSchema = z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "A valid bill date is required.",
+});
+
 // This schema is used for the form and includes the initial rate
 export const productSchema = z.object({
   name: z.string().min(3, { message: "Product name must be at least 3 characters." }),
@@ -10,9 +14,7 @@ export const productSchema = z.object({
   gst: z.coerce.number().min(0, { message: "GST must be a positive number." }),
   partyName: z.string().min(3, { message: "Party name must be at least 3 characters." }),
   pageNo: z.coerce.number().int().min(1, { message: "Page number must be at least 1." }),
-  billDate: z.date({
-    required_error: "A bill date is required.",
-  }),
+  billDate: billDateSchema,
   category: z.enum(categories),
   // The initial rate is only required when creating a new product
   rate: z.coerce.number().min(0.01, { message: "Rate must be a positive number." }),
@@ -29,9 +31,7 @@ export const updateProductSchema = z.object({
   category: z.enum(categories),
   // pageNo and billDate are updated when a new rate is added
   pageNo: z.coerce.number().int().min(1, { message: "Page number must be at least 1." }),
-   billDate: z.date({
-    required_error: "A bill date is required.",
-  }),
+  billDate: billDateSchema,
   // GST is updated via the add rate dialog
   gst: z.coerce.number().min(0, { message: "GST must be a positive number." }),
 });
