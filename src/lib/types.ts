@@ -21,7 +21,7 @@ export const productSchema = z.object({
 export type ProductSchema = z.infer<typeof productSchema>;
 
 
-// This schema is used for updating a product
+// This schema is used for updating a product's core details
 export const updateProductSchema = z.object({
   name: z.string().min(3, { message: "Product name must be at least 3 characters." }),
   unit: z.enum(units),
@@ -32,8 +32,6 @@ export const updateProductSchema = z.object({
     required_error: "A bill date is required.",
   }),
   category: z.enum(categories),
-  // New rate is optional
-  newRate: z.coerce.number().min(0.01, { message: "Rate must be a positive number." }).optional(),
 });
 
 export type UpdateProductSchema = z.infer<typeof updateProductSchema>;

@@ -31,6 +31,7 @@ import {
   addProductAction,
   deleteProductAction,
   updateProductAction,
+  addRateAction,
   deleteRateAction,
   getProductRatesAction,
 } from '@/lib/actions';
@@ -102,9 +103,8 @@ import {
 } from './ui/card';
 import RateSummary from './rate-summary';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { z } from 'zod';
 
-
-type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc';
 
 type ProductWithRates = Product & { rateHistory: Rate[] };
 
@@ -140,7 +140,6 @@ const RateHistory = ({ productId, onDeleteRate }: { productId: string, onDeleteR
         )
     }
     
-    // The latest rate is shown in the main table, so we only show previous rates here.
     const previousRates = rates.slice(1);
 
     if (previousRates.length === 0) {
@@ -196,6 +195,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
 
   const [editingProduct, setEditingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<ProductWithRates | null>(null);
+  const [addingRateToProduct, setAddingRateToProduct] = React.useState<ProductWithRates | null>(null);
   
   const { user } = useUser();
   const { toast } = useToast();
@@ -325,11 +325,19 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <div className="flex items-center justify-center gap-1 no-print">
                     <Tooltip>
                         <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAddingRateToProduct(product)}>
+                                <PlusCircle className="h-4 w-4 text-green-600" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Add New Rate</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingProduct(product)}>
                                 <Edit className="h-4 w-4 text-blue-600" />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Edit Product / Add Rate</TooltipContent>
+                        <TooltipContent>Edit Product Details</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -374,20 +382,31 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     setProducts(prev => [newProductWithRate, ...prev]);
   };
 
-  const onProductUpdated = (updatedProductData: Partial<Product>, newRate?: Rate) => {
+  const onProductUpdated = (updatedProductData: Partial<Product>) => {
     setProducts(prev => prev.map(p => {
         if (p.id === editingProduct?.id) {
             const updatedProduct = { ...p, ...updatedProductData, billDate: new Date(updatedProductData.billDate ?? p.billDate) };
-            if (newRate) {
-              const newRateWithDate = { ...newRate, createdAt: new Date(newRate.createdAt) };
-              updatedProduct.rateHistory = [newRateWithDate, ...p.rateHistory];
-            }
             return updatedProduct;
         }
         return p;
     }));
   };
   
+  const onRateAdded = (productId: string, newRate: Rate, newBillDate: Date, newPageNo: number) => {
+    setProducts(prev => prev.map(p => {
+        if (p.id === productId) {
+            const newRateWithDate = { ...newRate, createdAt: new Date(newRate.createdAt) };
+            return {
+                ...p,
+                rateHistory: [newRateWithDate, ...p.rateHistory],
+                billDate: newBillDate,
+                pageNo: newPageNo
+            };
+        }
+        return p;
+    }));
+  }
+
   const onProductDeleted = (deletedProductId: string) => {
     setProducts(prev => prev.filter(p => p.id !== deletedProductId));
   }
@@ -478,6 +497,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                                         <h4 className="font-semibold mb-2 text-sm flex items-center gap-2"><Sparkles className='w-4 h-4 text-primary' />AI Summary</h4>
                                         <RateSummary product={row.original} />
                                     </div>
+
                                 </div>
                             </TableCell>
                         </TableRow>
@@ -526,6 +546,15 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         />
       )}
 
+      {addingRateToProduct && (
+        <AddRateDialog
+            product={addingRateToProduct}
+            isOpen={!!addingRateToProduct}
+            setIsOpen={(isOpen) => !isOpen && setAddingRateToProduct(null)}
+            onRateAdded={onRateAdded}
+        />
+      )}
+
       <DeleteProductDialog
         product={deletingProduct}
         isOpen={!!deletingProduct}
@@ -558,7 +587,6 @@ const getInitialEditFormValues = (product: ProductWithRates) => {
         pageNo: product.pageNo,
         billDate: new Date(product.billDate),
         category: product.category,
-        newRate: '' as any, // Optional new rate
     };
 };
 
@@ -577,8 +605,10 @@ function ProductFormDialog({
   onProductAction: (product: any, rate?: any) => void;
 }) {
   const isEditing = !!product;
+  const formSchema = isEditing ? updateProductSchema : productSchema;
+  
   const form = useForm({
-    resolver: zodResolver(isEditing ? updateProductSchema : productSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: isEditing ? getInitialEditFormValues(product) : getInitialAddFormValues(),
   });
   const { toast } = useToast();
@@ -604,13 +634,13 @@ function ProductFormDialog({
     form.reset(isEditing ? getInitialEditFormValues(product) : getInitialAddFormValues());
   }, [product, form, isEditing]);
 
-  async function onSubmit(values: ProductSchema | UpdateProductSchema) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
 
     if (isEditing) {
       const result = await updateProductAction(product.id, values as UpdateProductSchema);
       if (result.success) {
-        onProductAction(values, result.rate);
+        onProductAction(values);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -636,7 +666,7 @@ function ProductFormDialog({
           <DialogTitle>{product ? 'Edit Product' : 'Add Product'}</DialogTitle>
           <DialogDescription>
             {product
-              ? 'Update product details. You can optionally add a new rate.'
+              ? "Update this product's details. To add a new rate, use the '+' icon in the table."
               : 'Add a new product to your records.'}
           </DialogDescription>
         </DialogHeader>
@@ -649,15 +679,7 @@ function ProductFormDialog({
                 <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input placeholder="e.g. Basmati Rice" {...field} /></FormControl><FormMessage /></FormItem>
               )}
             />
-            {isEditing ? (
-                 <FormField
-                    control={form.control}
-                    name="newRate"
-                    render={({ field }) => (
-                        <FormItem><FormLabel>New Rate (Optional)</FormLabel><FormControl><Input type="number" step="0.01" placeholder={`Current is ${product.rateHistory[0]?.rate ?? 0}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
-                    )}
-                />
-            ) : (
+            {isEditing ? null : (
                 <FormField
                     control={form.control}
                     name="rate"
@@ -755,6 +777,124 @@ function ProductFormDialog({
     </Dialog>
   );
 }
+
+
+const addRateSchema = z.object({
+  rate: z.coerce.number().min(0.01, { message: "Rate must be a positive number." }),
+  billDate: z.date({ required_error: "A bill date is required." }),
+  pageNo: z.coerce.number().int().min(1, { message: "Page number must be at least 1." }),
+});
+
+type AddRateSchema = z.infer<typeof addRateSchema>;
+
+
+function AddRateDialog({
+  product,
+  isOpen,
+  setIsOpen,
+  onRateAdded,
+}: {
+  product: ProductWithRates | null;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  onRateAdded: (productId: string, newRate: Rate, billDate: Date, pageNo: number) => void;
+}) {
+  const form = useForm<AddRateSchema>({
+    resolver: zodResolver(addRateSchema),
+    defaultValues: {
+      rate: '' as any,
+      billDate: new Date(),
+      pageNo: product?.pageNo,
+    },
+  });
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  async function onSubmit(values: AddRateSchema) {
+    if (!product) return;
+    setIsSubmitting(true);
+    const result = await addRateAction(product.id, values.rate, values.billDate, values.pageNo);
+    if (result.success && result.rate) {
+      onRateAdded(product.id, result.rate, values.billDate, values.pageNo);
+      toast({ title: 'Success', description: 'New rate added.' });
+      setIsOpen(false);
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.message || 'Failed to add rate.' });
+    }
+    setIsSubmitting(false);
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Add New Rate for {product?.name}</DialogTitle>
+          <DialogDescription>
+            Enter the new rate, bill date, and page number for this product.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+            <FormField
+              control={form.control}
+              name="rate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New Rate</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" placeholder={`e.g. ${product?.rateHistory[0]?.rate ?? 100}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+                control={form.control}
+                name="pageNo"
+                render={({ field }) => (
+                    <FormItem><FormLabel>New Page No.</FormLabel><FormControl><Input type="number" placeholder={`e.g. ${product?.pageNo ?? 42}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                )}
+            />
+            <FormField
+              control={form.control}
+              name="billDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>New Bill Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Add Rate'}</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function DeleteProductDialog({
   product,

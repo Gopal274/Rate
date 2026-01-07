@@ -9,11 +9,9 @@ import {
   deleteDoc, 
   query, 
   orderBy,
-  writeBatch,
-  Timestamp,
   runTransaction,
   getDocs,
-  addDoc
+  Timestamp,
 } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -63,9 +61,9 @@ export const addProduct = async (productData: ProductCreationData, initialRate: 
 };
 
 
-export const updateProduct = async (productId: string, updateData: Partial<Omit<UpdateProductSchema, 'newRate'>>): Promise<void> => {
+export const updateProduct = async (productId: string, updateData: Partial<UpdateProductSchema>): Promise<void> => {
   const productDoc = doc(db, PRODUCTS_COLLECTION, productId);
-  const dataToUpdate = { ...updateData };
+  const dataToUpdate: any = { ...updateData };
   if (updateData.billDate) {
     dataToUpdate.billDate = new Date(updateData.billDate as any);
   }
@@ -108,15 +106,23 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
     });
 };
 
-export const addRate = async (productId: string, rate: number): Promise<Rate> => {
-    const ratesCol = collection(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION);
-    
-    const newRateData = {
-        rate,
-        createdAt: serverTimestamp()
-    };
+export const addRate = async (productId: string, rate: number, billDate: Date, pageNo: number): Promise<Rate> => {
+    const productRef = doc(db, PRODUCTS_COLLECTION, productId);
+    const newRateRef = doc(collection(productRef, RATES_SUBCOLLECTION));
 
-    const newRateRef = await addDoc(ratesCol, newRateData);
+    await runTransaction(db, async (transaction) => {
+        // 1. Add the new rate document
+        transaction.set(newRateRef, {
+            rate: rate,
+            createdAt: serverTimestamp()
+        });
+
+        // 2. Update the main product document's billDate and pageNo
+        transaction.update(productRef, {
+            billDate: billDate,
+            pageNo: pageNo
+        });
+    });
 
     // We return a client-side representation. The serverTimestamp will be resolved by Firestore.
     return { id: newRateRef.id, rate, createdAt: new Date() };

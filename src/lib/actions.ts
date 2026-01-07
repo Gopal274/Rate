@@ -37,21 +37,24 @@ export async function addProductAction(formData: ProductFormData) {
   }
 }
 
+export async function addRateAction(productId: string, rate: number, billDate: Date, pageNo: number) {
+    try {
+        const newRate = await addRateToDb(productId, rate, billDate, pageNo);
+        revalidatePath('/');
+        return { success: true, message: 'Rate added successfully.', rate: newRate };
+    } catch (error) {
+        console.error("addRateAction Error:", error);
+        const message = error instanceof Error ? error.message : 'Failed to add rate.';
+        return { success: false, message };
+    }
+}
+
+
 export async function updateProductAction(productId: string, productData: UpdateProductSchema) {
   try {
-    const { newRate, ...dataToUpdate } = productData;
-    let createdRate: Rate | undefined = undefined;
-
-    if (newRate && newRate > 0) {
-        // If there's a new rate, we add it. The data.ts function will handle the transaction.
-        createdRate = await addRateToDb(productId, newRate);
-    }
-    
-    // We always update the main product document with potentially new details.
-    await updateProductInDb(productId, dataToUpdate);
-
+    await updateProductInDb(productId, productData);
     revalidatePath('/');
-    return { success: true, message: 'Product updated successfully.', rate: createdRate };
+    return { success: true, message: 'Product updated successfully.' };
   } catch (error) {
     console.error("updateProductAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to update product.';
