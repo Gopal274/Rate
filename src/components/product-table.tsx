@@ -402,28 +402,34 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                           </TableRow>
                       </CollapsibleTrigger>
                       <CollapsibleContent asChild>
-                          <TableRow className="bg-muted/10">
+                          <TableRow className="bg-muted/10 hover:bg-muted/20">
                             <TableCell colSpan={columns.length} className="p-0">
                                 <div className="p-4">
                                 <h4 className="font-bold mb-2">Rate History for {row.original.name}</h4>
-                                {row.original.rates.slice(1).map((rate) => (
-                                    <div key={rate.id} className="flex justify-between items-center p-2 border-b last:border-b-0">
-                                        <div className="flex-1">
-                                            <span className="font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</span>
-                                            <span className="text-muted-foreground text-sm ml-2">({format(new Date(rate.createdAt), 'PPP')})</span>
-                                        </div>
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingRateInfo({ product: row.original, rate })}>
-                                                        <Trash2 className="h-4 w-4 text-destructive hover:text-destructive" />
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Delete This Rate Entry</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                {row.original.rates.length > 1 ? (
+                                    <div className="space-y-2">
+                                        {row.original.rates.slice(1).map((rate) => (
+                                            <div key={rate.id} className="flex justify-between items-center p-2 border-b last:border-b-0">
+                                                <div>
+                                                    <span className="font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</span>
+                                                    <span className="text-muted-foreground text-sm ml-2">({format(new Date(rate.createdAt), 'PPP')})</span>
+                                                </div>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={() => setDeletingRateInfo({ product: row.original, rate })}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                ) : (
+                                    <p className="text-muted-foreground text-sm p-2">No other rate history available.</p>
+                                )}
                                 </div>
                             </TableCell>
                           </TableRow>
