@@ -318,7 +318,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   const onRateAdded = (productId: string, newRate: Rate, newBillDate: Date, newPageNo: number, newGst: number) => {
      setRateHistories(prev => ({
       ...prev,
-      [productId]: [newRate, ...(prev[productId] ?? [])]
+      [productId]: [newRate, ...(prev[productId] ?? [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
      }));
      setProducts(prev => prev.map(p => {
         if(p.id === productId) {
@@ -481,6 +481,56 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     </Card>
   );
 }
+
+// Custom Date Picker component with Set/Cancel buttons
+function DatePickerWithButtons({
+  field,
+  trigger,
+}: {
+  field: { value: Date; onChange: (date: Date) => void };
+  trigger: React.ReactNode;
+}) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [tempDate, setTempDate] = React.useState<Date | undefined>(field.value);
+
+  const handleSet = () => {
+    if (tempDate) {
+      field.onChange(tempDate);
+    }
+    setIsOpen(false);
+  };
+
+  const handleCancel = () => {
+    setTempDate(field.value); // Reset to original value
+    setIsOpen(false);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setTempDate(field.value); // Set temp date when opening
+    }
+    setIsOpen(open);
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent className="w-auto p-0">
+        <Calendar
+          mode="single"
+          selected={tempDate}
+          onSelect={setTempDate}
+          initialFocus
+        />
+        <div className="flex justify-end gap-2 p-2 border-t">
+            <Button variant="outline" size="sm" onClick={handleCancel}>Cancel</Button>
+            <Button size="sm" onClick={handleSet}>Set</Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 const getInitialAddFormValues = () => {
     return {
@@ -651,8 +701,12 @@ function ProductFormDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Bill Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
+                  <DatePickerWithButtons
+                    field={{
+                      value: field.value,
+                      onChange: field.onChange,
+                    }}
+                    trigger={
                       <FormControl>
                         <Button
                           variant={"outline"}
@@ -669,16 +723,8 @@ function ProductFormDialog({
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                    }
+                  />
                   <FormMessage />
                 </FormItem>
               )}
@@ -797,25 +843,26 @@ function AddRateDialog({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>New Bill Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                    </PopoverContent>
-                  </Popover>
+                    <DatePickerWithButtons
+                        field={{
+                        value: field.value,
+                        onChange: field.onChange,
+                        }}
+                        trigger={
+                        <FormControl>
+                            <Button
+                            variant={"outline"}
+                            className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                            )}
+                            >
+                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                        </FormControl>
+                        }
+                    />
                   <FormMessage />
                 </FormItem>
               )}
