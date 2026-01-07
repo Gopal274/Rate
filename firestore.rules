@@ -8,11 +8,9 @@ service cloud.firestore {
     }
 
     match /products/{productId} {
-      // Any signed-in user can read and write any product.
       allow read, write: if isSignedIn();
       
       match /rates/{rateId} {
-        // Any signed-in user can read and write rates for any product.
         allow read, write: if isSignedIn();
       }
     }
