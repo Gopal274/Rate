@@ -8,12 +8,16 @@ service cloud.firestore {
     }
     
     match /products/{productId} {
-      // Allow users to read (get, list) products they own.
-      // The client query MUST use a where clause: where("ownerId", "==", request.auth.uid)
-      allow read: if isSignedIn() && request.auth.uid == get(/databases/$(database)/documents/products/$(productId)).data.ownerId || (request.query.where.ownerId is string && request.query.where.ownerId == request.auth.uid);
+      // A user can read a product if they are the owner.
+      // This rule applies to both `get` and `list` queries.
+      // For `list` queries, the client MUST use a `where("ownerId", "==", request.auth.uid)` clause.
+      allow read: if isSignedIn() && (
+        (resource != null && resource.data.ownerId == request.auth.uid) ||
+        (request.query.where.ownerId is string && request.query.where.ownerId == request.auth.uid)
+      );
 
-      // Allow users to create, update, and delete products they own.
-      allow write: if isSignedIn() && request.auth.uid == request.resource.data.ownerId;
+      // A user can create, update, or delete a product if they are the owner.
+      allow write: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       
       match /rates/{rateId} {
         // Allow full read/write access to rates for the product owner.

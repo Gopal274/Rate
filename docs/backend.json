@@ -80,7 +80,6 @@
     ]
   },
   "firestore": {
-      "rules": "firestore.rules",
       "collections": {
           "products": {
             "schema": { "$ref": "#/entities/Product" },

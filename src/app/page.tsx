@@ -4,7 +4,7 @@ import AppHeader from '@/components/app-header';
 import { ProductTable } from '@/components/product-table';
 import { AuthForm } from '@/components/auth-form';
 import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, where } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,12 +15,13 @@ export default function Home() {
   const { firestore, isUserLoading } = useFirebase();
   const { user } = useUser();
 
+  // Simplified query: Only filter by ownerId for now.
+  // This helps ensure the basic security rule works before adding complexity.
   const productsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
       collection(firestore, 'products'),
-      where('ownerId', '==', user.uid),
-      orderBy('billDate', 'desc')
+      where('ownerId', '==', user.uid)
     );
   }, [firestore, user]);
 
@@ -28,9 +29,15 @@ export default function Home() {
   
   const enrichedProducts = useMemo(() => {
     if (!products) return [];
-    return products.map(p => ({
+    // Sort products by billDate on the client side
+    const sorted = [...products].sort((a, b) => {
+        const dateA = (a.billDate as any).toDate ? (a.billDate as any).toDate() : new Date(a.billDate);
+        const dateB = (b.billDate as any).toDate ? (b.billDate as any).toDate() : new Date(b.billDate);
+        return dateB.getTime() - dateA.getTime();
+    });
+    return sorted.map(p => ({
         ...p,
-        billDate: (p.billDate as any).toDate ? (p.billDate as any).toDate() : p.billDate,
+        billDate: (p.billDate as any).toDate ? (p.billDate as any).toDate() : new Date(p.billDate),
     }));
   }, [products]);
 
