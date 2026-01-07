@@ -9,15 +9,19 @@ service cloud.firestore {
     
     match /products/{productId} {
       // A user can read a product if they are the owner.
-      // This rule applies to both `get` and `list` queries.
+      // This applies to both `get` and `list` queries.
       // For `list` queries, the client MUST use a `where("ownerId", "==", request.auth.uid)` clause.
       allow read: if isSignedIn() && (
         (resource != null && resource.data.ownerId == request.auth.uid) ||
         (request.query.where.ownerId is string && request.query.where.ownerId == request.auth.uid)
       );
 
-      // A user can create, update, or delete a product if they are the owner.
-      allow write: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      // A user can create a product if the new document's ownerId matches their own.
+      // A user can update or delete a product if the existing document's ownerId matches their own.
+      allow write: if isSignedIn() && (
+        (request.resource.data.ownerId == request.auth.uid) ||
+        (resource.data.ownerId == request.auth.uid)
+      );
       
       match /rates/{rateId} {
         // Allow full read/write access to rates for the product owner.
