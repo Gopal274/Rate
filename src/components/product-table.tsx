@@ -16,6 +16,7 @@ import {
   Trash2,
   Printer,
   ChevronDown,
+  XCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -226,19 +227,8 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       header: () => <div className="text-center no-print">Actions</div>,
       cell: ({ row }) => {
         const product = row.original;
-        const hasMultipleRates = product.rates.length > 1;
         const latestRate = product.rates[0];
-
-        const handleDeleteClick = (e: React.MouseEvent) => {
-            e.stopPropagation();
-            if (hasMultipleRates && latestRate) {
-                // If there are multiple rates, only delete the latest one
-                setDeletingRateInfo({ product, rate: latestRate });
-            } else {
-                // If there's only one rate (or none), delete the whole product
-                setDeletingProduct(product);
-            }
-        };
+        const canDeleteRate = product.rates.length > 1;
 
         return (
           <TooltipProvider>
@@ -261,12 +251,22 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleDeleteClick}>
-                      <Trash2 className="h-4 w-4 text-red-600" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product, rate: latestRate }); }} disabled={!canDeleteRate}>
+                      <Trash2 className="h-4 w-4 text-orange-600" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {hasMultipleRates ? 'Delete Latest Rate' : 'Delete Product & All History'}
+                    Delete Latest Rate
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeletingProduct(product);}}>
+                      <XCircle className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Delete Product & All History
                   </TooltipContent>
                 </Tooltip>
             </div>
@@ -400,56 +400,59 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <React.Fragment key={row.original.id}>
-                      <TableRow 
-                        data-state={row.getIsSelected() && 'selected'} 
-                        className="cursor-pointer"
-                        onClick={() => row.original.rates.length > 1 && toggleCollapsible(row.original.id)}
-                      >
-                          {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
-                              {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                              )}
-                          </TableCell>
-                          ))}
-                      </TableRow>
-                      {openCollapsibles.has(row.original.id) && row.original.rates.length > 1 && (
-                          row.original.rates.slice(1).map((rate, index) => {
-                                const finalRate = rate.rate * (1 + row.original.gst / 100);
-                                return (
-                                <TableRow key={rate.id} className="bg-muted/50 hover:bg-muted/70">
-                                    <TableCell></TableCell>
-                                    <TableCell></TableCell>
-                                    <TableCell></TableCell>
-                                    <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
-                                    <TableCell>{row.original.unit}</TableCell>
-                                    <TableCell>{row.original.gst}%</TableCell>
-                                    <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
-                                    <TableCell>{row.original.partyName}</TableCell>
-                                    <TableCell>{row.original.pageNo}</TableCell>
-                                    <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
-                                    <TableCell>{row.original.category}</TableCell>
-                                    <TableCell className="no-print">
-                                        <TooltipProvider>
-                                            <div className="flex items-center justify-center">
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
-                                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>Delete This Rate Entry</TooltipContent>
-                                                </Tooltip>
-                                            </div>
-                                        </TooltipProvider>
-                                    </TableCell>
-                                </TableRow>
-                                )
-                            })
-                      )}
-                  </React.Fragment>
+                   <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
+                    <>
+                      <CollapsibleTrigger asChild>
+                          <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
+                              {row.getVisibleCells().map((cell) => (
+                              <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
+                                  {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                  )}
+                              </TableCell>
+                              ))}
+                          </TableRow>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent asChild>
+                         <React.Fragment>
+                            {row.original.rates.slice(1).map((rate, index) => {
+                                    const finalRate = rate.rate * (1 + row.original.gst / 100);
+                                    return (
+                                    <TableRow key={rate.id} className="bg-muted/50 hover:bg-muted/70">
+                                        <TableCell></TableCell>
+                                        <TableCell></TableCell>
+                                        <TableCell></TableCell>
+                                        <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                                        <TableCell>{row.original.unit}</TableCell>
+                                        <TableCell>{row.original.gst}%</TableCell>
+                                        <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
+                                        <TableCell>{row.original.partyName}</TableCell>
+                                        <TableCell>{row.original.pageNo}</TableCell>
+                                        <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
+                                        <TableCell>{row.original.category}</TableCell>
+                                        <TableCell className="no-print">
+                                            <TooltipProvider>
+                                                <div className="flex items-center justify-center">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                                    </Tooltip>
+                                                </div>
+                                            </TooltipProvider>
+                                        </TableCell>
+                                    </TableRow>
+                                    )
+                                })
+                            }
+                        </React.Fragment>
+                      </CollapsibleContent>
+                    </>
+                  </Collapsible>
                 ))
               ) : (
                 <TableRow>
