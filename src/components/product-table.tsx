@@ -385,49 +385,49 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
                   <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
-                    <>
-                    <CollapsibleTrigger asChild>
-                        <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
-                            {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
-                                {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                                )}
-                            </TableCell>
-                            ))}
-                        </TableRow>
-                    </CollapsibleTrigger>
-                     <CollapsibleContent asChild>
-                        <>
-                        {row.original.rates.slice(1).map((rate, index) => (
-                            <TableRow key={rate.id} className="bg-muted/50">
-                                <TableCell colSpan={3} className="border-r"></TableCell>
-                                <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
-                                <TableCell>{row.original.unit}</TableCell>
-                                <TableCell>{row.original.gst}%</TableCell>
-                                <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate * (1 + row.original.gst / 100))}</TableCell>
-                                <TableCell>{row.original.partyName}</TableCell>
-                                <TableCell>{row.original.pageNo}</TableCell>
-                                <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
-                                <TableCell>{row.original.category}</TableCell>
-                                <TableCell className="no-print">
-                                     <TooltipProvider>
-                                         <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingRateInfo({ product: row.original, rate })}>
-                                                    <Trash2 className="h-4 w-4 text-destructive hover:text-destructive" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Delete This Rate Entry</TooltipContent>
-                                        </Tooltip>
-                                     </TooltipProvider>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                        </>
-                    </CollapsibleContent>
-                    </>
+                    <tbody>
+                      <CollapsibleTrigger asChild>
+                          <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
+                              {row.getVisibleCells().map((cell) => (
+                              <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
+                                  {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                  )}
+                              </TableCell>
+                              ))}
+                          </TableRow>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent asChild>
+                          <>
+                          {row.original.rates.slice(1).map((rate, index) => (
+                              <TableRow key={rate.id} className="bg-muted/50">
+                                  <TableCell colSpan={3} className="border-r"></TableCell>
+                                  <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                                  <TableCell>{row.original.unit}</TableCell>
+                                  <TableCell>{row.original.gst}%</TableCell>
+                                  <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate * (1 + row.original.gst / 100))}</TableCell>
+                                  <TableCell>{row.original.partyName}</TableCell>
+                                  <TableCell>{row.original.pageNo}</TableCell>
+                                  <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
+                                  <TableCell>{row.original.category}</TableCell>
+                                  <TableCell className="no-print">
+                                      <TooltipProvider>
+                                          <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingRateInfo({ product: row.original, rate })}>
+                                                      <Trash2 className="h-4 w-4 text-destructive hover:text-destructive" />
+                                                  </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                          </Tooltip>
+                                      </TooltipProvider>
+                                  </TableCell>
+                              </TableRow>
+                          ))}
+                          </>
+                      </CollapsibleContent>
+                    </tbody>
                   </Collapsible>
                 ))
               ) : (
