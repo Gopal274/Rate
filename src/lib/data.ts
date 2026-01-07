@@ -1,22 +1,33 @@
 'use server';
 
-import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc, query, orderBy, getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
-import { getFirebaseAdminApp } from '@/firebase/admin';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  serverTimestamp, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  orderBy,
+  writeBatch
+} from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase/index.ts';
 import type { Product, Rate } from './types';
 
-const getDb = () => {
-    return getAdminFirestore(getFirebaseAdminApp());
-}
+
+const { firestore } = initializeFirebase();
 
 export const getProducts = async (): Promise<Product[]> => {
-  const productsCol = collection(getDb(), 'products');
+  const productsCol = collection(firestore, 'products');
   const productSnapshot = await getDocs(productsCol);
   const productList = productSnapshot.docs.map(doc => {
     const data = doc.data();
     return { 
       id: doc.id, 
       ...data,
-      billDate: (data.billDate as any).toDate() // Convert Timestamp to Date
+      billDate: (data.billDate as any).toDate()
     } as Product;
   });
   return productList;
@@ -28,38 +39,47 @@ export const getProductById = async (id: string): Promise<Product | undefined> =
 }
 
 export const addProduct = async (productData: Omit<Product, 'id'>, initialRate: number) => {
-  const productsCol = collection(getDb(), 'products');
-  const newProductRef = await addDoc(productsCol, {
-    ...productData,
-    billDate: productData.billDate, 
-  });
+    const batch = writeBatch(firestore);
 
-  const ratesCol = collection(newProductRef, 'rates');
-  await addDoc(ratesCol, {
-    rate: initialRate,
-    createdAt: serverTimestamp(),
-  });
-  
-  return { id: newProductRef.id, ...productData };
+    const newProductRef = doc(collection(firestore, 'products'));
+    batch.set(newProductRef, productData);
+    
+    const ratesColRef = collection(newProductRef, 'rates');
+    const newRateRef = doc(ratesColRef);
+    batch.set(newRateRef, {
+        rate: initialRate,
+        createdAt: serverTimestamp(),
+    });
+    
+    await batch.commit();
+
+    return { id: newProductRef.id, ...productData, billDate: new Date(productData.billDate) };
 };
 
 export const updateProduct = async (id: string, updateData: Partial<Omit<Product, 'id' | 'ownerId'>>) => {
-  const productDoc = doc(getDb(), 'products', id);
-  await updateDoc(productDoc, updateData);
+  const productDoc = doc(firestore, 'products', id);
+  await updateDoc(productDoc, {
+      ...updateData,
+      billDate: new Date(updateData.billDate as any),
+  });
 };
 
 export const deleteProduct = async (id: string) => {
-    const productDoc = doc(getDb(), 'products', id);
+    const productDoc = doc(firestore, 'products', id);
     const ratesCol = collection(productDoc, 'rates');
     const ratesSnapshot = await getDocs(ratesCol);
-    for (const rateDoc of ratesSnapshot.docs) {
-        await deleteDoc(rateDoc.ref);
-    }
-    await deleteDoc(productDoc);
+    
+    const batch = writeBatch(firestore);
+    ratesSnapshot.forEach(rateDoc => {
+        batch.delete(rateDoc.ref);
+    });
+    batch.delete(productDoc);
+    
+    await batch.commit();
 };
 
 export const getProductRates = async (productId: string): Promise<Rate[]> => {
-  const ratesCol = collection(getDb(), 'products', productId, 'rates');
+  const ratesCol = collection(firestore, 'products', productId, 'rates');
   const q = query(ratesCol, orderBy('createdAt', 'desc'));
   const ratesSnapshot = await getDocs(q);
   return ratesSnapshot.docs.map(doc => {
@@ -67,23 +87,21 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
       return { 
           id: doc.id, 
           rate: data.rate,
-          createdAt: (data.createdAt as any).toDate() // Convert Timestamp to Date
+          createdAt: (data.createdAt as any).toDate()
         } as Rate
     });
 };
 
 export const addRate = async (productId: string, rate: number): Promise<Rate> => {
-  const ratesCol = collection(getDb(), 'products', productId, 'rates');
+  const ratesCol = collection(firestore, 'products', productId, 'rates');
   const newRateRef = await addDoc(ratesCol, {
     rate,
     createdAt: serverTimestamp()
   });
-  // Firestore serverTimestamp is resolved on the server, so we return a placeholder.
-  // The client will refetch or optimistically update with a client-side date.
   return { id: newRateRef.id, rate, createdAt: new Date() }; 
 };
 
 export const deleteRate = async (productId: string, rateId: string) => {
-  const rateDoc = doc(getDb(), 'products', productId, 'rates', rateId);
+  const rateDoc = doc(firestore, 'products', productId, 'rates', rateId);
   await deleteDoc(rateDoc);
 };

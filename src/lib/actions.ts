@@ -9,10 +9,13 @@ import {
   deleteRate as deleteRateFromDb,
   getProductRates as getProductRatesFromDb,
 } from './data';
-import type { Product, Rate } from './types';
+import type { Product, Rate, ProductSchema } from './types';
 import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
 
-export async function addProductAction(productData: Omit<Product, 'id'>, initialRate: number) {
+// Define a type for the product data coming from the form, excluding the rate
+type ProductFormData = Omit<ProductSchema, 'rate'> & { ownerId: string };
+
+export async function addProductAction(productData: ProductFormData, initialRate: number) {
   try {
     const newProduct = await addProductToDb(productData, initialRate);
     revalidatePath('/');
