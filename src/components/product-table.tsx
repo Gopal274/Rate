@@ -179,12 +179,12 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'unit',
       header: 'Unit',
-      cell: ({ row }) => (row.original.isProductRow ? row.original.product.unit : ''),
+      cell: ({ row }) => row.original.product.unit,
     },
     {
       accessorKey: 'gst',
       header: 'GST %',
-      cell: ({ row }) => (row.original.isProductRow ? `${row.original.product.gst}%` : ''),
+      cell: ({ row }) => `${row.original.product.gst}%`,
     },
     {
       id: 'finalRate',
@@ -201,12 +201,12 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'partyName',
       header: 'Party Name',
-      cell: ({ row }) => (row.original.isProductRow ? row.original.product.partyName : ''),
+      cell: ({ row }) => row.original.product.partyName,
     },
     {
       accessorKey: 'pageNo',
       header: 'Page No',
-       cell: ({ row }) => (row.original.isProductRow ? row.original.product.pageNo : ''),
+       cell: ({ row }) => row.original.product.pageNo,
     },
     {
       accessorKey: 'billDate',
@@ -216,7 +216,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'category',
       header: 'Category',
-      cell: ({ row }) => (row.original.isProductRow ? row.original.product.category : ''),
+      cell: ({ row }) => row.original.product.category,
     },
     {
       id: 'actions',
@@ -387,7 +387,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   <React.Fragment key={row.id}>
                     <TableRow data-state={row.getIsSelected() && 'selected'} className={!row.original.isProductRow ? 'bg-muted/50' : ''}>
                         {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '', !row.original.isProductRow && 'py-2', !row.original.isProductRow && ['sNo', 'name', 'unit', 'partyName', 'pageNo', 'category', 'gst'].includes(cell.column.id) ? 'border-r' : '')}>
+                        <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '', !row.original.isProductRow && 'py-2', !row.original.isProductRow && ['sNo', 'name'].includes(cell.column.id) ? 'border-r' : '')}>
                             {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext()
