@@ -19,10 +19,10 @@ import type { Product, Rate, ProductSchema, UpdateProductSchema } from './types'
 
 // Helper to initialize Firebase
 function getDb() {
-  if (!getApps().length) {
+  if (getApps().length === 0) {
     initializeApp(firebaseConfig);
   }
-  return getFirestore();
+  return getFirestore(getApp());
 }
 
 const db = getDb();
