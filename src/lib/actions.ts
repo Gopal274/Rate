@@ -37,9 +37,9 @@ export async function addProductAction(formData: ProductFormData) {
   }
 }
 
-export async function addRateAction(productId: string, rate: number, billDate: Date, pageNo: number) {
+export async function addRateAction(productId: string, rate: number, billDate: Date, pageNo: number, gst: number) {
     try {
-        const newRate = await addRateToDb(productId, rate, billDate, pageNo);
+        const newRate = await addRateToDb(productId, rate, billDate, pageNo, gst);
         revalidatePath('/');
         return { success: true, message: 'Rate added successfully.', rate: newRate };
     } catch (error) {

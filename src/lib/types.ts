@@ -21,17 +21,19 @@ export const productSchema = z.object({
 export type ProductSchema = z.infer<typeof productSchema>;
 
 
-// This schema is used for updating a product's core details
+// This schema is used for updating a product's core details (NOT rate/gst)
 export const updateProductSchema = z.object({
   name: z.string().min(3, { message: "Product name must be at least 3 characters." }),
   unit: z.enum(units),
-  gst: z.coerce.number().min(0, { message: "GST must be a positive number." }),
   partyName: z.string().min(3, { message: "Party name must be at least 3 characters." }),
+  category: z.enum(categories),
+  // pageNo and billDate are updated when a new rate is added
   pageNo: z.coerce.number().int().min(1, { message: "Page number must be at least 1." }),
-  billDate: z.date({
+   billDate: z.date({
     required_error: "A bill date is required.",
   }),
-  category: z.enum(categories),
+  // GST is updated via the add rate dialog
+  gst: z.coerce.number().min(0, { message: "GST must be a positive number." }),
 });
 
 export type UpdateProductSchema = z.infer<typeof updateProductSchema>;

@@ -106,7 +106,7 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
     });
 };
 
-export const addRate = async (productId: string, rate: number, billDate: Date, pageNo: number): Promise<Rate> => {
+export const addRate = async (productId: string, rate: number, billDate: Date, pageNo: number, gst: number): Promise<Rate> => {
     const productRef = doc(db, PRODUCTS_COLLECTION, productId);
     const newRateRef = doc(collection(productRef, RATES_SUBCOLLECTION));
 
@@ -117,10 +117,11 @@ export const addRate = async (productId: string, rate: number, billDate: Date, p
             createdAt: serverTimestamp()
         });
 
-        // 2. Update the main product document's billDate and pageNo
+        // 2. Update the main product document's billDate, pageNo, and gst
         transaction.update(productRef, {
             billDate: billDate,
-            pageNo: pageNo
+            pageNo: pageNo,
+            gst: gst
         });
     });
 
