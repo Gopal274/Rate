@@ -8,16 +8,20 @@ service cloud.firestore {
     }
     
     match /products/{productId} {
-      // Allow users to read products they own, either individually (get) or in a query (list).
-      // This is the standard and correct way to secure user-owned data queries.
-      allow read: if isSignedIn() && request.query.where.ownerId == request.auth.uid;
-      allow get: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      // Rule: Allow a user to query for their own documents.
+      // This is the most common and secure rule for collection reads.
+      // The query from the client MUST include `where('ownerId', '==', request.auth.uid)`.
+      allow list: if isSignedIn() && request.query.where.ownerId == request.auth.uid;
+      
+      // Rule: Allow a user to read, update, or delete a specific document they own.
+      allow get, update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
 
-      // Allow users to create, update, or delete products they own.
-      allow write: if isSignedIn() && request.auth.uid == request.resource.data.ownerId;
+      // Rule: Allow a user to create a document, ensuring they set themselves as the owner.
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       
       match /rates/{rateId} {
         // Allow full read/write access to rates for the product owner.
+        // This works by checking the ownerId of the parent product document.
         allow read, write: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
       }
     }
