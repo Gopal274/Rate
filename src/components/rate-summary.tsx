@@ -1,28 +1,40 @@
-
 'use client';
 
 import { getRateSummaryAction } from '@/lib/actions';
 import React, { useEffect, useState, useTransition } from 'react';
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Skeleton } from './ui/skeleton';
 import { Lightbulb, AlertTriangle, TrendingUp, Sparkles } from 'lucide-react';
 import { SummarizeRateTrendsOutput } from '@/ai/flows/summarize-rate-trends';
+import type { Product, Rate } from '@/lib/types';
+import { getProductRates } from '@/lib/data';
 
 type RateSummaryProps = {
-  productId: string;
+  product: Product;
 };
 
-export default function RateSummary({ productId }: RateSummaryProps) {
+export default function RateSummary({ product }: RateSummaryProps) {
   const [summary, setSummary] = useState<SummarizeRateTrendsOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [rates, setRates] = React.useState<Rate[]>([]);
+  const [isLoadingRates, setIsLoadingRates] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchRates = async () => {
+        setIsLoadingRates(true);
+        const fetchedRates = await getProductRates(product.id);
+        setRates(fetchedRates);
+        setIsLoadingRates(false);
+    };
+    fetchRates();
+  }, [product.id]);
 
   const handleGenerateSummary = () => {
     startTransition(async () => {
       setError(null);
-      const result = await getRateSummaryAction(productId);
+      const result = await getRateSummaryAction(product, rates);
       if ('error' in result) {
         setError(result.error);
       } else {
@@ -30,6 +42,10 @@ export default function RateSummary({ productId }: RateSummaryProps) {
       }
     });
   };
+
+  if (isLoadingRates) {
+    return <Skeleton className="h-10 w-full" />
+  }
 
   if (isPending) {
     return (

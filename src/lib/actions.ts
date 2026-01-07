@@ -1,76 +1,82 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import {
-  addProduct,
-  updateProduct,
-  deleteProduct as removeProduct,
-  updateProductRates,
-  getProductById,
+  addProduct as addProductToDb,
+  updateProduct as updateProductInDb,
+  deleteProduct as deleteProductFromDb,
+  addRate as addRateToDb,
+  deleteRate as deleteRateFromDb,
+  getProductRates,
 } from './data';
 import type { Product, Rate } from './types';
 import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
 
-export async function addProductAction(productData: Omit<Product, 'id' | 'rateHistory'> & { initialRate: number }) {
+export async function addProductAction(productData: Omit<Product, 'id'>, initialRate: number) {
   try {
-    addProduct(productData);
+    const newProduct = await addProductToDb(productData, initialRate);
     revalidatePath('/');
-    return { success: true, message: 'Product added successfully.' };
+    return { success: true, message: 'Product added successfully.', product: newProduct };
   } catch (error) {
-    return { success: false, message: 'Failed to add product.' };
+    const message = error instanceof Error ? error.message : 'Failed to add product.';
+    return { success: false, message };
   }
 }
 
-export async function updateProductAction(productId: string, productData: Partial<Omit<Product, 'id' | 'rateHistory'>>) {
+export async function updateProductAction(productId: string, productData: Partial<Omit<Product, 'id'>>) {
   try {
-    updateProduct(productId, productData);
+    await updateProductInDb(productId, productData);
     revalidatePath('/');
     return { success: true, message: 'Product updated successfully.' };
   } catch (error) {
-    return { success: false, message: 'Failed to update product.' };
+    const message = error instanceof Error ? error.message : 'Failed to update product.';
+    return { success: false, message };
   }
 }
 
 export async function deleteProductAction(productId: string) {
   try {
-    removeProduct(productId);
+    await deleteProductFromDb(productId);
     revalidatePath('/');
     return { success: true, message: 'Product deleted successfully.' };
   } catch (error) {
-    return { success: false, message: 'Failed to delete product.' };
+    const message = error instanceof Error ? error.message : 'Failed to delete product.';
+    return { success: false, message };
   }
 }
 
-export async function addRateAction(productId: string, newRate: Rate) {
+export async function addRateAction(productId: string, rate: number) {
   try {
-    const product = await getProductById(productId);
-    if (!product) {
-      throw new Error('Product not found');
-    }
-    const updatedRates = [...product.rateHistory, newRate];
-    updateProductRates(productId, updatedRates);
+    const newRate = await addRateToDb(productId, rate);
     revalidatePath('/');
-    return { success: true, message: 'Rate added successfully.' };
+    return { success: true, message: 'Rate added successfully.', rate: newRate };
   } catch (error) {
-    return { success: false, message: 'Failed to add rate.' };
+    const message = error instanceof Error ? error.message : 'Failed to add rate.';
+    return { success: false, message };
   }
 }
 
-export async function getRateSummaryAction(productId: string) {
+export async function deleteRateAction(productId: string, rateId: string) {
   try {
-    const product = await getProductById(productId);
-    if (!product) {
-      throw new Error('Product not found');
-    }
+    await deleteRateFromDb(productId, rateId);
+    revalidatePath('/');
+    return { success: true, message: 'Rate deleted successfully.' };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to delete rate.';
+    return { success: false, message };
+  }
+}
 
-    if (product.rateHistory.length < 2) {
+
+export async function getRateSummaryAction(product: Product, rates: Rate[]) {
+  try {
+    if (rates.length < 2) {
       return { summary: "Not enough data to generate a summary.", outliers: [], prediction: "At least two rates are needed for a prediction." };
     }
 
     const summary = await summarizeRateTrends({
       productName: product.name,
-      rateHistory: product.rateHistory.map(r => ({ ...r, date: r.date.toISOString() })),
+      rateHistory: rates.map(r => ({ date: r.createdAt.toDate().toISOString(), rate: r.rate })),
     });
     return summary;
   } catch (error) {

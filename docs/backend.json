@@ -6,10 +6,6 @@
       "type": "object",
       "description": "Represents a product with its details.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Product entity."
-        },
         "name": {
           "type": "string",
           "description": "Name of the product."
@@ -27,7 +23,7 @@
           "description": "Name of the party associated with the product."
         },
         "pageNo": {
-          "type": "string",
+          "type": "number",
           "description": "Page number where the product is recorded."
         },
         "billDate": {
@@ -38,17 +34,21 @@
         "category": {
           "type": "string",
           "description": "Category of the product."
+        },
+        "ownerId": {
+            "type": "string",
+            "description": "The UID of the user who owns this product."
         }
       },
       "required": [
-        "id",
         "name",
         "unit",
         "gst",
         "partyName",
         "pageNo",
         "billDate",
-        "category"
+        "category",
+        "ownerId"
       ]
     },
     "Rate": {
@@ -57,77 +57,40 @@
       "type": "object",
       "description": "Represents a rate entry for a product.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Rate entity."
-        },
-        "productId": {
-          "type": "string",
-          "description": "Reference to Product. (Relationship: Product 1:N Rate)"
-        },
         "rate": {
           "type": "number",
           "description": "The rate of the product at a specific time."
         },
-        "timestamp": {
+        "createdAt": {
           "type": "string",
-          "description": "Timestamp when the rate was recorded.",
+          "description": "Timestamp when the rate was recorded, using server a timestamp.",
           "format": "date-time"
         }
       },
       "required": [
-        "id",
-        "productId",
         "rate",
-        "timestamp"
+        "createdAt"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password",
       "anonymous"
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "products/{productId}",
-        "definition": {
-          "entityName": "Product",
-          "schema": {
-            "$ref": "#/backend/entities/Product"
-          },
-          "description": "Stores product details.  Root level collection to allow listing all products.",
-          "params": [
-            {
-              "name": "productId",
-              "description": "Unique identifier for the product."
+      "rules": "firestore.rules",
+      "collections": {
+          "products": {
+            "schema": { "$ref": "#/entities/Product" },
+            "description": "Stores product documents.",
+            "subcollections": {
+              "rates": {
+                "schema": { "$ref": "#/entities/Rate" },
+                "description": "Stores the rate history for a product."
+              }
             }
-          ]
-        }
-      },
-      {
-        "path": "products/{productId}/rates/{rateId}",
-        "definition": {
-          "entityName": "Rate",
-          "schema": {
-            "$ref": "#/backend/entities/Rate"
-          },
-          "description": "Stores the rate history for a specific product. Subcollection allows listing rates for a product.",
-          "params": [
-            {
-              "name": "productId",
-              "description": "Unique identifier for the product."
-            },
-            {
-              "name": "rateId",
-              "description": "Unique identifier for the rate entry."
-            }
-          ]
-        }
+          }
       }
-    ],
-    "reasoning": "The Firestore database is structured to manage product information and their rate history. Each product is stored as a document in the `products` collection, and each product's rate history is stored in a subcollection named `rates` under the corresponding product document. This structure allows for easy retrieval of a product's details and its rate history. The design achieves Authorization Independence because there are no complex dependencies. QAPs are supported since access is always done by `request.auth.uid` to the `products` and `rates` collections, therefore, enabling secure `list` operations."
   }
 }

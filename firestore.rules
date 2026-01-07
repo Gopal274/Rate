@@ -1,92 +1,21 @@
-/**
- * Core Philosophy:
- * This ruleset establishes a "Public Read, Owner-Only Write" security model. The intention is to allow any user (authenticated or not)
- * to view product and rate information, which is common for public-facing catalogs. However, all write operations (creating, updating,
- * or deleting products and their rates) are strictly locked down and require a clear ownership link.
- *
- * CRITICAL NOTE FOR DEVELOPERS: The current data schema for 'Product' and 'Rate' is missing an ownership field (e.g., 'ownerId' or 'creatorId').
- * Without this field, it's impossible to securely determine who is allowed to modify the data. Therefore, all write operations are
- * currently disabled. To enable writes, you MUST add an 'ownerId' field to the 'Product' documents.
- *
- * Data Structure:
- * - /products/{productId}: A root collection storing individual product documents.
- * - /products/{productId}/rates/{rateId}: A subcollection under each product to store its price history.
- *
- * Key Security Decisions:
- * - Public Reads for Individual Documents: Anyone can `get` a specific product or rate document if they know its ID.
- * - No Public Listing: To prevent exposing all product data from all users in bulk, `list` operations are disabled. Client applications
- *   must build queries that are secured by an ownership field (e.g., `collection('products').where('ownerId', '==', auth.uid)`).
- * - Writes Disabled by Default: All `create`, `update`, and `delete` operations are explicitly set to `false` until an ownership model is
- *   implemented in the data schema. Placeholder TODOs guide this implementation.
- *
- * Denormalization for Authorization:
- * To enable secure and performant rules, it is essential to denormalize an 'ownerId' field onto every 'Product' document. This allows
- * for a simple and fast rule like `resource.data.ownerId == request.auth.uid` without needing extra database reads.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions to improve readability and reuse.
-    
-    /**
-     * Checks if the user is authenticated.
-     */
+  
     function isSignedIn() {
       return request.auth != null;
     }
-
-    /**
-     * @description
-     *   Manages product documents. Products are publicly readable as individual
-     *   documents, but cannot be listed in bulk. All write operations are
-     *   disabled until an ownership field (e.g., 'ownerId') is added to the
-     *   Product schema to identify the creator.
-     * @path /products/{productId}
-     * @allow (get) Any user, signed in or not, can fetch a single product by its ID.
-     * @deny (list) No user can list the entire products collection.
-     * @deny (create, update, delete) Any write attempt will be denied because ownership cannot be verified.
-     * @principle
-     *   Public read access for individual items, with writes locked pending a schema update for ownership.
-     *   Disabling `list` prevents unauthorized bulk data exposure.
-     */
+    
     match /products/{productId} {
-      allow get: if true;
-      allow list: if false;
-
-      // CRITICAL: Cannot implement owner-only writes. The 'Product' entity is missing an 'ownerId' or 'authorId' field.
-      // All write operations are disabled to prevent unauthorized data modification.
-      // TODO: Add an 'ownerId' field to your Product documents and update these rules.
-      // Example for 'create': allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      // Example for 'update/delete': allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow delete: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-
-      /**
-       * @description
-       *   Manages the price history for a specific product. Individual rate entries
-       *   are publicly readable. Writes are disabled because they depend on the
-       *   ownership of the parent product, which cannot currently be established.
-       * @path /products/{productId}/rates/{rateId}
-       * @allow (get) Any user can fetch a single rate entry by its ID.
-       * @deny (list) No user can list all rates for a product directly via rules.
-       * @deny (create, update, delete) All write attempts are denied.
-       * @principle
-       *   Access to this subcollection is governed by the parent document. Since the parent's
-       *   ownership cannot be verified, writes are disabled here as well.
-       */
+      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      
       match /rates/{rateId} {
-        allow get: if true;
-        allow list: if false;
-
-        // CRITICAL: Write access to a subcollection depends on the parent document's ownership.
-        // Since the parent /products/{productId} document has no 'ownerId' field, these operations are disabled.
-        // TODO: Once the parent Product has an 'ownerId', secure these rules by checking that parent document.
-        // Example: allow create, update, delete: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
+        allow read: if isSignedIn();
         allow create: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
-        allow update: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
-        allow delete: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
+        allow update, delete: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
       }
     }
   }

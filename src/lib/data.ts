@@ -1,115 +1,79 @@
+import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit, getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
+import { getFirebaseAdminApp } from '@/firebase/admin';
 import type { Product, Rate } from './types';
-import { format } from 'date-fns';
+import { getFirestore } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 
-let products: Product[] = [
-  {
-    id: '1',
-    name: 'Premium Basmati Rice',
-    unit: 'kg',
-    gst: 5,
-    partyName: 'Global Foods Inc.',
-    pageNumber: 12,
-    billDate: new Date('2023-10-15'),
-    category: 'Grocery',
-    rateHistory: [
-      { date: new Date('2023-10-15'), rate: 120 },
-      { date: new Date('2023-11-20'), rate: 125 },
-      { date: new Date('2024-01-10'), rate: 122 },
-      { date: new Date('2024-03-05'), rate: 130 },
-      { date: new Date('2024-05-21'), rate: 135 },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Organic Whole Wheat Flour',
-    unit: 'kg',
-    gst: 5,
-    partyName: 'Nature\'s Harvest',
-    pageNumber: 18,
-    billDate: new Date('2023-11-02'),
-    category: 'Grocery',
-    rateHistory: [
-      { date: new Date('2023-11-02'), rate: 55 },
-      { date: new Date('2024-02-14'), rate: 58 },
-      { date: new Date('2024-04-30'), rate: 60 },
-    ],
-  },
-  {
-    id: '3',
-    name: 'LED Monitor 24-inch',
-    unit: 'piece',
-    gst: 18,
-    partyName: 'Tech Solutions Ltd.',
-    pageNumber: 25,
-    billDate: new Date('2024-01-20'),
-    category: 'Electronics',
-    rateHistory: [
-      { date: new Date('2024-01-20'), rate: 15000 },
-      { date: new Date('2024-03-10'), rate: 14500 },
-      { date: new Date('2024-05-15'), rate: 14800 },
-    ],
-  },
-  {
-    id: '4',
-    name: 'Cotton Fabric',
-    unit: 'meter',
-    gst: 12,
-    partyName: 'Textile Emporium',
-    pageNumber: 31,
-    billDate: new Date('2024-02-11'),
-    category: 'Textiles',
-    rateHistory: [{ date: new Date('2024-02-11'), rate: 350 }],
-  },
-  {
-    id: '5',
-    name: 'Sunflower Oil',
-    unit: 'liter',
-    gst: 5,
-    partyName: 'Global Foods Inc.',
-    pageNumber: 45,
-    billDate: new Date('2024-04-05'),
-    category: 'Grocery',
-    rateHistory: [
-        { date: new Date('2024-04-05'), rate: 150 },
-        { date: new Date('2024-06-01'), rate: 155 },
-    ],
-  },
-];
+const getDb = () => {
+    try {
+        return getAdminFirestore(getFirebaseAdminApp());
+    } catch (e) {
+        // This will fail on the client-side, which is expected.
+        return getFirestore(initializeFirebase().firebaseApp);
+    }
+}
 
-// Simulate network delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, 500));
 
 export const getProducts = async (): Promise<Product[]> => {
-  // await delay(10);
-  return products;
+  const productsCol = collection(getDb(), 'products');
+  const productSnapshot = await getDocs(productsCol);
+  const productList = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+  return productList;
 };
 
 export const getProductById = async (id: string): Promise<Product | undefined> => {
-  // await delay(10);
+  const products = await getProducts();
   return products.find(p => p.id === id);
 }
 
-export const addProduct = (productData: Omit<Product, 'id' | 'rateHistory'> & { initialRate: number }) => {
-  const newProduct: Product = {
+export const addProduct = async (productData: Omit<Product, 'id'>, initialRate: number) => {
+  const productsCol = collection(getDb(), 'products');
+  const newProductRef = await addDoc(productsCol, {
     ...productData,
-    id: (products.length + 1).toString(),
-    rateHistory: [{ date: productData.billDate, rate: productData.initialRate }],
-  };
-  products.unshift(newProduct);
-  return newProduct;
+    billDate: productData.billDate, // Already a Date object
+  });
+
+  const ratesCol = collection(newProductRef, 'rates');
+  await addDoc(ratesCol, {
+    rate: initialRate,
+    createdAt: serverTimestamp(),
+  });
+  
+  return { id: newProductRef.id, ...productData };
 };
 
-export const updateProduct = (id: string, updateData: Partial<Product>) => {
-  products = products.map(p => (p.id === id ? { ...p, ...updateData } : p));
-  return products.find(p => p.id === id);
+export const updateProduct = async (id: string, updateData: Partial<Product>) => {
+  const productDoc = doc(getDb(), 'products', id);
+  await updateDoc(productDoc, updateData);
 };
 
-export const updateProductRates = (id: string, rates: Rate[]) => {
-  products = products.map(p => (p.id === id ? { ...p, rateHistory: rates } : p));
-  return products.find(p => p.id === id);
-}
+export const deleteProduct = async (id: string) => {
+    const productDoc = doc(getDb(), 'products', id);
+    const ratesCol = collection(productDoc, 'rates');
+    const ratesSnapshot = await getDocs(ratesCol);
+    for (const rateDoc of ratesSnapshot.docs) {
+        await deleteDoc(rateDoc.ref);
+    }
+    await deleteDoc(productDoc);
+};
 
-export const deleteProduct = (id: string) => {
-  products = products.filter(p => p.id !== id);
-  return true;
+export const getProductRates = async (productId: string): Promise<Rate[]> => {
+  const ratesCol = collection(getDb(), 'products', productId, 'rates');
+  const q = query(ratesCol, orderBy('createdAt', 'desc'));
+  const ratesSnapshot = await getDocs(q);
+  return ratesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Rate));
+};
+
+export const addRate = async (productId: string, rate: number): Promise<Rate> => {
+  const ratesCol = collection(getDb(), 'products', productId, 'rates');
+  const newRateRef = await addDoc(ratesCol, {
+    rate,
+    createdAt: serverTimestamp()
+  });
+  return { id: newRateRef.id, rate, createdAt: new Date() }; // return optimistic response
+};
+
+export const deleteRate = async (productId: string, rateId: string) => {
+  const rateDoc = doc(getDb(), 'products', productId, 'rates', rateId);
+  await deleteDoc(rateDoc);
 };
