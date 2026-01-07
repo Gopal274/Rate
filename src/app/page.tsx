@@ -2,17 +2,17 @@
 
 import AppHeader from '@/components/app-header';
 import { ProductTable } from '@/components/product-table';
+import { AuthForm } from '@/components/auth-form';
 import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, where } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, LogIn } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import type { Product } from '@/lib/types';
-import { Button } from '@/components/ui/button';
 
 export default function Home() {
-  const { firestore, auth, isUserLoading } = useFirebase();
+  const { firestore, isUserLoading } = useFirebase();
   const { user } = useUser();
 
   const productsQuery = useMemoFirebase(() => {
@@ -26,15 +26,8 @@ export default function Home() {
 
   const { data: products, isLoading, error } = useCollection<Product>(productsQuery);
   
-  const handleSignIn = () => {
-      import('firebase/auth').then(({ signInAnonymously }) => {
-          signInAnonymously(auth);
-      });
-  }
-
   const enrichedProducts = useMemo(() => {
     if (!products) return [];
-    // The useCollection hook now returns dates correctly if they are Timestamps
     return products.map(p => ({
         ...p,
         billDate: (p.billDate as any).toDate ? (p.billDate as any).toDate() : p.billDate,
@@ -62,15 +55,7 @@ export default function Home() {
         <div className="flex flex-col min-h-screen bg-background">
             <AppHeader />
             <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8 flex items-center justify-center">
-                 <div className="text-center">
-                    <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h2 className="mt-4 text-xl font-semibold">Please Sign In</h2>
-                    <p className="mt-2 text-muted-foreground">You need to be signed in to manage your products.</p>
-                    <Button onClick={handleSignIn} className="mt-4">
-                        <LogIn className="mr-2 h-4 w-4" />
-                        Sign In Anonymously
-                    </Button>
-                </div>
+                 <AuthForm />
             </main>
         </div>
     )

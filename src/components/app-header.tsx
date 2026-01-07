@@ -3,23 +3,23 @@
 import { Logo } from './icons';
 import { useUser, useFirebase } from '@/firebase';
 import { Button } from './ui/button';
-import { signInAnonymously, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { User as UserIcon, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 
 function UserNav() {
     const { user } = useUser();
     const { auth } = useFirebase();
 
     if(!user) {
-        return <Button onClick={() => signInAnonymously(auth)}>Sign In</Button>
+        return null;
     }
 
     const getInitials = (name?: string | null) => {
         if (!name) return 'U';
         const names = name.split(' ');
-        if (names.length > 1) {
+        if (names.length > 1 && names[1]) {
             return names[0][0] + names[names.length - 1][0];
         }
         return names[0][0];
