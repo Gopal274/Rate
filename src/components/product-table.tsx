@@ -20,7 +20,6 @@ import {
   Edit,
   PlusCircle,
   Trash2,
-  MoreHorizontal,
   ChevronDown,
   ChevronRight,
   Printer,
@@ -61,14 +60,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Form,
   FormControl,
@@ -111,15 +102,17 @@ import {
   CardTitle,
 } from './ui/card';
 import RateSummary from './rate-summary';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 
 type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc';
 
 type ProductWithRates = Product & { rateHistory: Rate[] };
 
-const RateHistory = ({ productId }: { productId: string }) => {
+const RateHistory = ({ productId, onDeleteRate }: { productId: string, onDeleteRate: (rateId: string) => void }) => {
     const [rates, setRates] = React.useState<Rate[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
+    const [deletingRate, setDeletingRate] = React.useState<Rate | null>(null);
     const { toast } = useToast();
 
     React.useEffect(() => {
@@ -147,15 +140,17 @@ const RateHistory = ({ productId }: { productId: string }) => {
             </div>
         )
     }
+    
+    // The latest rate is shown in the main table, so we only show previous rates here.
+    const previousRates = rates.slice(1);
 
-    if (rates.length <= 1) {
+    if (previousRates.length === 0) {
         return <div className="p-4 text-center text-sm text-muted-foreground">No previous rate history.</div>;
     }
-    
-    const previousRates = rates.slice(1);
 
 
     return (
+      <>
         <div className="p-4 bg-muted/50">
             <h4 className="font-semibold mb-2 text-sm">Rate History</h4>
             <Table>
@@ -163,6 +158,7 @@ const RateHistory = ({ productId }: { productId: string }) => {
                     <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead className="text-right">Rate</TableHead>
+                        <TableHead className='text-right'>Delete</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -170,15 +166,42 @@ const RateHistory = ({ productId }: { productId: string }) => {
                         <TableRow key={rate.id}>
                             <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
                             <TableCell className="text-right">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                            <TableCell className='text-right'>
+                                <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive hover:text-destructive' onClick={() => setDeletingRate(rate)}>
+                                    <Trash2 className='h-4 w-4' />
+                                </Button>
+                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
             </Table>
         </div>
+        <DeleteRateDialog
+            rateInfo={deletingRate ? { product: {id: productId}, rate: deletingRate } : null}
+            isOpen={!!deletingRate}
+            setIsOpen={(isOpen) => !isOpen && setDeletingRate(null)}
+            onRateDeleted={(prodId, rateId) => {
+                setRates(prev => prev.filter(r => r.id !== rateId))
+                onDeleteRate(rateId);
+            }}
+        />
+      </>
     );
 };
 
-const AddRateForm = ({ product, onRateAdded }: { product: ProductWithRates, onRateAdded: (newRate: Rate) => void }) => {
+const AddRateDialog = ({ 
+    product,
+    onRateAdded,
+    children,
+    isOpen,
+    setIsOpen,
+} : {
+    product: ProductWithRates, 
+    onRateAdded: (newRate: Rate) => void,
+    children: React.ReactNode,
+    isOpen: boolean,
+    setIsOpen: (open: boolean) => void,
+}) => {
     const [newRate, setNewRate] = React.useState('');
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const { toast } = useToast();
@@ -195,28 +218,43 @@ const AddRateForm = ({ product, onRateAdded }: { product: ProductWithRates, onRa
         const result = await addRateAction(product.id, rateValue);
         if(result.success && result.rate) {
             onRateAdded(result.rate);
-            setNewRate('');
             toast({ title: 'Success', description: result.message });
+            setNewRate('');
+            setIsOpen(false);
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
         setIsSubmitting(false);
     }
+    
+    const handleOpenChange = (open: boolean) => {
+        if(!open) setNewRate('');
+        setIsOpen(open);
+    }
 
     return (
-        <form onSubmit={handleAddRate} className="flex items-center gap-2 p-2 border-b">
-            <Input 
-                type="number"
-                placeholder="Enter New Rate"
-                value={newRate}
-                onChange={(e) => setNewRate(e.target.value)}
-                className="h-8"
-                step="0.01"
-            />
-            <Button type="submit" size="sm" disabled={isSubmitting}>
-                {isSubmitting ? 'Adding...' : 'Add Rate'}
-            </Button>
-        </form>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add New Rate for {product.name}</DialogTitle>
+                    <DialogDescription>The current rate is {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(product.rateHistory[0]?.rate ?? 0)}. Enter the new rate below.</DialogDescription>
+                </DialogHeader>
+                 <form onSubmit={handleAddRate} className="flex items-center gap-2 py-4">
+                    <Input 
+                        type="number"
+                        placeholder="Enter New Rate"
+                        value={newRate}
+                        onChange={(e) => setNewRate(e.target.value)}
+                        className="h-9"
+                        step="0.01"
+                    />
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? 'Adding...' : 'Add Rate'}
+                    </Button>
+                </form>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -228,7 +266,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
 
   const [editingProduct, setEditingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<ProductWithRates | null>(null);
-  const [deletingRateInfo, setDeletingRateInfo] = React.useState<{product: ProductWithRates, rate: Rate} | null>(null);
+  const [addingRateProduct, setAddingRateProduct] = React.useState<ProductWithRates | null>(null);
   
   const { user } = useUser();
   const { toast } = useToast();
@@ -239,11 +277,11 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             initialProducts.map(async (product) => {
                 try {
                     const fetchedRates = await getProductRatesAction(product.id);
-                    return { ...product, rateHistory: fetchedRates };
+                    return { ...product, billDate: new Date(product.billDate), rateHistory: fetchedRates };
                 } catch (error) {
                     console.error(`Failed to fetch rates for product ${product.id}:`, error);
                     toast({ variant: 'destructive', title: 'Fetch Error', description: `Could not load rates for ${product.name}.` });
-                    return { ...product, rateHistory: [] };
+                    return { ...product, billDate: new Date(product.billDate), rateHistory: [] };
                 }
             })
         );
@@ -349,42 +387,39 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     { accessorKey: 'category', header: 'Category'},
     {
       id: 'actions',
+      header: () => <div className="text-center no-print">Actions</div>,
       cell: ({ row }) => {
         const product = row.original;
-        const latestRate = product.rateHistory[0];
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0 no-print">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setEditingProduct(product)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Product
-              </DropdownMenuItem>
-              {product.rateHistory.length > 0 && latestRate?.id && (
-                <DropdownMenuItem 
-                    className="text-orange-600 focus:text-orange-600 focus:bg-orange-50"
-                    onClick={() => setDeletingRateInfo({ product, rate: latestRate })}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Latest Rate
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                onClick={() => setDeletingProduct(product)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Product
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <TooltipProvider>
+                <div className="flex items-center justify-center gap-1 no-print">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAddingRateProduct(product)}>
+                                <PlusCircle className="h-4 w-4 text-green-600" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Add New Rate</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingProduct(product)}>
+                                <Edit className="h-4 w-4 text-blue-600" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Edit Product</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingProduct(product)}>
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete Product</TooltipContent>
+                    </Tooltip>
+                </div>
+            </TooltipProvider>
         );
       },
     },
@@ -412,16 +447,19 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   const onProductAdded = (newProduct: Product, initialRate: Rate) => {
     const newProductWithRate: ProductWithRates = {
         ...newProduct,
+        billDate: new Date(newProduct.billDate),
         rateHistory: [initialRate]
     }
-    setProducts(prev => {
-        const newProducts = [newProductWithRate, ...prev];
-        return newProducts;
-    });
+    setProducts(prev => [newProductWithRate, ...prev]);
   };
 
   const onProductUpdated = (updatedProductData: Partial<Product>) => {
-    setProducts(prev => prev.map(p => p.id === editingProduct?.id ? { ...p, ...updatedProductData } : p));
+    setProducts(prev => prev.map(p => {
+        if (p.id === editingProduct?.id) {
+            return { ...p, ...updatedProductData, billDate: new Date(updatedProductData.billDate ?? p.billDate) };
+        }
+        return p;
+    }));
   };
   
   const onProductDeleted = (deletedProductId: string) => {
@@ -513,8 +551,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                             <TableCell colSpan={columns.length}>
                                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                                     <div>
-                                        <AddRateForm product={row.original} onRateAdded={(newRate) => onRateAdded(row.original.id, newRate)} />
-                                        <RateHistory productId={row.original.id} />
+                                        <RateHistory productId={row.original.id} onDeleteRate={(rateId) => onRateDeleted(row.original.id, rateId)} />
                                     </div>
                                     <div className='p-4'>
                                         <h4 className="font-semibold mb-2 text-sm flex items-center gap-2"><Sparkles className='w-4 h-4 text-primary' />AI Summary</h4>
@@ -568,19 +605,24 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         />
       )}
 
+      {addingRateProduct && (
+        <AddRateDialog
+            product={addingRateProduct}
+            isOpen={!!addingRateProduct}
+            setIsOpen={(isOpen) => !isOpen && setAddingRateProduct(null)}
+            onRateAdded={(newRate) => onRateAdded(addingRateProduct.id, newRate)}
+        >
+            {/* This is a dialog, so it doesn't need a visible trigger child here */}
+            <span/>
+        </AddRateDialog>
+      )}
+
       <DeleteProductDialog
         product={deletingProduct}
         isOpen={!!deletingProduct}
         setIsOpen={(isOpen) => !isOpen && setDeletingProduct(null)}
         onProductDeleted={onProductDeleted}
       />
-      
-      <DeleteRateDialog
-        rateInfo={deletingRateInfo}
-        isOpen={!!deletingRateInfo}
-        setIsOpen={(isOpen) => !isOpen && setDeletingRateInfo(null)}
-        onRateDeleted={onRateDeleted}
-       />
     </Card>
   );
 }
@@ -700,7 +742,7 @@ function ProductFormDialog({
               control={form.control}
               name="rate"
               render={({ field }) => (
-                <FormItem><FormLabel>{product ? 'Latest Rate (not editable)' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value)} disabled={!!product} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>{product ? 'Latest Rate (not editable)' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} disabled={!!product} /></FormControl><FormMessage /></FormItem>
               )}
             />
             <FormField
@@ -736,11 +778,11 @@ function ProductFormDialog({
             </div>
              <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="gst" render={({ field }) => (
-                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value)}/></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))}/></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name="pageNo" render={({ field }) => (
-                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value)} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
             </div>
@@ -847,7 +889,7 @@ function DeleteRateDialog({
   setIsOpen,
   onRateDeleted
 }: {
-  rateInfo: {product: ProductWithRates, rate: Rate} | null;
+  rateInfo: {product: Partial<Product>, rate: Rate} | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   onRateDeleted: (productId: string, rateId: string) => void;
@@ -856,7 +898,7 @@ function DeleteRateDialog({
     const [isDeleting, setIsDeleting] = React.useState(false);
 
     const handleDelete = async () => {
-        if (!rateInfo || !rateInfo.rate.id) return;
+        if (!rateInfo?.product.id || !rateInfo.rate.id) return;
         setIsDeleting(true);
         const result = await deleteRateAction(rateInfo.product.id, rateInfo.rate.id);
         if (result.success) {
@@ -875,9 +917,9 @@ function DeleteRateDialog({
         <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
-            <AlertDialogTitle>Delete Latest Rate?</AlertDialogTitle>
+            <AlertDialogTitle>Delete This Rate?</AlertDialogTitle>
             <AlertDialogDescription>
-                Are you sure you want to delete the latest rate of <span className="font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rateInfo.rate.rate)}</span> for <span className="font-semibold text-foreground">{rateInfo.product.name}</span>? This action cannot be undone.
+                Are you sure you want to delete the rate of <span className="font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rateInfo.rate.rate)}</span> from <span className="font-semibold text-foreground">{format(new Date(rateInfo.rate.createdAt), 'PPP')}</span>? This action cannot be undone.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
