@@ -251,7 +251,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Delete Product & All History</TooltipContent>
+                  <TooltipContent>Delete Product &amp; All History</TooltipContent>
                 </Tooltip>
             </div>
           </TooltipProvider>
@@ -385,7 +385,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
                   <Collapsible asChild key={row.original.id} open={openCollapsibles.has(row.original.id)} onOpenChange={() => toggleCollapsible(row.original.id)}>
-                    <tbody>
+                    <>
                       <CollapsibleTrigger asChild>
                           <TableRow data-state={row.getIsSelected() && 'selected'} className="cursor-pointer">
                               {row.getVisibleCells().map((cell) => (
@@ -427,7 +427,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                           ))}
                           </>
                       </CollapsibleContent>
-                    </tbody>
+                    </>
                   </Collapsible>
                 ))
               ) : (
