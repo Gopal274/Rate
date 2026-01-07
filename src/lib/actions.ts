@@ -15,9 +15,9 @@ import { summarizeRateTrends } from '@/ai/flows/summarize-rate-trends';
 // Define a type for the product data coming from the form, excluding the rate
 type ProductFormData = Omit<ProductSchema, 'rate'>;
 
-export async function addProductAction(productData: ProductFormData, initialRate: number, ownerId: string) {
+export async function addProductAction(productData: ProductFormData, initialRate: number) {
   try {
-    const newProduct = await addProductToDb({ ...productData, ownerId }, initialRate);
+    const newProduct = await addProductToDb({ ...productData }, initialRate);
     revalidatePath('/');
     return { success: true, message: 'Product added successfully.', product: newProduct };
   } catch (error) {
@@ -26,7 +26,7 @@ export async function addProductAction(productData: ProductFormData, initialRate
   }
 }
 
-export async function updateProductAction(productId: string, productData: Partial<Omit<Product, 'id' | 'ownerId'>>) {
+export async function updateProductAction(productId: string, productData: Partial<Omit<Product, 'id'>>) {
   try {
     await updateProductInDb(productId, productData);
     revalidatePath('/');

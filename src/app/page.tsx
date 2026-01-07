@@ -4,7 +4,7 @@ import AppHeader from '@/components/app-header';
 import { ProductTable } from '@/components/product-table';
 import { AuthForm } from '@/components/auth-form';
 import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,15 +15,11 @@ export default function Home() {
   const { firestore, isUserLoading } = useFirebase();
   const { user } = useUser();
 
-  // Simplified query: Only filter by ownerId for now.
-  // This helps ensure the basic security rule works before adding complexity.
   const productsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-      collection(firestore, 'products'),
-      where('ownerId', '==', user.uid)
-    );
-  }, [firestore, user]);
+    if (!firestore) return null;
+    // Fetch all products, removing the ownerId filter.
+    return query(collection(firestore, 'products'));
+  }, [firestore]);
 
   const { data: products, isLoading, error } = useCollection<Product>(productsQuery);
   

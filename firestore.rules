@@ -8,23 +8,12 @@ service cloud.firestore {
     }
 
     match /products/{productId} {
-      // READ: A user can read a product if they are the owner.
-      // This applies to single document reads (get) and queries (list).
-      // For list queries, the client MUST use a `where("ownerId", "==", request.auth.uid)` clause.
-      allow read: if isSignedIn() && (
-        (resource != null && resource.data.ownerId == request.auth.uid) ||
-        (request.query.where.ownerId is string && request.query.where.ownerId == request.auth.uid)
-      );
-
-      // CREATE: A user can create a product if the new document's ownerId matches their own.
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      
-      // UPDATE, DELETE: A user can update or delete a product if the existing document's ownerId matches their own.
-      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      // Any signed-in user can read and write any product.
+      allow read, write: if isSignedIn();
       
       match /rates/{rateId} {
-        // Allow full read/write access to rates for the product owner.
-        allow read, write: if isSignedIn() && get(/databases/$(database)/documents/products/$(productId)).data.ownerId == request.auth.uid;
+        // Any signed-in user can read and write rates for any product.
+        allow read, write: if isSignedIn();
       }
     }
   }

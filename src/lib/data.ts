@@ -50,15 +50,12 @@ export const getProductById = async (id: string): Promise<Product | undefined> =
 export const addProduct = async (productData: Omit<Product, 'id'>, initialRate: number) => {
     const batch = writeBatch(firestore);
 
-    // This is the data that will be saved for the new product.
-    // It correctly includes all fields from productData, including ownerId.
     const newProductData = {
         ...productData,
         billDate: new Date(productData.billDate as any),
     };
 
     const newProductRef = doc(collection(firestore, 'products'));
-    // Use the complete newProductData object which contains ownerId.
     batch.set(newProductRef, newProductData);
     
     const ratesColRef = collection(newProductRef, 'rates');
@@ -70,11 +67,10 @@ export const addProduct = async (productData: Omit<Product, 'id'>, initialRate: 
     
     await batch.commit();
 
-    // Return the newly created product data for optimistic UI updates.
     return { id: newProductRef.id, ...newProductData };
 };
 
-export const updateProduct = async (id: string, updateData: Partial<Omit<Product, 'id' | 'ownerId'>>) => {
+export const updateProduct = async (id: string, updateData: Partial<Omit<Product, 'id'>>) => {
   const productDoc = doc(firestore, 'products', id);
   await updateDoc(productDoc, {
       ...updateData,

@@ -34,10 +34,6 @@
         "category": {
           "type": "string",
           "description": "Category of the product."
-        },
-        "ownerId": {
-            "type": "string",
-            "description": "The UID of the user who owns this product."
         }
       },
       "required": [
@@ -47,8 +43,7 @@
         "partyName",
         "pageNo",
         "billDate",
-        "category",
-        "ownerId"
+        "category"
       ]
     },
     "Rate": {

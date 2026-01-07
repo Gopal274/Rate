@@ -6,9 +6,9 @@ export const categories = ['Grocery', 'Electronics', 'Hardware', 'Textiles', 'St
 export const productSchema = z.object({
   name: z.string().min(3, { message: "Product name must be at least 3 characters." }),
   unit: z.enum(units),
-  gst: z.coerce.number().min(0, { message: "GST must be a positive number." }),
+  gst: z.coerce.number().min(0, { message: "GST must be a positive number." }).optional(),
   partyName: z.string().min(3, { message: "Party name must be at least 3 characters." }),
-  pageNo: z.coerce.number().int().min(1, { message: "Page number must be at least 1." }),
+  pageNo: z.coerce.number().int().min(1, { message: "Page number must be at least 1." }).optional(),
   billDate: z.date({
     required_error: "A bill date is required.",
     invalid_type_error: "That's not a valid date!",
@@ -34,5 +34,4 @@ export type Product = {
   pageNo: number;
   billDate: Date; // Should be a Date object on the client
   category: typeof categories[number];
-  ownerId: string;
 };

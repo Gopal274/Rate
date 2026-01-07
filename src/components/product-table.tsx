@@ -688,7 +688,7 @@ function ProductFormDialog({
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
     } else {
-      const result = await addProductAction(submissionData, rate, user.uid);
+      const result = await addProductAction(submissionData, rate);
        if (result.success && result.product) {
         onProductAction(result.product, rate);
         toast({ title: 'Success', description: result.message });
