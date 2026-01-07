@@ -226,6 +226,20 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       header: () => <div className="text-center no-print">Actions</div>,
       cell: ({ row }) => {
         const product = row.original;
+        const hasMultipleRates = product.rates.length > 1;
+        const latestRate = product.rates[0];
+
+        const handleDeleteClick = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (hasMultipleRates && latestRate) {
+                // If there are multiple rates, only delete the latest one
+                setDeletingRateInfo({ product, rate: latestRate });
+            } else {
+                // If there's only one rate (or none), delete the whole product
+                setDeletingProduct(product);
+            }
+        };
+
         return (
           <TooltipProvider>
             <div className="flex items-center justify-center gap-1 no-print">
@@ -247,11 +261,13 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeletingProduct(product); }}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleDeleteClick}>
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Delete Product &amp; All History</TooltipContent>
+                  <TooltipContent>
+                    {hasMultipleRates ? 'Delete Latest Rate' : 'Delete Product & All History'}
+                  </TooltipContent>
                 </Tooltip>
             </div>
           </TooltipProvider>
