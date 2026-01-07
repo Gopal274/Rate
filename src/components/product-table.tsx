@@ -373,7 +373,13 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <Printer className="h-4 w-4" />
                 <span className="sr-only">Print</span>
             </Button>
-            { user && <ProductFormDialog onProductAction={onProductAdded} /> }
+            { user && 
+                <ProductFormDialog onProductAction={onProductAdded}>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Product
+                    </Button>
+                </ProductFormDialog> 
+            }
           </div>
         </div>
       </CardHeader>
@@ -438,7 +444,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                               <TooltipProvider>
                                 <div className="flex items-center justify-center">
                                   <Tooltip>
-                                    <TooltipTrigger>
+                                    <TooltipTrigger asChild>
                                       <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
                                       </Button>
@@ -550,11 +556,13 @@ function ProductFormDialog({
   product,
   isOpen,
   setIsOpen,
+  children,
 }: {
   onProductAction: (product: any, rate?: any) => void;
   product?: Product;
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
+  children?: React.ReactNode;
 }) {
   const isEditing = !!product;
   const formSchema = isEditing ? updateProductSchema : productSchema;
@@ -615,9 +623,7 @@ function ProductFormDialog({
 
   const dialogTrigger = (
     <DialogTrigger asChild>
-      <Button>
-        <PlusCircle className="mr-2 h-4 w-4" /> Add Product
-      </Button>
+      {children}
     </DialogTrigger>
   );
 
@@ -684,7 +690,7 @@ function ProductFormDialog({
             </div>
              <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="gst" render={({ field }) => (
-                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))}/></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                   )}
                 />
                 <FormField control={form.control} name="pageNo" render={({ field }) => (
