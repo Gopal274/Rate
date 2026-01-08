@@ -29,45 +29,50 @@ const db = getDb();
 const PRODUCTS_COLLECTION = 'products';
 const RATES_SUBCOLLECTION = 'rates';
 
-// Type for product data used in creation, without the 'rate'
-type ProductCreationData = Omit<ProductSchema, 'rate'>;
+// Type for product data used in creation, separating product and rate details
+type ProductCreationData = Omit<ProductSchema, 'rate' | 'gst' | 'pageNo' | 'billDate'>;
 
-export const addProduct = async (productData: ProductCreationData, initialRate: number): Promise<Product> => {
+export const addProduct = async (formData: ProductSchema): Promise<{product: Product, rate: Rate}> => {
+  const { name, unit, partyName, category, rate, gst, pageNo, billDate } = formData;
   const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
   
-  // Prepare product data for Firestore
-  const newProductForDb = {
-    ...productData,
-    billDate: new Date(productData.billDate), // Ensure billDate is a Date object
+  const productData: ProductCreationData = { name, unit, partyName, category };
+
+  const rateData = {
+    rate,
+    gst,
+    pageNo,
+    billDate: new Date(billDate),
+    createdAt: serverTimestamp(),
   };
 
   await runTransaction(db, async (transaction) => {
     // 1. Set the main product document
-    transaction.set(newProductRef, newProductForDb);
+    transaction.set(newProductRef, productData);
 
     // 2. Set the initial rate in the subcollection
     const newRateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
-    transaction.set(newRateRef, {
-      rate: initialRate,
-      createdAt: serverTimestamp(),
-    });
+    transaction.set(newRateRef, rateData);
   });
 
-  // Return the product shape expected by the client
+  // Return the product and rate shapes expected by the client
   return {
-    id: newProductRef.id,
-    ...newProductForDb,
+    product: {
+        id: newProductRef.id,
+        ...productData,
+    },
+    rate: {
+        id: '', // ID is not known on client immediately but this is fine
+        ...rateData,
+        createdAt: new Date(), // Use client date for immediate UI update
+    }
   };
 };
 
 
 export const updateProduct = async (productId: string, updateData: Partial<UpdateProductSchema>): Promise<void> => {
   const productDoc = doc(db, PRODUCTS_COLLECTION, productId);
-  const dataToUpdate: any = { ...updateData };
-  if (updateData.billDate) {
-    dataToUpdate.billDate = new Date(updateData.billDate as any);
-  }
-  await updateDoc(productDoc, dataToUpdate);
+  await updateDoc(productDoc, updateData);
 };
 
 export const deleteProduct = async (productId: string): Promise<void> => {
@@ -98,9 +103,13 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
       const data = doc.data();
       // Safely convert Firestore Timestamp to JS Date
       const createdAt = (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date();
+      const billDate = (data.billDate as Timestamp)?.toDate ? (data.billDate as Timestamp).toDate() : new Date();
       return { 
           id: doc.id, 
           rate: data.rate,
+          gst: data.gst,
+          pageNo: data.pageNo,
+          billDate: billDate,
           createdAt: createdAt
         } as Rate
     });
@@ -109,24 +118,22 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
 export const addRate = async (productId: string, rate: number, billDate: Date, pageNo: number, gst: number): Promise<Rate> => {
     const productRef = doc(db, PRODUCTS_COLLECTION, productId);
     const newRateRef = doc(collection(productRef, RATES_SUBCOLLECTION));
+    
+    const newRateData = {
+        rate,
+        gst,
+        pageNo,
+        billDate,
+        createdAt: serverTimestamp()
+    };
 
     await runTransaction(db, async (transaction) => {
-        // 1. Add the new rate document
-        transaction.set(newRateRef, {
-            rate: rate,
-            createdAt: serverTimestamp()
-        });
-
-        // 2. Update the main product document's billDate, pageNo, and gst
-        transaction.update(productRef, {
-            billDate: billDate,
-            pageNo: pageNo,
-            gst: gst
-        });
+        // Just add the new rate document. No need to touch the parent product.
+        transaction.set(newRateRef, newRateData);
     });
 
     // We return a client-side representation. The serverTimestamp will be resolved by Firestore.
-    return { id: newRateRef.id, rate, createdAt: new Date() };
+    return { id: newRateRef.id, ...newRateData, createdAt: new Date() };
 };
 
 

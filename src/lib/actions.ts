@@ -9,7 +9,7 @@ import {
   deleteRate as deleteRateFromDb,
   getProductRates as getProductRatesFromDb,
 } from './data';
-import type { Product, Rate, UpdateProductSchema } from './types';
+import type { Rate, UpdateProductSchema } from './types';
 import { productSchema } from './types';
 import { z } from 'zod';
 
@@ -18,18 +18,11 @@ type ProductFormData = z.infer<typeof productSchema>;
 
 export async function addProductAction(formData: ProductFormData) {
   try {
-    const { rate, ...productData } = formData;
-    const newProduct = await addProductToDb(productData, rate);
-    
-    // The rate is created within the transaction, so we need a representation of it for the client
-    const newRate: Rate = {
-      id: '', // The ID is not immediately available on the client this way, but the data is consistent
-      rate: rate,
-      createdAt: new Date(),
-    };
+    // The new addProductToDb function handles both product and initial rate creation
+    const { product, rate } = await addProductToDb(formData);
 
     revalidatePath('/');
-    return { success: true, message: 'Product added successfully.', product: newProduct, rate: newRate };
+    return { success: true, message: 'Product added successfully.', product, rate };
   } catch (error) {
     console.error("addProductAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to add product.';

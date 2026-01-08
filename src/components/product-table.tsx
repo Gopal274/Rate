@@ -150,7 +150,13 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
           for (const product of initialProducts) {
             try {
               const fetchedRates = await getProductRatesAction(product.id);
-              allHistories[product.id] = fetchedRates;
+              // Ensure dates are JS Date objects
+              const ratesWithDates = fetchedRates.map(r => ({
+                  ...r,
+                  billDate: new Date(r.billDate),
+                  createdAt: new Date(r.createdAt),
+              }));
+              allHistories[product.id] = ratesWithDates;
             } catch (error) {
               console.error(`Failed to fetch rates for product ${product.id}:`, error);
               toast({ variant: 'destructive', title: 'Fetch Error', description: `Could not load rates for ${product.name}.` });
@@ -181,11 +187,11 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     const dataToSort = products.map(p => ({
       ...p,
       rates: rateHistories[p.id] ?? [],
-    }));
+    })).filter(p => p.rates.length > 0); // Only include products that have rates
 
     switch (activeSort) {
       case 'oldest':
-        return dataToSort.sort((a, b) => new Date(a.billDate).getTime() - new Date(b.billDate).getTime());
+        return dataToSort.sort((a, b) => new Date(a.rates[0].billDate).getTime() - new Date(b.rates[0].billDate).getTime());
       case 'asc':
         return dataToSort.sort((a, b) => a.name.localeCompare(b.name));
       case 'desc':
@@ -196,7 +202,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         return dataToSort.sort((a, b) => b.partyName.localeCompare(a.partyName));
       case 'newest':
       default:
-        return dataToSort.sort((a, b) => new Date(b.billDate).getTime() - new Date(a.billDate).getTime());
+        return dataToSort.sort((a, b) => new Date(b.rates[0].billDate).getTime() - new Date(a.rates[0].billDate).getTime());
     }
   }, [products, rateHistories, activeSort]);
 
@@ -268,17 +274,18 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       enableSorting: false,
     },
     {
-      accessorKey: 'gst',
+      id: 'gst',
       header: 'GST %',
-      cell: ({ row }) => `${row.original.gst}%`,
+      cell: ({ row }) => `${row.original.rates[0]?.gst ?? 0}%`,
       enableSorting: false,
     },
     {
       id: 'finalRate',
       header: () => <div className="text-right">Final Rate</div>,
       cell: ({ row }) => {
-        const latestRate = row.original.rates[0]?.rate ?? 0;
-        const finalRate = latestRate * (1 + row.original.gst / 100);
+        const latestRateInfo = row.original.rates[0];
+        if (!latestRateInfo) return null;
+        const finalRate = latestRateInfo.rate * (1 + latestRateInfo.gst / 100);
         return (
           <div className="text-right font-bold">
             {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}
@@ -358,15 +365,15 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       filterFn: multiSelectFilterFn,
     },
     {
-      accessorKey: 'pageNo',
+      id: 'pageNo',
       header: 'Page No',
-       cell: ({ row }) => row.original.pageNo,
+       cell: ({ row }) => row.original.rates[0]?.pageNo ?? '',
        enableSorting: false,
     },
     {
-      accessorKey: 'billDate',
+      id: 'billDate',
       header: 'Bill Date',
-      cell: ({ row }) => format(new Date(row.original.billDate), 'PPP'),
+      cell: ({ row }) => format(new Date(row.original.rates[0]?.billDate ?? new Date()), 'PPP'),
       enableSorting: false,
     },
     {
@@ -542,9 +549,13 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
 
   const onProductAdded = (newProduct: Product, initialRate: Rate) => {
     setProducts(prev => [newProduct, ...prev]);
-    // Ensure the initial rate has a temporary unique ID for the key
-    const rateWithId = { ...initialRate, id: `temp-${Date.now()}` };
-    setRateHistories(prev => ({...prev, [newProduct.id]: [rateWithId]}));
+    const rateWithDateObjects = { 
+        ...initialRate, 
+        id: `temp-${Date.now()}`,
+        billDate: new Date(initialRate.billDate),
+        createdAt: new Date(initialRate.createdAt)
+    };
+    setRateHistories(prev => ({...prev, [newProduct.id]: [rateWithDateObjects]}));
   };
 
   const onProductUpdated = (updatedProductData: Partial<Product>) => {
@@ -552,20 +563,19 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     if(!productId) return;
 
     setProducts(prev => prev.map(p => 
-        p.id === productId ? { ...p, ...updatedProductData, billDate: new Date(updatedProductData.billDate ?? p.billDate) } : p
+        p.id === productId ? { ...p, ...updatedProductData } : p
     ));
   };
   
-  const onRateAdded = (productId: string, newRate: Rate, newBillDate: Date, newPageNo: number, newGst: number) => {
+  const onRateAdded = (productId: string, newRate: Rate) => {
+     const rateWithDateObjects = { 
+        ...newRate, 
+        billDate: new Date(newRate.billDate),
+        createdAt: new Date(newRate.createdAt)
+    };
      setRateHistories(prev => ({
       ...prev,
-      [productId]: [newRate, ...(prev[productId] ?? [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-     }));
-     setProducts(prev => prev.map(p => {
-        if(p.id === productId) {
-            return { ...p, billDate: newBillDate, pageNo: newPageNo, gst: newGst };
-        }
-        return p;
+      [productId]: [rateWithDateObjects, ...(prev[productId] ?? [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
      }));
   }
 
@@ -660,19 +670,19 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                         ))}
                       </TableRow>
                       {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
-                        const finalRate = rate.rate * (1 + row.original.gst / 100);
+                        const finalRate = rate.rate * (1 + rate.gst / 100);
                         return (
                           <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
                             <TableCell></TableCell>
                             <TableCell></TableCell>
-                            <TableCell></TableCell>
+                            <TableCell>{row.original.name}</TableCell>
                             <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
                             <TableCell>{row.original.unit}</TableCell>
-                            <TableCell>{row.original.gst}%</TableCell>
+                            <TableCell>{rate.gst}%</TableCell>
                             <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
                             <TableCell>{row.original.partyName}</TableCell>
-                            <TableCell>{row.original.pageNo}</TableCell>
-                            <TableCell>{format(new Date(rate.createdAt), 'PPP')}</TableCell>
+                            <TableCell>{rate.pageNo}</TableCell>
+                            <TableCell>{format(new Date(rate.billDate), 'PPP')}</TableCell>
                             <TableCell>{row.original.category}</TableCell>
                             <TableCell className="no-print">
                               <TooltipProvider>
@@ -764,12 +774,12 @@ const getInitialAddFormValues = () => {
     return {
         name: '',
         unit: 'piece' as const,
-        gst: '' as any,
         partyName: '',
-        pageNo: '' as any,
-        billDate: format(new Date(), 'yyyy-MM-dd'),
         category: 'Other' as const,
         rate: '' as any,
+        gst: '' as any,
+        pageNo: '' as any,
+        billDate: format(new Date(), 'yyyy-MM-dd'),
     };
 };
 
@@ -779,9 +789,6 @@ const getInitialEditFormValues = (product: Product) => {
         unit: product.unit,
         partyName: product.partyName,
         category: product.category,
-        pageNo: product.pageNo,
-        billDate: format(new Date(product.billDate), 'yyyy-MM-dd'),
-        gst: product.gst,
     };
 };
 
@@ -803,7 +810,7 @@ function ProductFormDialog({
   
   const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: isEditing ? getInitialEditFormValues(product) : getInitialAddFormValues(),
+    defaultValues: isEditing ? getInitialEditFormValues(product!) : getInitialAddFormValues(),
   });
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -815,7 +822,7 @@ function ProductFormDialog({
   
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-        form.reset(isEditing ? getInitialEditFormValues(product) : getInitialAddFormValues());
+        form.reset(isEditing ? getInitialEditFormValues(product!) : getInitialAddFormValues());
     }
     if (setIsOpen) {
       setIsOpen(open);
@@ -825,25 +832,22 @@ function ProductFormDialog({
   };
 
   React.useEffect(() => {
-    form.reset(isEditing ? getInitialEditFormValues(product) : getInitialAddFormValues());
+    form.reset(isEditing ? getInitialEditFormValues(product!) : getInitialAddFormValues());
   }, [product, form, isEditing]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     
-    // Convert string date to Date object before sending
-    const valuesWithDate = { ...values, billDate: new Date(values.billDate) };
-
     if (isEditing) {
-      const result = await updateProductAction(product.id, valuesWithDate as UpdateProductSchema);
+      const result = await updateProductAction(product.id, values as UpdateProductSchema);
       if (result.success) {
-        onProductAction(valuesWithDate);
+        onProductAction(values);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
     } else {
-      const result = await addProductAction(valuesWithDate as ProductSchema);
+      const result = await addProductAction(values as ProductSchema);
        if (result.success && result.product && result.rate) {
         onProductAction(result.product, result.rate);
         toast({ title: 'Success', description: result.message });
@@ -865,8 +869,8 @@ function ProductFormDialog({
           <DialogTitle>{product ? 'Edit Product' : 'Add Product'}</DialogTitle>
           <DialogDescription>
             {product
-              ? "Update this product's details. To add a new rate, use the '+' icon in the table."
-              : 'Add a new product to your records.'}
+              ? "Update this product's core details."
+              : 'Add a new product and its initial rate to your records.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -878,16 +882,7 @@ function ProductFormDialog({
                 <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input placeholder="e.g. Basmati Rice" {...field} /></FormControl><FormMessage /></FormItem>
               )}
             />
-            {isEditing ? null : (
-                <FormField
-                    control={form.control}
-                    name="rate"
-                    render={({ field }) => (
-                        <FormItem><FormLabel>Initial Rate</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
-                    )}
-                />
-            )}
-            <FormField
+             <FormField
               control={form.control}
               name="partyName"
               render={({ field }) => (
@@ -918,29 +913,40 @@ function ProductFormDialog({
                   )}
                 />
             </div>
-             <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="gst" render={({ field }) => (
-                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
-                  )}
-                />
-                <FormField control={form.control} name="pageNo" render={({ field }) => (
-                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
-                  )}
-                />
-            </div>
-            <FormField
-              control={form.control}
-              name="billDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Bill Date</FormLabel>
-                   <FormControl>
-                        <Input type="date" {...field} />
-                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {!isEditing && (
+                <>
+                    <FormField
+                        control={form.control}
+                        name="rate"
+                        render={({ field }) => (
+                            <FormItem><FormLabel>Initial Rate</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                        )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="gst" render={({ field }) => (
+                            <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                        )}
+                        />
+                        <FormField control={form.control} name="pageNo" render={({ field }) => (
+                            <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                        )}
+                        />
+                    </div>
+                     <FormField
+                        control={form.control}
+                        name="billDate"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                            <FormLabel>Bill Date</FormLabel>
+                            <FormControl>
+                                    <Input type="date" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </>
+            )}
             <DialogFooter>
               <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
               <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (product ? 'Save Changes' : 'Add Product')}</Button>
@@ -972,30 +978,33 @@ function AddRateDialog({
   product: Product | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  onRateAdded: (productId: string, newRate: Rate, billDate: Date, pageNo: number, gst: number) => void;
+  onRateAdded: (productId: string, newRate: Rate) => void;
 }) {
-  const form = useForm<AddRateSchema>({
-    resolver: zodResolver(addRateSchema),
-    defaultValues: {
-      rate: '' as any,
-      billDate: format(new Date(), 'yyyy-MM-dd'),
-      pageNo: product?.pageNo,
-      gst: product?.gst,
-    },
-  });
+    const latestRate = product && rateHistories[product.id]?.[0];
+    const form = useForm<AddRateSchema>({
+        resolver: zodResolver(addRateSchema),
+        defaultValues: {
+        rate: '' as any,
+        billDate: format(new Date(), 'yyyy-MM-dd'),
+        pageNo: latestRate?.pageNo ?? 1,
+        gst: latestRate?.gst ?? 0,
+        },
+    });
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const {rateHistories} = useProductTable();
 
   React.useEffect(() => {
     if(product) {
+        const latestRateInfo = rateHistories[product.id]?.[0];
         form.reset({
             rate: '' as any,
             billDate: format(new Date(), 'yyyy-MM-dd'),
-            pageNo: product.pageNo,
-            gst: product.gst,
+            pageNo: latestRateInfo?.pageNo,
+            gst: latestRateInfo?.gst,
         })
     }
-  }, [product, form]);
+  }, [product, form, rateHistories]);
 
   async function onSubmit(values: AddRateSchema) {
     if (!product) return;
@@ -1003,7 +1012,7 @@ function AddRateDialog({
     const billDate = new Date(values.billDate);
     const result = await addRateAction(product.id, values.rate, billDate, values.pageNo, values.gst);
     if (result.success && result.rate) {
-      onRateAdded(product.id, result.rate, billDate, values.pageNo, values.gst);
+      onRateAdded(product.id, result.rate);
       toast({ title: 'Success', description: 'New rate added.' });
       setIsOpen(false);
     } else {
@@ -1040,14 +1049,14 @@ function AddRateDialog({
                 control={form.control}
                 name="gst"
                 render={({ field }) => (
-                    <FormItem><FormLabel>New GST (%)</FormLabel><FormControl><Input type="number" placeholder={`e.g. ${product?.gst ?? 5}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>New GST (%)</FormLabel><FormControl><Input type="number" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                 )}
             />
             <FormField
                 control={form.control}
                 name="pageNo"
                 render={({ field }) => (
-                    <FormItem><FormLabel>New Page No.</FormLabel><FormControl><Input type="number" placeholder={`e.g. ${product?.pageNo ?? 42}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>New Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                 )}
             />
             <FormField
@@ -1172,3 +1181,31 @@ function DeleteRateDialog({
         </AlertDialog>
     );
 }
+
+// Create a context to share state and functions
+const ProductTableContext = React.createContext<{
+    rateHistories: Record<string, Rate[]>;
+} | null>(null);
+
+// Custom hook to use the context
+const useProductTable = () => {
+    const context = React.useContext(ProductTableContext);
+    if (!context) {
+        throw new Error('useProductTable must be used within a ProductTableProvider');
+    }
+    return context;
+};
+
+// We need to wrap the export with a Provider so the context is available
+const ProductTableWrapper = (props: { initialProducts: Product[] }) => {
+    const [rateHistories, setRateHistories] = React.useState<Record<string, Rate[]>>({});
+
+    // This function will be passed down via context if needed, or we can manage state here.
+    // For now, let's keep it simple and just provide the state.
+    
+    return (
+        <ProductTableContext.Provider value={{ rateHistories }}>
+            <ProductTable {...props} />
+        </ProductTableContext.Provider>
+    );
+};

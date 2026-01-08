@@ -1,10 +1,11 @@
+
 {
   "entities": {
     "Product": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Product",
       "type": "object",
-      "description": "Represents a product with its details.",
+      "description": "Represents a product with its core, unchanging details.",
       "properties": {
         "name": {
           "type": "string",
@@ -14,22 +15,9 @@
           "type": "string",
           "description": "Unit of the product (e.g., kg, piece)."
         },
-        "gst": {
-          "type": "number",
-          "description": "GST percentage applicable to the product."
-        },
         "partyName": {
           "type": "string",
           "description": "Name of the party associated with the product."
-        },
-        "pageNo": {
-          "type": "number",
-          "description": "Page number where the product is recorded."
-        },
-        "billDate": {
-          "type": "string",
-          "description": "Date of the bill for the product.",
-          "format": "date-time"
         },
         "category": {
           "type": "string",
@@ -39,10 +27,7 @@
       "required": [
         "name",
         "unit",
-        "gst",
         "partyName",
-        "pageNo",
-        "billDate",
         "category"
       ]
     },
@@ -50,20 +35,36 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Rate",
       "type": "object",
-      "description": "Represents a rate entry for a product.",
+      "description": "Represents a rate entry for a product at a specific point in time.",
       "properties": {
         "rate": {
           "type": "number",
-          "description": "The rate of the product at a specific time."
+          "description": "The rate of the product."
+        },
+        "gst": {
+          "type": "number",
+          "description": "GST percentage applicable at the time of this rate."
+        },
+        "pageNo": {
+          "type": "number",
+          "description": "Page number where this rate is recorded."
+        },
+        "billDate": {
+          "type": "string",
+          "description": "Date of the bill for this rate.",
+          "format": "date-time"
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp when the rate was recorded, using server a timestamp.",
+          "description": "Timestamp when the rate was recorded.",
           "format": "date-time"
         }
       },
       "required": [
         "rate",
+        "gst",
+        "pageNo",
+        "billDate",
         "createdAt"
       ]
     }
@@ -82,7 +83,7 @@
             "subcollections": {
               "rates": {
                 "schema": { "$ref": "#/entities/Rate" },
-                "description": "Stores the rate history for a product."
+                "description": "Stores the complete rate history for a product."
               }
             }
           }
