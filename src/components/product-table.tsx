@@ -53,6 +53,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -276,8 +277,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     },
     {
       accessorKey: 'partyName',
-      header: () => {
-        const column = table.getColumn('partyName');
+      header: ({ column }) => {
         const selectedParties = (column?.getFilterValue() as string[] | undefined) ?? uniquePartyNames;
 
         const handleSelectAll = (checked: boolean) => {
@@ -298,7 +298,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         };
 
         const allSelected = selectedParties.length === uniquePartyNames.length;
-        const someSelected = selectedParties.length > 0 && !allSelected;
 
 
         return (
