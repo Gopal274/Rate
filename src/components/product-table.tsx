@@ -118,7 +118,8 @@ const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
 
 
 export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
-  const [products, setProducts] = React.useState<Product[]>(initialProducts);
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [rateHistories, setRateHistories] = React.useState<Record<string, Rate[]>>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -129,7 +130,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
   const [addingRateToProduct, setAddingRateToProduct] = React.useState<Product | null>(null);
   const [deletingRateInfo, setDeletingRateInfo] = React.useState<{ product: Product; rate: Rate } | null>(null);
-  const [rateHistories, setRateHistories] = React.useState<Record<string, Rate[]>>({});
+  
 
   const { user } = useUser();
   const { toast } = useToast();
@@ -144,25 +145,25 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     setProducts(initialProducts);
 
     const fetchAllRates = async () => {
-      const allHistories: Record<string, Rate[]> = {};
-      for (const product of initialProducts) {
-        try {
-          const fetchedRates = await getProductRatesAction(product.id);
-          allHistories[product.id] = fetchedRates;
-        } catch (error) {
-          console.error(`Failed to fetch rates for product ${product.id}:`, error);
-          toast({ variant: 'destructive', title: 'Fetch Error', description: `Could not load rates for ${product.name}.` });
-          allHistories[product.id] = [];
-        }
+      if (initialProducts.length > 0) {
+          const allHistories: Record<string, Rate[]> = {};
+          for (const product of initialProducts) {
+            try {
+              const fetchedRates = await getProductRatesAction(product.id);
+              allHistories[product.id] = fetchedRates;
+            } catch (error) {
+              console.error(`Failed to fetch rates for product ${product.id}:`, error);
+              toast({ variant: 'destructive', title: 'Fetch Error', description: `Could not load rates for ${product.name}.` });
+              allHistories[product.id] = [];
+            }
+          }
+          setRateHistories(allHistories);
+      } else {
+        setRateHistories({});
       }
-      setRateHistories(allHistories);
     };
-
-    if (initialProducts.length > 0) {
-      fetchAllRates();
-    } else {
-      setRateHistories({});
-    }
+    
+    fetchAllRates();
   }, [initialProducts, toast]);
   
   const uniquePartyNames = React.useMemo(() => {
@@ -289,7 +290,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'partyName',
       header: ({ column }) => {
-        const selectedParties = (column?.getFilterValue() as string[] | undefined) ?? uniquePartyNames;
+        const selectedParties = (column?.getFilterValue() as string[] | undefined) ?? [];
 
         const handleSelectAll = (checked: boolean) => {
             if (checked) {
@@ -300,7 +301,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         };
 
         const handleSelectParty = (partyName: string, checked: boolean) => {
-            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? uniquePartyNames;
+            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
             if (checked) {
                 column?.setFilterValue([...currentSelection, partyName]);
             } else {
@@ -308,7 +309,8 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             }
         };
 
-        const allSelected = selectedParties.length === uniquePartyNames.length;
+        const allSelected = selectedParties.length === uniquePartyNames.length && uniquePartyNames.length > 0;
+        const isIndeterminate = selectedParties.length > 0 && selectedParties.length < uniquePartyNames.length;
 
 
         return (
@@ -370,7 +372,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'category',
       header: ({ column }) => {
-        const selectedCategories = (column?.getFilterValue() as string[] | undefined) ?? uniqueCategories;
+        const selectedCategories = (column?.getFilterValue() as string[] | undefined) ?? [];
 
         const handleSelectAll = (checked: boolean) => {
             if (checked) {
@@ -381,7 +383,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         };
 
         const handleSelectCategory = (category: string, checked: boolean) => {
-            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? uniqueCategories;
+            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
             if (checked) {
                 column?.setFilterValue([...currentSelection, category]);
             } else {
@@ -389,7 +391,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             }
         };
         
-        const allSelected = selectedCategories.length === uniqueCategories.length;
+        const allSelected = selectedCategories.length === uniqueCategories.length && uniqueCategories.length > 0;
 
         return (
           <div className="flex items-center gap-2">
@@ -509,21 +511,20 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    initialState: {
-        columnFilters: [
-            { id: 'partyName', value: uniquePartyNames },
-            { id: 'category', value: uniqueCategories },
-        ]
-    }
+    initialState: {}
   });
   
     // Set initial filter state for party names to all selected
     React.useEffect(() => {
-        table.getColumn('partyName')?.setFilterValue(uniquePartyNames);
+        if(uniquePartyNames.length > 0 && table.getColumn('partyName')) {
+            table.getColumn('partyName')?.setFilterValue(uniquePartyNames);
+        }
     }, [table, uniquePartyNames]);
 
     React.useEffect(() => {
-        table.getColumn('category')?.setFilterValue(uniqueCategories);
+        if(uniqueCategories.length > 0 && table.getColumn('category')) {
+            table.getColumn('category')?.setFilterValue(uniqueCategories);
+        }
     }, [table, uniqueCategories]);
 
 
