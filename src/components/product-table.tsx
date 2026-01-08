@@ -133,6 +133,12 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
 
   const { user } = useUser();
   const { toast } = useToast();
+  
+  const handlePrint = React.useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  }, []);
 
   React.useEffect(() => {
     setProducts(initialProducts);
@@ -576,10 +582,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         ...prev,
         [productId]: prev[productId]?.filter(r => r.id !== rateId) ?? []
     }));
-  }
-
-  const handlePrint = () => {
-    window.print();
   }
 
   return (
