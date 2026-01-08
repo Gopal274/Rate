@@ -50,6 +50,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -100,7 +101,7 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/t
 import { z } from 'zod';
 
 type ProductWithRates = Product & { rates: Rate[] };
-type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc';
+type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc';
 
 export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = React.useState<Product[]>(initialProducts);
@@ -157,6 +158,10 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         return dataToSort.sort((a, b) => a.name.localeCompare(b.name));
       case 'desc':
         return dataToSort.sort((a, b) => b.name.localeCompare(a.name));
+      case 'party-asc':
+        return dataToSort.sort((a, b) => a.partyName.localeCompare(b.partyName));
+      case 'party-desc':
+        return dataToSort.sort((a, b) => b.partyName.localeCompare(a.partyName));
       case 'newest':
       default:
         return dataToSort.sort((a, b) => new Date(b.billDate).getTime() - new Date(a.billDate).getTime());
@@ -249,7 +254,36 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     },
     {
       accessorKey: 'partyName',
-      header: 'Party Name',
+      header: () => {
+        return (
+          <div className="flex items-center gap-2">
+            Party Name
+             <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <div className="p-2">
+                  <Input
+                    placeholder="Filter party..."
+                    value={(table.getColumn('partyName')?.getFilterValue() as string) ?? ''}
+                    onChange={(event) =>
+                        table.getColumn('partyName')?.setFilterValue(event.target.value)
+                    }
+                    className="w-full"
+                    onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing
+                  />
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setActiveSort('party-asc')}>Sort A-Z</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveSort('party-desc')}>Sort Z-A</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
+      },
       cell: ({ row }) => row.original.partyName,
       enableSorting: false,
     },
