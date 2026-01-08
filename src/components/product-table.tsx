@@ -11,6 +11,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  FilterFn,
 } from '@tanstack/react-table';
 import {
   Edit,
@@ -49,8 +50,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -99,9 +101,20 @@ import {
 } from './ui/card';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { z } from 'zod';
+import { ScrollArea } from './ui/scroll-area';
 
 type ProductWithRates = Product & { rates: Rate[] };
 type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc';
+
+
+const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
+    if (!filterValue || (Array.isArray(filterValue) && filterValue.length === 0)) {
+        return true;
+    }
+    const value = row.getValue(columnId);
+    return Array.isArray(filterValue) && filterValue.includes(value);
+};
+
 
 export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = React.useState<Product[]>(initialProducts);
@@ -144,6 +157,12 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       setRateHistories({});
     }
   }, [initialProducts, toast]);
+  
+  const uniquePartyNames = React.useMemo(() => {
+    const partyNames = new Set(products.map(p => p.partyName));
+    return Array.from(partyNames).sort();
+  }, [products]);
+
 
   const sortedData = React.useMemo(() => {
     const dataToSort = products.map(p => ({
@@ -186,7 +205,10 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       id: 'sNo',
       header: 'S.No',
-      cell: ({ row }) => row.index + 1,
+      cell: ({ row, table }) => {
+        const sortedRowIndex = table.getSortedRowModel().rows.findIndex(sortedRow => sortedRow.id === row.id);
+        return sortedRowIndex + 1;
+      },
       enableSorting: false,
     },
     {
@@ -255,6 +277,30 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       accessorKey: 'partyName',
       header: () => {
+        const column = table.getColumn('partyName');
+        const selectedParties = (column?.getFilterValue() as string[] | undefined) ?? uniquePartyNames;
+
+        const handleSelectAll = (checked: boolean) => {
+            if (checked) {
+                column?.setFilterValue(uniquePartyNames);
+            } else {
+                column?.setFilterValue([]);
+            }
+        };
+
+        const handleSelectParty = (partyName: string, checked: boolean) => {
+            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? uniquePartyNames;
+            if (checked) {
+                column?.setFilterValue([...currentSelection, partyName]);
+            } else {
+                column?.setFilterValue(currentSelection.filter(p => p !== partyName));
+            }
+        };
+
+        const allSelected = selectedParties.length === uniquePartyNames.length;
+        const someSelected = selectedParties.length > 0 && !allSelected;
+
+
         return (
           <div className="flex items-center gap-2">
             Party Name
@@ -264,18 +310,29 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   <Filter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <div className="p-2">
-                  <Input
-                    placeholder="Filter party..."
-                    value={(table.getColumn('partyName')?.getFilterValue() as string) ?? ''}
-                    onChange={(event) =>
-                        table.getColumn('partyName')?.setFilterValue(event.target.value)
-                    }
-                    className="w-full"
-                    onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing
-                  />
-                </div>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuLabel>Filter by Party</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={allSelected}
+                  onCheckedChange={handleSelectAll}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  Select All
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <ScrollArea className="h-48">
+                {uniquePartyNames.map(party => (
+                    <DropdownMenuCheckboxItem
+                        key={party}
+                        checked={selectedParties.includes(party)}
+                        onCheckedChange={(checked) => handleSelectParty(party, Boolean(checked))}
+                        onSelect={(e) => e.preventDefault()}
+                    >
+                        {party}
+                    </DropdownMenuCheckboxItem>
+                ))}
+                </ScrollArea>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setActiveSort('party-asc')}>Sort A-Z</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setActiveSort('party-desc')}>Sort Z-A</DropdownMenuItem>
@@ -286,6 +343,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       },
       cell: ({ row }) => row.original.partyName,
       enableSorting: false,
+      filterFn: multiSelectFilterFn,
     },
     {
       accessorKey: 'pageNo',
@@ -382,7 +440,17 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    initialState: {
+        columnFilters: [
+            { id: 'partyName', value: uniquePartyNames }
+        ]
+    }
   });
+  
+    // Set initial filter state for party names to all selected
+    React.useEffect(() => {
+        table.getColumn('partyName')?.setFilterValue(uniquePartyNames);
+    }, [table, uniquePartyNames]);
 
   const toggleCollapsible = (productId: string) => {
     setOpenCollapsibles(prev => {
@@ -715,15 +783,11 @@ function ProductFormDialog({
     handleOpenChange(false);
   }
 
-  const dialogTrigger = (
-    <DialogTrigger asChild>
-      {children}
-    </DialogTrigger>
-  );
-
   return (
     <Dialog open={isDialogOpen} onOpenChange={handleOpenChange}>
-      {!isEditing && dialogTrigger}
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{product ? 'Edit Product' : 'Add Product'}</DialogTitle>
