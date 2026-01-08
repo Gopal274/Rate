@@ -164,6 +164,11 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     return Array.from(partyNames).sort();
   }, [products]);
 
+  const uniqueCategories = React.useMemo(() => {
+    const categoryNames = new Set(products.map(p => p.category));
+    return Array.from(categoryNames).sort();
+  }, [products]);
+
 
   const sortedData = React.useMemo(() => {
     const dataToSort = products.map(p => ({
@@ -358,9 +363,68 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     },
     {
       accessorKey: 'category',
-      header: 'Category',
+      header: ({ column }) => {
+        const selectedCategories = (column?.getFilterValue() as string[] | undefined) ?? uniqueCategories;
+
+        const handleSelectAll = (checked: boolean) => {
+            if (checked) {
+                column?.setFilterValue(uniqueCategories);
+            } else {
+                column?.setFilterValue([]);
+            }
+        };
+
+        const handleSelectCategory = (category: string, checked: boolean) => {
+            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? uniqueCategories;
+            if (checked) {
+                column?.setFilterValue([...currentSelection, category]);
+            } else {
+                column?.setFilterValue(currentSelection.filter(c => c !== category));
+            }
+        };
+        
+        const allSelected = selectedCategories.length === uniqueCategories.length;
+
+        return (
+          <div className="flex items-center gap-2">
+            Category
+             <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={allSelected}
+                  onCheckedChange={handleSelectAll}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  Select All
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <ScrollArea className="h-48">
+                {uniqueCategories.map(category => (
+                    <DropdownMenuCheckboxItem
+                        key={category}
+                        checked={selectedCategories.includes(category)}
+                        onCheckedChange={(checked) => handleSelectCategory(category, Boolean(checked))}
+                        onSelect={(e) => e.preventDefault()}
+                    >
+                        {category}
+                    </DropdownMenuCheckboxItem>
+                ))}
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
+      },
       cell: ({ row }) => row.original.category,
       enableSorting: false,
+      filterFn: multiSelectFilterFn,
     },
     {
       id: 'actions',
@@ -441,7 +505,8 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     getFilteredRowModel: getFilteredRowModel(),
     initialState: {
         columnFilters: [
-            { id: 'partyName', value: uniquePartyNames }
+            { id: 'partyName', value: uniquePartyNames },
+            { id: 'category', value: uniqueCategories },
         ]
     }
   });
@@ -450,6 +515,11 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     React.useEffect(() => {
         table.getColumn('partyName')?.setFilterValue(uniquePartyNames);
     }, [table, uniquePartyNames]);
+
+    React.useEffect(() => {
+        table.getColumn('category')?.setFilterValue(uniqueCategories);
+    }, [table, uniqueCategories]);
+
 
   const toggleCollapsible = (productId: string) => {
     setOpenCollapsibles(prev => {
