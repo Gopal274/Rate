@@ -21,8 +21,9 @@ import {
   ChevronDown,
   XCircle,
   Filter,
+  ArrowUpDown,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 
 import {
   addProductAction,
@@ -119,7 +120,7 @@ const useProductTable = () => {
 };
 
 type ProductWithRates = Product & { rates: Rate[] };
-type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc';
+type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc' | 'final-rate-asc' | 'final-rate-desc';
 
 
 const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
@@ -138,6 +139,9 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [activeSort, setActiveSort] = React.useState<SortDirection>('newest');
+
+  const [startDate, setStartDate] = React.useState<string>('');
+  const [endDate, setEndDate] = React.useState<string>('');
 
 
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
@@ -198,10 +202,29 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
 
 
   const sortedData = React.useMemo(() => {
-    const dataToSort = products.map(p => ({
+    let dataToSort = products.map(p => ({
       ...p,
       rates: rateHistories[p.id] ?? [],
-    })).filter(p => p.rates.length > 0); // Only include products that have rates
+    })).filter(p => p.rates.length > 0); 
+    
+    // Apply date range filter
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (isValid(start) && isValid(end)) {
+            dataToSort = dataToSort.filter(p => {
+                const billDate = new Date(p.rates[0].billDate);
+                return billDate >= start && billDate <= end;
+            });
+        }
+    }
+
+
+    const getFinalRate = (p: ProductWithRates) => {
+        const latestRateInfo = p.rates[0];
+        if (!latestRateInfo) return 0;
+        return latestRateInfo.rate * (1 + latestRateInfo.gst / 100);
+    };
 
     switch (activeSort) {
       case 'oldest':
@@ -214,11 +237,15 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         return dataToSort.sort((a, b) => a.partyName.localeCompare(b.partyName));
       case 'party-desc':
         return dataToSort.sort((a, b) => b.partyName.localeCompare(a.partyName));
+       case 'final-rate-asc':
+        return dataToSort.sort((a, b) => getFinalRate(a) - getFinalRate(b));
+      case 'final-rate-desc':
+        return dataToSort.sort((a, b) => getFinalRate(b) - getFinalRate(a));
       case 'newest':
       default:
         return dataToSort.sort((a, b) => new Date(b.rates[0].billDate).getTime() - new Date(a.rates[0].billDate).getTime());
     }
-  }, [products, rateHistories, activeSort]);
+  }, [products, rateHistories, activeSort, startDate, endDate]);
 
 
   const columns: ColumnDef<ProductWithRates>[] = [
@@ -295,7 +322,16 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     },
     {
       id: 'finalRate',
-      header: () => <div className="text-right">Final Rate</div>,
+      header: () => {
+        return (
+            <div className="flex items-center justify-end gap-2">
+                Final Rate
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setActiveSort(prev => prev === 'final-rate-desc' ? 'final-rate-asc' : 'final-rate-desc')}>
+                    <ArrowUpDown className="h-4 w-4" />
+                </Button>
+            </div>
+        );
+      },
       cell: ({ row }) => {
         const latestRateInfo = row.original.rates[0];
         if (!latestRateInfo) return null;
@@ -618,15 +654,31 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
               <CardTitle>Products</CardTitle>
               <CardDescription>Manage your products and their rates.</CardDescription>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto no-print">
-              <Input
+             <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap no-print">
+               <Input
                 placeholder="Filter products..."
                 value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
                 onChange={(event) =>
                   table.getColumn('name')?.setFilterValue(event.target.value)
                 }
-                className="max-w-sm"
+                className="max-w-xs"
               />
+              <div className="flex items-center gap-2">
+                <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="max-w-[150px]"
+                />
+                <span className="text-muted-foreground">-</span>
+                 <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="max-w-[150px]"
+                />
+              </div>
+
               <Button onClick={handlePrint} variant="outline" size="icon">
                   <Printer className="h-4 w-4" />
                   <span className="sr-only">Print</span>
@@ -727,7 +779,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                       colSpan={columns.length}
                       className="h-24 text-center"
                     >
-                      No products found. Click "Add Product" to get started.
+                      No products found. Adjust your filters or add a product to get started.
                     </TableCell>
                   </TableRow>
                 )}
