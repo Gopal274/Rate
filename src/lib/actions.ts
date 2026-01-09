@@ -134,13 +134,13 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
 
       return [
         product.name,
-        rate.rate, // Send the raw number
+        rate.rate,
         product.unit,
-        (rate.gst || 0) / 100, // Send GST as a decimal (e.g., 5% becomes 0.05)
-        '', // Final Rate is a formula, leave empty
+        (rate.gst || 0) / 100, // Send as decimal
+        '', // Final Rate is a formula
         product.partyName,
         rate.pageNo,
-        serialNumber, // Send the date serial number
+        serialNumber,
         product.category,
       ];
     });
