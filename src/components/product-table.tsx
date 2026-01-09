@@ -610,20 +610,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
   const paddingBottom = virtualRows.length > 0 ? totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0) : 0;
   
-    React.useEffect(() => {
-        const partyFilter = columnFilters.find(f => f.id === 'partyName');
-        if(!partyFilter && uniquePartyNames.length > 0 && table.getColumn('partyName')) {
-            table.getColumn('partyName')?.setFilterValue(uniquePartyNames);
-        }
-    }, [table, uniquePartyNames, columnFilters]);
-
-    React.useEffect(() => {
-        const categoryFilter = columnFilters.find(f => f.id === 'category');
-        if(!categoryFilter && uniqueCategories.length > 0 && table.getColumn('category')) {
-            table.getColumn('category')?.setFilterValue(uniqueCategories);
-        }
-    }, [table, uniqueCategories, columnFilters]);
-
 
   return (
     <>
