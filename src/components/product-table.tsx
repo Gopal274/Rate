@@ -113,18 +113,6 @@ import { z } from 'zod';
 import { ScrollArea } from './ui/scroll-area';
 import { GoogleAuthProvider, signInWithPopup, UserCredential } from 'firebase/auth';
 
-const ProductTableContext = React.createContext<{
-    rateHistories: Record<string, Rate[]>;
-} | null>(null);
-
-const useProductTable = () => {
-    const context = React.useContext(ProductTableContext);
-    if (!context) {
-        throw new Error('useProductTable must be used within a ProductTableProvider');
-    }
-    return context;
-};
-
 type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc' | 'final-rate-asc' | 'final-rate-desc';
 
 const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
@@ -161,9 +149,8 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 };
 
 
-export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
-  const [products, setProducts] = React.useState<Product[]>([]);
-  const [rateHistories, setRateHistories] = React.useState<Record<string, Rate[]>>({});
+export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
+  const [products, setProducts] = React.useState<ProductWithRates[]>(allProductsWithRates);
   const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort', 'newest');
@@ -247,51 +234,22 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
 
 
   React.useEffect(() => {
-    setProducts(initialProducts);
-
-    const fetchAllRates = async () => {
-      if (initialProducts.length > 0) {
-          const allHistories: Record<string, Rate[]> = {};
-          for (const product of initialProducts) {
-            try {
-              const fetchedRates = await getProductRatesAction(product.id);
-              const ratesWithDates = fetchedRates.map(r => ({
-                  ...r,
-                  billDate: new Date(r.billDate),
-                  createdAt: new Date(r.createdAt),
-              })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-              allHistories[product.id] = ratesWithDates;
-            } catch (error) {
-              console.error(`Failed to fetch rates for product ${product.id}:`, error);
-              toast({ variant: 'destructive', title: 'Fetch Error', description: `Could not load rates for ${product.name}.` });
-              allHistories[product.id] = [];
-            }
-          }
-          setRateHistories(allHistories);
-      } else {
-        setRateHistories({});
-      }
-    };
-    
-    fetchAllRates();
-  }, [initialProducts, toast]);
+    setProducts(allProductsWithRates);
+  }, [allProductsWithRates]);
   
   const uniquePartyNames = React.useMemo(() => {
-    const partyNames = new Set(initialProducts.map(p => p.partyName));
+    const partyNames = new Set((products || []).map(p => p.partyName));
     return Array.from(partyNames).sort();
-  }, [initialProducts]);
+  }, [products]);
 
   const uniqueCategories = React.useMemo(() => {
-    const categoryNames = new Set(initialProducts.map(p => p.category));
+    const categoryNames = new Set((products || []).map(p => p.category));
     return Array.from(categoryNames).sort();
-  }, [initialProducts]);
+  }, [products]);
 
 
   const sortedData = React.useMemo(() => {
-    let dataToSort = products.map(p => ({
-      ...p,
-      rates: rateHistories[p.id] ?? [],
-    })).filter(p => p.rates.length > 0); 
+    let dataToSort = [...products].filter(p => p.rates.length > 0); 
     
     const getFinalRate = (p: ProductWithRates) => {
         const latestRateInfo = p.rates[0];
@@ -318,7 +276,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       default:
         return dataToSort.sort((a, b) => new Date(b.rates[0].createdAt).getTime() - new Date(a.rates[0].createdAt).getTime());
     }
-  }, [products, rateHistories, activeSort]);
+  }, [products, activeSort]);
 
 
   const columns: ColumnDef<ProductWithRates>[] = React.useMemo(() => [
@@ -684,14 +642,16 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     }, [table, uniqueCategories, columnFilters]);
 
   const onProductAdded = (newProduct: Product, initialRate: Rate) => {
-    setProducts(prev => [newProduct, ...prev]);
-    const rateWithDateObjects = { 
-        ...initialRate, 
-        id: `temp-${Date.now()}`,
-        billDate: new Date(initialRate.billDate),
-        createdAt: new Date(initialRate.createdAt)
+    const newProductWithRates: ProductWithRates = {
+        ...newProduct,
+        rates: [{
+            ...initialRate,
+            id: `temp-${Date.now()}`,
+            billDate: new Date(initialRate.billDate),
+            createdAt: new Date(initialRate.createdAt)
+        }]
     };
-    setRateHistories(prev => ({...prev, [newProduct.id]: [rateWithDateObjects]}));
+    setProducts(prev => [newProductWithRates, ...prev]);
   };
 
   const onProductUpdated = (updatedProductData: Partial<Product>) => {
@@ -709,30 +669,34 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         billDate: new Date(newRate.billDate),
         createdAt: new Date(newRate.createdAt)
     };
-     setRateHistories(prev => ({
-      ...prev,
-      [productId]: [rateWithDateObjects, ...(prev[productId] ?? [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-     }));
+     setProducts(prevProducts => {
+        return prevProducts.map(p => {
+            if (p.id === productId) {
+                const newRates = [rateWithDateObjects, ...p.rates].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                return {...p, rates: newRates};
+            }
+            return p;
+        });
+     });
   }
 
   const onProductDeleted = (deletedProductId: string) => {
     setProducts(prev => prev.filter(p => p.id !== deletedProductId));
-     setRateHistories(prev => {
-        const newHistories = {...prev};
-        delete newHistories[deletedProductId];
-        return newHistories;
-    });
   }
 
   const onRateDeleted = (productId: string, rateId: string) => {
-    setRateHistories(prev => ({
-        ...prev,
-        [productId]: prev[productId]?.filter(r => r.id !== rateId) ?? []
-    }));
+    setProducts(prevProducts => {
+        return prevProducts.map(p => {
+            if (p.id === productId) {
+                return {...p, rates: p.rates.filter(r => r.id !== rateId)};
+            }
+            return p;
+        });
+    });
   }
 
   return (
-    <ProductTableContext.Provider value={{ rateHistories }}>
+    <>
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -889,7 +853,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
 
         {addingRateToProduct && (
           <AddRateDialog
-              product={addingRateToProduct}
+              product={addingRateToProduct as ProductWithRates}
               isOpen={!!addingRateToProduct}
               setIsOpen={(isOpen) => !isOpen && setAddingRateToProduct(null)}
               onRateAdded={onRateAdded}
@@ -908,7 +872,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
           onProductDeleted={onProductDeleted}
         />
       </Card>
-    </ProductTableContext.Provider>
+    </>
   );
 }
 
@@ -1117,13 +1081,12 @@ function AddRateDialog({
   setIsOpen,
   onRateAdded,
 }: {
-  product: Product | null;
+  product: ProductWithRates | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   onRateAdded: (productId: string, newRate: Rate) => void;
 }) {
-    const { rateHistories } = useProductTable();
-    const latestRate = product && rateHistories[product.id]?.[0];
+    const latestRate = product?.rates[0];
     const form = useForm<AddRateSchema>({
         resolver: zodResolver(addRateSchema),
         defaultValues: {
@@ -1138,7 +1101,7 @@ function AddRateDialog({
 
   React.useEffect(() => {
     if(product) {
-        const latestRateInfo = rateHistories[product.id]?.[0];
+        const latestRateInfo = product.rates[0];
         form.reset({
             rate: '' as any,
             billDate: format(new Date(), 'yyyy-MM-dd'),
@@ -1146,7 +1109,7 @@ function AddRateDialog({
             gst: latestRateInfo?.gst,
         })
     }
-  }, [product, form, rateHistories]);
+  }, [product, form]);
 
   async function onSubmit(values: AddRateSchema) {
     if (!product) return;
