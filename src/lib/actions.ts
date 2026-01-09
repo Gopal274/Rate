@@ -136,14 +136,17 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
     return product.rates.map(rate => {
       const billDate = rate.billDate ? new Date(rate.billDate as string) : null;
       const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : '';
-      const finalRate = (rate.rate ?? 0) * (1 + (rate.gst ?? 0) / 100);
+      
+      const rateAsNumber = Number(rate.rate ?? 0);
+      const gstAsNumber = Number(rate.gst ?? 0);
+      const finalRate = rateAsNumber * (1 + gstAsNumber / 100);
 
       return [
         product.name,
-        rate.rate,
+        rateAsNumber,
         product.unit,
-        (rate.gst ?? 0) / 100, // send GST as decimal for percent formatting
-        finalRate, // send the calculated final rate
+        gstAsNumber / 100, // send GST as decimal
+        finalRate,
         product.partyName,
         rate.pageNo,
         serialNumber,
@@ -380,5 +383,3 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
   }
 }
-
-    
