@@ -3,34 +3,48 @@
 import AppHeader from '@/components/app-header';
 import { ProductTable } from '@/components/product-table';
 import { AuthForm } from '@/components/auth-form';
-import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
-import { useMemo } from 'react';
+import { useFirebase, useUser, getAllProductsWithRatesAction } from '@/firebase';
+import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
-import type { Product } from '@/lib/types';
+import type { ProductWithRates } from '@/lib/types';
 
 export default function Home() {
-  const { firestore, isUserLoading } = useFirebase();
+  const { isUserLoading } = useFirebase();
   const { user } = useUser();
+  const [productsWithRates, setProductsWithRates] = useState<ProductWithRates[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  const productsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'products'));
-  }, [firestore]);
+  useEffect(() => {
+    const fetchAllData = async () => {
+      if (!user) {
+        setDataLoading(false);
+        return;
+      }
 
-  const { data: productsFromHook, isLoading, error } = useCollection<Product>(productsQuery);
+      setDataLoading(true);
+      setError(null);
+      try {
+        const allData = await getAllProductsWithRatesAction();
+         const sortedData = allData.map(p => ({
+            ...p,
+            rates: p.rates.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        }));
+        setProductsWithRates(sortedData);
+      } catch (e: any) {
+        console.error("Failed to fetch all data:", e);
+        setError(e);
+      } finally {
+        setDataLoading(false);
+      }
+    };
 
-  const products = useMemo(() => {
-    if (!productsFromHook) return [];
-    return productsFromHook.map(p => ({
-        ...p,
-        // Ensure billDate is always a JS Date object for the components
-        billDate: (p.billDate as any)?.toDate ? (p.billDate as any).toDate() : new Date(p.billDate || new Date()),
-    }));
-  }, [productsFromHook]);
+    fetchAllData();
+  }, [user]);
 
+  const isLoading = isUserLoading || dataLoading;
 
   if (isUserLoading) {
     return (
@@ -81,7 +95,7 @@ export default function Home() {
                 </AlertDescription>
             </Alert>
         )}
-        { !isLoading && !error && <ProductTable initialProducts={products ?? []} /> }
+        { !isLoading && !error && <ProductTable allProductsWithRates={productsWithRates ?? []} /> }
       </main>
     </div>
   );
