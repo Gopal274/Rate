@@ -77,7 +77,8 @@ export async function deleteRateAction(productId: string, rateId: string) {
     await deleteRateFromDb(productId, rateId);
     revalidatePath('/');
     return { success: true, message: 'Rate deleted successfully.' };
-  } catch (error) {
+  } catch (error)
+    {
     console.error("deleteRateAction Error:", error);
     const message = error instanceof Error ? error.message : 'Failed to delete rate.';
     return { success: false, message };
@@ -97,14 +98,14 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
 function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string | number)[][] {
     const headers = [
         'Product Name', 
-        'Party Name', 
-        'Category', 
-        'Unit', 
-        'Bill Date', 
-        'Page No', 
         'Rate', 
+        'Unit', 
         'GST %', 
-        'Final Rate'
+        'Final Rate',
+        'Party Name', 
+        'Page No',
+        'Bill Date', 
+        'Category',
     ];
     
     const rows = allProductsWithRates.flatMap(product => {
@@ -119,13 +120,14 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
 
             return [
                 product.name,
-                product.partyName,
-                product.category,
-                product.unit,
-                serialNumber, // Use serial number for dates
-                rate.pageNo,
                 rate.rate,
+                product.unit,
                 rate.gst,
+                '', // Placeholder for Final Rate formula
+                product.partyName,
+                rate.pageNo,
+                serialNumber, // Use serial number for dates
+                product.category,
             ];
         });
     });
@@ -137,7 +139,7 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
 async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheetId: string, spreadsheetUrl: string }> {
     // 1. Search for the file by name
     const searchResponse = await drive.files.list({
-        q: `name='${SHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+        q: `name='${SHEET_NAME}' and mimeType='application/vnd.google-apps-spreadsheet' and trashed=false`,
         fields: 'files(id, webViewLink)',
     });
 
@@ -186,105 +188,99 @@ export async function syncToGoogleSheetAction(accessToken: string) {
 
         const values = convertDataForSheet(allProductsWithRates);
         
-        // Clear all previous data and formatting
+        // --- Clear and Write Data ---
         await sheets.spreadsheets.values.clear({
             spreadsheetId,
             range: 'Sheet1',
         });
-
-        // Write the main data (without final rate)
-        const dataWriteRequest = sheets.spreadsheets.values.update({
+        await sheets.spreadsheets.values.update({
             spreadsheetId,
             range: 'Sheet1',
-            valueInputOption: 'USER_ENTERED',
+            valueInputOption: 'USER_ENTERED', // Important for dates and formulas
             requestBody: {
                 values: values,
             },
         });
-        
+
         // --- Start of Formatting and Feature Requests ---
         const numRows = values.length;
         const numCols = values[0].length;
         
-        const formattingRequests = {
-            spreadsheetId,
-            requestBody: {
-                requests: [
-                    // 1. Bold Header Row
-                    {
-                        repeatCell: {
-                            range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
-                            cell: { userEnteredFormat: { textFormat: { bold: true } } },
-                            fields: 'userEnteredFormat.textFormat.bold',
-                        }
-                    },
-                    // 2. Format Date Column (E)
-                    {
-                        repeatCell: {
-                             range: { sheetId: 0, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 },
-                             cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd/mm/yyyy' } } },
-                             fields: 'userEnteredFormat.numberFormat'
-                        }
-                    },
-                    // 3. Format Rate Column as Currency (G)
-                    {
-                        repeatCell: {
-                             range: { sheetId: 0, startColumnIndex: 6, endColumnIndex: 7, startRowIndex: 1 },
-                             cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
-                             fields: 'userEnteredFormat.numberFormat'
-                        }
-                    },
-                    // 4. Format GST Column as Number
-                     {
-                        repeatCell: {
-                             range: { sheetId: 0, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
-                             cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#0' } } },
-                             fields: 'userEnteredFormat.numberFormat'
-                        }
-                    },
-                    // 5. Format Final Rate Column as Currency (I)
-                     {
-                        repeatCell: {
-                             range: { sheetId: 0, startColumnIndex: 8, endColumnIndex: 9, startRowIndex: 1 },
-                             cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
-                             fields: 'userEnteredFormat.numberFormat'
-                        }
-                    },
-                    // 6. Set Basic Filter
-                    {
-                       setBasicFilter: {
-                           filter: {
-                               range: { sheetId: 0, startRowIndex: 0, endRowIndex: numRows, startColumnIndex: 0, endColumnIndex: numCols }
-                           }
-                       }
-                    },
-                     // 7. Auto-resize all columns
-                    {
-                        autoResizeDimensions: {
-                            dimensions: { sheetId: 0, dimension: 'COLUMNS', startIndex: 0, endIndex: numCols }
-                        }
-                    }
-                ]
+        const requests = [
+            // 1. Bold Header Row
+            {
+                repeatCell: {
+                    range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
+                    cell: { userEnteredFormat: { textFormat: { bold: true } } },
+                    fields: 'userEnteredFormat.textFormat.bold',
+                }
+            },
+            // 2. Format Rate Column (B) as Currency
+            {
+                repeatCell: {
+                     range: { sheetId: 0, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 },
+                     cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
+                     fields: 'userEnteredFormat.numberFormat'
+                }
+            },
+            // 3. Format GST Column (D) as Number
+             {
+                repeatCell: {
+                     range: { sheetId: 0, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 },
+                     cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#0' } } },
+                     fields: 'userEnteredFormat.numberFormat'
+                }
+            },
+            // 4. Format Final Rate Column (E) as Currency
+             {
+                repeatCell: {
+                     range: { sheetId: 0, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 },
+                     cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
+                     fields: 'userEnteredFormat.numberFormat'
+                }
+            },
+            // 5. Format Date Column (H)
+            {
+                repeatCell: {
+                     range: { sheetId: 0, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
+                     cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd/mm/yyyy' } } },
+                     fields: 'userEnteredFormat.numberFormat'
+                }
+            },
+            // 6. Set Basic Filter
+            {
+               setBasicFilter: {
+                   filter: {
+                       range: { sheetId: 0, startRowIndex: 0, endRowIndex: numRows, startColumnIndex: 0, endColumnIndex: numCols }
+                   }
+               }
+            },
+             // 7. Auto-resize all columns
+            {
+                autoResizeDimensions: {
+                    dimensions: { sheetId: 0, dimension: 'COLUMNS', startIndex: 0, endIndex: numCols }
+                }
             }
-        };
+        ];
 
-        const formattingRequest = sheets.spreadsheets.batchUpdate(formattingRequests);
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: { requests }
+        });
         
-        // This request will run after the main data is written
-        const formulaUpdateRequest = sheets.spreadsheets.values.update({
+        // --- Write Formula for Final Rate ---
+        // This is done separately after formatting
+        await sheets.spreadsheets.values.update({
              spreadsheetId,
-             range: 'Sheet1!I2',
+             range: 'Sheet1!E2', // Final Rate column, first data row
              valueInputOption: 'USER_ENTERED',
              requestBody: {
                  values: [
-                     ['=IF(G2="","", G2+(G2*H2/100))']
+                     // Formula for Final Rate = Rate + (Rate * GST / 100)
+                     ['=IF(B2="","", B2 + (B2 * D2 / 100))']
                  ]
              }
         });
-
-
-        // Run all requests
-        await Promise.all([dataWriteRequest, formattingRequest, formulaUpdateRequest]);
         
         return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
 
@@ -313,7 +309,8 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
         const sheetDataResponse = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: 'Sheet1!A:H', // Read up to GST column
+            // Adjust the range to read the columns in the new order
+            range: 'Sheet1!A:I', 
         });
 
         const rows = sheetDataResponse.data.values;
@@ -324,7 +321,13 @@ export async function importFromGoogleSheetAction(accessToken: string) {
         // Remove header row
         const dataRows = rows.slice(1);
 
-        const result = await importProductsAndRates(dataRows);
+        // We need to re-map the data from the sheet row to what importProductsAndRates expects
+        const mappedRows = dataRows.map(row => {
+            const [name, rateStr, unit, gstStr, _finalRate, partyName, pageNoStr, dateSerialNumber, category] = row;
+            return [name, partyName, category, unit, dateSerialNumber, pageNoStr, rateStr, gstStr];
+        });
+
+        const result = await importProductsAndRates(mappedRows);
 
         revalidatePath('/');
         return { success: true, message: `Import complete. Added: ${result.added}, Updated: ${result.updated}, Skipped: ${result.skipped}.` };
