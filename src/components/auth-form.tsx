@@ -8,7 +8,9 @@ import {
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 
     GoogleAuthProvider, 
-    signInWithPopup 
+    signInWithPopup,
+    getAdditionalUserInfo,
+    OAuthProvider,
 } from 'firebase/auth';
 import { useFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -59,6 +61,8 @@ export function AuthForm() {
   const handleGoogleSignIn = async () => {
     setIsSubmitting(true);
     const provider = new GoogleAuthProvider();
+    // Request permission to create files in Google Drive
+    provider.addScope('https://www.googleapis.com/auth/drive.file');
     try {
       await signInWithPopup(auth, provider);
       toast({ title: 'Success', description: 'Signed in with Google.' });

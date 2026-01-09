@@ -87,3 +87,16 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
         return [];
     }
 }
+
+export async function saveToDriveAction(accessToken: string, data: any) {
+    console.log("saveToDriveAction called with token:", !!accessToken, "and data:", data);
+    
+    if (!accessToken) {
+        return { success: false, message: 'Authentication token is missing.' };
+    }
+    
+    // In the next step, we will implement the logic to use this token
+    // to upload a CSV file to Google Drive.
+    
+    return { success: true, message: 'Data received. Drive upload is next.' };
+}

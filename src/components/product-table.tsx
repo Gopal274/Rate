@@ -33,6 +33,7 @@ import {
   addRateAction,
   deleteRateAction,
   getProductRatesAction,
+  saveToDriveAction,
 } from '@/lib/actions';
 import type { Product, ProductSchema, Rate, UpdateProductSchema } from '@/lib/types';
 import { categories, productSchema, units, updateProductSchema } from '@/lib/types';
@@ -94,7 +95,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { useUser } from '@/firebase';
+import { useUser, useFirebase } from '@/firebase';
 import {
   Card,
   CardContent,
@@ -105,6 +106,7 @@ import {
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { z } from 'zod';
 import { ScrollArea } from './ui/scroll-area';
+import { GoogleAuthProvider, signInWithPopup, UserCredential } from 'firebase/auth';
 
 // Create a context to share state and functions
 const ProductTableContext = React.createContext<{
@@ -148,6 +150,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   
 
   const { user } = useUser();
+  const { auth } = useFirebase();
   const { toast } = useToast();
   
   const handlePrint = React.useCallback(() => {
@@ -156,14 +159,41 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     }
   }, []);
 
-  const handleSaveToDrive = React.useCallback(() => {
-    console.log("Attempting to save to Google Drive...");
-    toast({
-        title: "Feature in progress",
-        description: "Connecting to Google Drive is being implemented.",
-    });
-    // We will implement the full logic in the next steps.
-  }, []);
+  const handleSaveToDrive = async () => {
+     if (!auth.currentUser) {
+        toast({ title: 'Error', description: 'You must be signed in to save to Drive.', variant: 'destructive'});
+        return;
+    }
+    toast({ title: 'Connecting to Google Drive...', description: 'Please follow the prompts to grant permission.'});
+    try {
+        const provider = new GoogleAuthProvider();
+        provider.addScope('https://www.googleapis.com/auth/drive.file');
+
+        // Re-authenticate to get a fresh token with the required scope
+        const result: UserCredential = await signInWithPopup(auth, provider);
+
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        const accessToken = credential?.accessToken;
+
+        if (!accessToken) {
+            throw new Error("Could not retrieve access token from Google.");
+        }
+        
+        // Prepare the data to be saved
+        const dataToSave = table.getFilteredRowModel().rows.map(row => row.original);
+        const actionResult = await saveToDriveAction(accessToken, dataToSave);
+        
+        if (actionResult.success) {
+            toast({ title: 'In Progress', description: actionResult.message });
+        } else {
+            toast({ title: 'Error', description: actionResult.message, variant: 'destructive'});
+        }
+
+    } catch (error: any) {
+        console.error("Google Drive Auth Error:", error);
+        toast({ title: 'Authentication Failed', description: error.message || "Could not connect to Google Drive.", variant: 'destructive' });
+    }
+  };
 
   React.useEffect(() => {
     setProducts(initialProducts);
