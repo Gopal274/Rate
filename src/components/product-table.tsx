@@ -13,6 +13,7 @@ import {
   useReactTable,
   FilterFn,
 } from '@tanstack/react-table';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Edit,
   PlusCircle,
@@ -25,6 +26,7 @@ import {
   Save,
   ExternalLink,
   Upload,
+  RotateCcw,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -111,12 +113,10 @@ import { z } from 'zod';
 import { ScrollArea } from './ui/scroll-area';
 import { GoogleAuthProvider, signInWithPopup, UserCredential } from 'firebase/auth';
 
-// Create a context to share state and functions
 const ProductTableContext = React.createContext<{
     rateHistories: Record<string, Rate[]>;
 } | null>(null);
 
-// Custom hook to use the context
 const useProductTable = () => {
     const context = React.useContext(ProductTableContext);
     if (!context) {
@@ -125,9 +125,7 @@ const useProductTable = () => {
     return context;
 };
 
-
 type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc' | 'final-rate-asc' | 'final-rate-desc';
-
 
 const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
     if (!filterValue || (Array.isArray(filterValue) && filterValue.length === 0)) {
@@ -137,14 +135,38 @@ const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
     return Array.isArray(filterValue) && filterValue.includes(value);
 };
 
+const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+    const [state, setState] = React.useState<T>(() => {
+        if (typeof window === 'undefined') {
+            return defaultValue;
+        }
+        try {
+            const item = window.localStorage.getItem(key);
+            return item ? JSON.parse(item) : defaultValue;
+        } catch (error) {
+            console.warn(`Error reading localStorage key "${key}":`, error);
+            return defaultValue;
+        }
+    });
+
+    React.useEffect(() => {
+        try {
+            window.localStorage.setItem(key, JSON.stringify(state));
+        } catch (error) {
+            console.warn(`Error setting localStorage key "${key}":`, error);
+        }
+    }, [key, state]);
+
+    return [state, setState];
+};
+
 
 export function ProductTable({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = React.useState<Product[]>([]);
   const [rateHistories, setRateHistories] = React.useState<Record<string, Rate[]>>({});
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [activeSort, setActiveSort] = React.useState<SortDirection>('newest');
+  const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort', 'newest');
 
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
@@ -233,7 +255,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
           for (const product of initialProducts) {
             try {
               const fetchedRates = await getProductRatesAction(product.id);
-              // Ensure dates are JS Date objects
               const ratesWithDates = fetchedRates.map(r => ({
                   ...r,
                   billDate: new Date(r.billDate),
@@ -256,14 +277,14 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   }, [initialProducts, toast]);
   
   const uniquePartyNames = React.useMemo(() => {
-    const partyNames = new Set(products.map(p => p.partyName));
+    const partyNames = new Set(initialProducts.map(p => p.partyName));
     return Array.from(partyNames).sort();
-  }, [products]);
+  }, [initialProducts]);
 
   const uniqueCategories = React.useMemo(() => {
-    const categoryNames = new Set(products.map(p => p.category));
+    const categoryNames = new Set(initialProducts.map(p => p.category));
     return Array.from(categoryNames).sort();
-  }, [products]);
+  }, [initialProducts]);
 
 
   const sortedData = React.useMemo(() => {
@@ -300,7 +321,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   }, [products, rateHistories, activeSort]);
 
 
-  const columns: ColumnDef<ProductWithRates>[] = [
+  const columns: ColumnDef<ProductWithRates>[] = React.useMemo(() => [
      {
       id: 'expander',
       header: () => null,
@@ -311,15 +332,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         return (
              <ChevronDown className={cn("h-4 w-4 transition-transform", openCollapsibles.has(row.original.id) && "rotate-180" )} />
         )
-      },
-      enableSorting: false,
-    },
-    {
-      id: 'sNo',
-      header: 'S.No',
-      cell: ({ row, table }) => {
-        const sortedRowIndex = table.getSortedRowModel().rows.findIndex(sortedRow => sortedRow.id === row.id);
-        return sortedRowIndex + 1;
       },
       enableSorting: false,
     },
@@ -419,8 +431,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         };
 
         const allSelected = selectedParties.length === uniquePartyNames.length && uniquePartyNames.length > 0;
-        const isIndeterminate = selectedParties.length > 0 && selectedParties.length < uniquePartyNames.length;
-
 
         return (
           <div className="flex items-center gap-2">
@@ -457,6 +467,10 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setActiveSort('party-asc')}>Sort A-Z</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setActiveSort('party-desc')}>Sort Z-A</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => column?.setFilterValue([])}>
+                    <RotateCcw className="mr-2 h-4 w-4" /> Clear Filter
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -534,6 +548,10 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                     </DropdownMenuCheckboxItem>
                 ))}
                 </ScrollArea>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => column?.setFilterValue([])}>
+                    <RotateCcw className="mr-2 h-4 w-4" /> Clear Filter
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -608,46 +626,62 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       },
       enableSorting: false,
     },
-  ];
+  ], [openCollapsibles, uniquePartyNames, uniqueCategories, setActiveSort]);
 
   const table = useReactTable({
     data: sortedData,
     columns,
-    state: { columnFilters, sorting },
+    state: { columnFilters },
     onColumnFiltersChange: setColumnFilters,
-    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    initialState: {}
+    initialState: {},
+    meta: {
+        toggleCollapsible: (productId: string) => {
+            setOpenCollapsibles(prev => {
+                const newSet = new Set(prev);
+                if(newSet.has(productId)) {
+                    newSet.delete(productId);
+                } else {
+                    newSet.add(productId);
+                }
+                return newSet;
+            });
+        }
+    }
   });
+
+  const tableContainerRef = React.useRef<HTMLDivElement>(null);
+  const { rows } = table.getRowModel();
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 57, // Approximate height of a row
+    overscan: 5,
+  });
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const totalSize = rowVirtualizer.getTotalSize();
+
+  const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
+  const paddingBottom = virtualRows.length > 0 ? totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0) : 0;
   
-    // Set initial filter state for party names to all selected
     React.useEffect(() => {
-        if(uniquePartyNames.length > 0 && table.getColumn('partyName')) {
+        const partyFilter = columnFilters.find(f => f.id === 'partyName');
+        if(!partyFilter && uniquePartyNames.length > 0 && table.getColumn('partyName')) {
             table.getColumn('partyName')?.setFilterValue(uniquePartyNames);
         }
-    }, [table, uniquePartyNames]);
+    }, [table, uniquePartyNames, columnFilters]);
 
     React.useEffect(() => {
-        if(uniqueCategories.length > 0 && table.getColumn('category')) {
+        const categoryFilter = columnFilters.find(f => f.id === 'category');
+        if(!categoryFilter && uniqueCategories.length > 0 && table.getColumn('category')) {
             table.getColumn('category')?.setFilterValue(uniqueCategories);
         }
-    }, [table, uniqueCategories]);
-
-
-  const toggleCollapsible = (productId: string) => {
-    setOpenCollapsibles(prev => {
-        const newSet = new Set(prev);
-        if(newSet.has(productId)) {
-            newSet.delete(productId);
-        } else {
-            newSet.add(productId);
-        }
-        return newSet;
-    });
-  }
+    }, [table, uniqueCategories, columnFilters]);
 
   const onProductAdded = (newProduct: Product, initialRate: Rate) => {
     setProducts(prev => [newProduct, ...prev]);
@@ -738,14 +772,14 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border relative overflow-x-auto">
+          <div ref={tableContainerRef} className="rounded-md border relative overflow-auto" style={{ height: '60vh' }}>
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-background z-10">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
                       return (
-                        <TableHead key={header.id} className={cn('whitespace-nowrap', header.id === 'actions' ? 'no-print' : '')}>
+                        <TableHead key={header.id} className={cn('whitespace-nowrap', header.id === 'actions' ? 'no-print' : '')} style={{ width: header.getSize() }}>
                           {header.isPlaceholder
                             ? null
                             : flexRender(
@@ -759,8 +793,14 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 ))}
               </TableHeader>
               <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => {
+                {paddingTop > 0 && (
+                    <tr>
+                      <td style={{ height: `${paddingTop}px` }} />
+                    </tr>
+                )}
+                {virtualRows.length > 0 ? (
+                  virtualRows.map((virtualRow) => {
+                    const row = rows[virtualRow.index];
                     const isOpen = openCollapsibles.has(row.original.id);
                     const hasHistory = row.original.rates.length > 1;
                     return (
@@ -769,7 +809,9 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                           key={`main-${row.original.id}`}
                           data-state={row.getIsSelected() && 'selected'}
                           className={cn(hasHistory && "cursor-pointer")}
-                          onClick={() => hasHistory && toggleCollapsible(row.original.id)}
+                          onClick={() => hasHistory && table.options.meta?.toggleCollapsible(row.original.id)}
+                          data-index={virtualRow.index}
+                          ref={node => rowVirtualizer.measureElement(node)}
                         >
                           {row.getVisibleCells().map((cell) => (
                             <TableCell key={cell.id} className={cn('whitespace-nowrap', cell.column.id === 'actions' ? 'no-print' : '')}>
@@ -784,7 +826,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                           const finalRate = rate.rate * (1 + rate.gst / 100);
                           return (
                             <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
-                              <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                                 {format(new Date(rate.createdAt), 'dd/MM/yy')}
@@ -827,26 +868,13 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                     </TableCell>
                   </TableRow>
                 )}
+                 {paddingBottom > 0 && (
+                    <tr>
+                      <td style={{ height: `${paddingBottom}px` }} />
+                    </tr>
+                )}
               </TableBody>
             </Table>
-          </div>
-          <div className="flex items-center justify-end space-x-2 py-4 no-print">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Next
-            </Button>
           </div>
         </CardContent>
 
@@ -1295,5 +1323,3 @@ function DeleteRateDialog({
         </AlertDialog>
     );
 }
-
-    

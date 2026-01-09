@@ -9,7 +9,8 @@ import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
-import type { Product } from '@/lib/types';
+import type { Product, ProductWithRates } from '@/lib/types';
+import Dashboard from '@/components/dashboard';
 
 export default function Home() {
   const { firestore, isUserLoading } = useFirebase();
@@ -17,29 +18,19 @@ export default function Home() {
 
   const productsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    // Simple query to fetch all products. Sorting will be done on the client.
     return query(collection(firestore, 'products'));
   }, [firestore]);
 
-  const { data: products, isLoading, error } = useCollection<Product>(productsQuery);
-  
-  // Memoize the client-side sorting and date conversion
-  const enrichedProducts = useMemo(() => {
-    if (!products) return [];
-    
-    const sorted = [...products].sort((a, b) => {
-        // Handle both Firebase Timestamps and Date objects
-        const dateA = (a.billDate as any)?.toDate ? (a.billDate as any).toDate() : new Date(a.billDate);
-        const dateB = (b.billDate as any)?.toDate ? (b.billDate as any).toDate() : new Date(b.billDate);
-        return dateB.getTime() - dateA.getTime();
-    });
+  const { data: productsFromHook, isLoading, error } = useCollection<Product>(productsQuery);
 
-    return sorted.map(p => ({
+  const products = useMemo(() => {
+    if (!productsFromHook) return [];
+    return productsFromHook.map(p => ({
         ...p,
         // Ensure billDate is always a JS Date object for the components
-        billDate: (p.billDate as any)?.toDate ? (p.billDate as any).toDate() : new Date(p.billDate),
+        billDate: (p.billDate as any)?.toDate ? (p.billDate as any).toDate() : new Date(p.billDate || new Date()),
     }));
-  }, [products]);
+  }, [productsFromHook]);
 
 
   if (isUserLoading) {
@@ -48,6 +39,7 @@ export default function Home() {
             <AppHeader />
             <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
                  <div className="space-y-4">
+                    <Skeleton className="h-48 w-full" />
                     <Skeleton className="h-12 w-full" />
                     <Skeleton className="h-20 w-full" />
                     <Skeleton className="h-20 w-full" />
@@ -72,7 +64,8 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <AppHeader />
-      <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <Dashboard allProducts={products ?? []} />
         {isLoading && !error && (
             <div className="space-y-4">
                 <Skeleton className="h-12 w-full" />
@@ -90,7 +83,7 @@ export default function Home() {
                 </AlertDescription>
             </Alert>
         )}
-        { !isLoading && !error && <ProductTable initialProducts={enrichedProducts ?? []} /> }
+        { !isLoading && !error && <ProductTable initialProducts={products ?? []} /> }
       </main>
     </div>
   );
