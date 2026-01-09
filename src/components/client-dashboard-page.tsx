@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { AuthForm } from '@/components/auth-form';
 import ClientDashboard from '@/components/client-dashboard';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -17,7 +17,7 @@ function ProductRatesLoader({ product, onRatesLoaded }: { product: Product, onRa
     );
     const { data: rates, isLoading } = useCollection<Rate>(ratesQuery);
 
-    useMemo(() => {
+    useEffect(() => {
       if (!isLoading && rates) {
         onRatesLoaded(product.id, rates);
       }
@@ -52,7 +52,7 @@ export default function ClientDashboardPage() {
     
     const allProductsCount = products?.length || 0;
     const allRatesLoaded = loadedProductIds.size === allProductsCount;
-    const isLoading = isLoadingProducts || !allRatesLoaded;
+    const isLoading = isLoadingProducts || (allProductsCount > 0 && !allRatesLoaded);
 
     if (!user) {
         return (
