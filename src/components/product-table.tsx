@@ -140,10 +140,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [activeSort, setActiveSort] = React.useState<SortDirection>('newest');
 
-  const [startDate, setStartDate] = React.useState<string>('');
-  const [endDate, setEndDate] = React.useState<string>('');
-
-
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
   const [addingRateToProduct, setAddingRateToProduct] = React.useState<Product | null>(null);
@@ -207,19 +203,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       rates: rateHistories[p.id] ?? [],
     })).filter(p => p.rates.length > 0); 
     
-    // Apply date range filter
-    if (startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        if (isValid(start) && isValid(end)) {
-            dataToSort = dataToSort.filter(p => {
-                const billDate = new Date(p.rates[0].billDate);
-                return billDate >= start && billDate <= end;
-            });
-        }
-    }
-
-
     const getFinalRate = (p: ProductWithRates) => {
         const latestRateInfo = p.rates[0];
         if (!latestRateInfo) return 0;
@@ -245,7 +228,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
       default:
         return dataToSort.sort((a, b) => new Date(b.rates[0].billDate).getTime() - new Date(a.rates[0].billDate).getTime());
     }
-  }, [products, rateHistories, activeSort, startDate, endDate]);
+  }, [products, rateHistories, activeSort]);
 
 
   const columns: ColumnDef<ProductWithRates>[] = [
@@ -663,22 +646,6 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 }
                 className="max-w-xs"
               />
-              <div className="flex items-center gap-2">
-                <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="max-w-[150px]"
-                />
-                <span className="text-muted-foreground">-</span>
-                 <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="max-w-[150px]"
-                />
-              </div>
-
               <Button onClick={handlePrint} variant="outline" size="icon">
                   <Printer className="h-4 w-4" />
                   <span className="sr-only">Print</span>
