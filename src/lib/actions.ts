@@ -125,7 +125,7 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
                 serialNumber, // Use serial number for dates
                 rate.pageNo,
                 rate.rate,
-                rate.gst / 100, // Store GST as a decimal for percentage formatting
+                rate.gst,
             ];
         });
     });
@@ -191,28 +191,16 @@ export async function syncToGoogleSheetAction(accessToken: string) {
             spreadsheetId,
             range: 'Sheet1',
         });
-        
+
+        // Write the main data (without final rate)
         const dataWriteRequest = sheets.spreadsheets.values.update({
             spreadsheetId,
             range: 'Sheet1',
-            valueInputOption: 'USER_ENTERED', // Use USER_ENTERED to parse formulas and values
+            valueInputOption: 'USER_ENTERED',
             requestBody: {
                 values: values,
             },
         });
-
-        // Add formula for Final Rate to the first data row (I2)
-        const formulaUpdateRequest = sheets.spreadsheets.values.update({
-             spreadsheetId,
-             range: 'Sheet1!I2',
-             valueInputOption: 'USER_ENTERED', // IMPORTANT: Use USER_ENTERED to treat the string as a formula
-             requestBody: {
-                 values: [
-                     ['=IF(G2="","", G2*(1+H2))']
-                 ]
-             }
-        });
-
         
         // --- Start of Formatting and Feature Requests ---
         const numRows = values.length;
@@ -246,11 +234,11 @@ export async function syncToGoogleSheetAction(accessToken: string) {
                              fields: 'userEnteredFormat.numberFormat'
                         }
                     },
-                    // 4. Format GST Column as Percentage (H)
+                    // 4. Format GST Column as Number
                      {
                         repeatCell: {
                              range: { sheetId: 0, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
-                             cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '#0.00%' } } },
+                             cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#0' } } },
                              fields: 'userEnteredFormat.numberFormat'
                         }
                     },
@@ -281,9 +269,22 @@ export async function syncToGoogleSheetAction(accessToken: string) {
         };
 
         const formattingRequest = sheets.spreadsheets.batchUpdate(formattingRequests);
+        
+        // This request will run after the main data is written
+        const formulaUpdateRequest = sheets.spreadsheets.values.update({
+             spreadsheetId,
+             range: 'Sheet1!I2',
+             valueInputOption: 'USER_ENTERED',
+             requestBody: {
+                 values: [
+                     ['=IF(G2="","", G2+(G2*H2/100))']
+                 ]
+             }
+        });
 
-        // Run all requests in parallel for maximum efficiency
-        await Promise.all([dataWriteRequest, formulaUpdateRequest, formattingRequest]);
+
+        // Run all requests
+        await Promise.all([dataWriteRequest, formattingRequest, formulaUpdateRequest]);
         
         return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
 
