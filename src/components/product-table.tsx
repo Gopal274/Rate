@@ -104,6 +104,20 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/t
 import { z } from 'zod';
 import { ScrollArea } from './ui/scroll-area';
 
+// Create a context to share state and functions
+const ProductTableContext = React.createContext<{
+    rateHistories: Record<string, Rate[]>;
+} | null>(null);
+
+// Custom hook to use the context
+const useProductTable = () => {
+    const context = React.useContext(ProductTableContext);
+    if (!context) {
+        throw new Error('useProductTable must be used within a ProductTableProvider');
+    }
+    return context;
+};
+
 type ProductWithRates = Product & { rates: Rate[] };
 type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc';
 
@@ -596,177 +610,179 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <CardTitle>Products</CardTitle>
-            <CardDescription>Manage your products and their rates.</CardDescription>
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto no-print">
-            <Input
-              placeholder="Filter products..."
-              value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
-              onChange={(event) =>
-                table.getColumn('name')?.setFilterValue(event.target.value)
+    <ProductTableContext.Provider value={{ rateHistories }}>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle>Products</CardTitle>
+              <CardDescription>Manage your products and their rates.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto no-print">
+              <Input
+                placeholder="Filter products..."
+                value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
+                onChange={(event) =>
+                  table.getColumn('name')?.setFilterValue(event.target.value)
+                }
+                className="max-w-sm"
+              />
+              <Button onClick={handlePrint} variant="outline" size="icon">
+                  <Printer className="h-4 w-4" />
+                  <span className="sr-only">Print</span>
+              </Button>
+              { user && 
+                  <ProductFormDialog onProductAction={onProductAdded}>
+                      <Button>
+                          <PlusCircle className="mr-2 h-4 w-4" /> Add Product
+                      </Button>
+                  </ProductFormDialog> 
               }
-              className="max-w-sm"
-            />
-            <Button onClick={handlePrint} variant="outline" size="icon">
-                <Printer className="h-4 w-4" />
-                <span className="sr-only">Print</span>
-            </Button>
-            { user && 
-                <ProductFormDialog onProductAction={onProductAdded}>
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Product
-                    </Button>
-                </ProductFormDialog> 
-            }
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id} className={header.id === 'actions' ? 'no-print' : ''}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => {
+                    const isOpen = openCollapsibles.has(row.original.id);
+                    const hasHistory = row.original.rates.length > 1;
                     return (
-                      <TableHead key={header.id} className={header.id === 'actions' ? 'no-print' : ''}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => {
-                  const isOpen = openCollapsibles.has(row.original.id);
-                  const hasHistory = row.original.rates.length > 1;
-                  return (
-                    <React.Fragment key={`product-${row.original.id}`}>
-                      <TableRow
-                        key={`main-${row.original.id}`}
-                        data-state={row.getIsSelected() && 'selected'}
-                        className={cn(hasHistory && "cursor-pointer")}
-                        onClick={() => hasHistory && toggleCollapsible(row.original.id)}
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                      {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
-                        const finalRate = rate.rate * (1 + rate.gst / 100);
-                        return (
-                          <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
-                            <TableCell></TableCell>
-                            <TableCell></TableCell>
-                            <TableCell>{row.original.name}</TableCell>
-                            <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
-                            <TableCell>{row.original.unit}</TableCell>
-                            <TableCell>{rate.gst}%</TableCell>
-                            <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
-                            <TableCell>{row.original.partyName}</TableCell>
-                            <TableCell>{rate.pageNo}</TableCell>
-                            <TableCell>{format(new Date(rate.billDate), 'PPP')}</TableCell>
-                            <TableCell>{row.original.category}</TableCell>
-                            <TableCell className="no-print">
-                              <TooltipProvider>
-                                <div className="flex items-center justify-center">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Delete This Rate Entry</TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              </TooltipProvider>
+                      <React.Fragment key={`product-${row.original.id}`}>
+                        <TableRow
+                          key={`main-${row.original.id}`}
+                          data-state={row.getIsSelected() && 'selected'}
+                          className={cn(hasHistory && "cursor-pointer")}
+                          onClick={() => hasHistory && toggleCollapsible(row.original.id)}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext()
+                              )}
                             </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </React.Fragment>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    No products found. Click "Add Product" to get started.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        <div className="flex items-center justify-end space-x-2 py-4 no-print">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
-      </CardContent>
+                          ))}
+                        </TableRow>
+                        {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
+                          const finalRate = rate.rate * (1 + rate.gst / 100);
+                          return (
+                            <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
+                              <TableCell>{row.original.name}</TableCell>
+                              <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                              <TableCell>{row.original.unit}</TableCell>
+                              <TableCell>{rate.gst}%</TableCell>
+                              <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
+                              <TableCell>{row.original.partyName}</TableCell>
+                              <TableCell>{rate.pageNo}</TableCell>
+                              <TableCell>{format(new Date(rate.billDate), 'PPP')}</TableCell>
+                              <TableCell>{row.original.category}</TableCell>
+                              <TableCell className="no-print">
+                                <TooltipProvider>
+                                  <div className="flex items-center justify-center">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
+                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                </TooltipProvider>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center"
+                    >
+                      No products found. Click "Add Product" to get started.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex items-center justify-end space-x-2 py-4 no-print">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </div>
+        </CardContent>
 
-      {editingProduct && (
-        <ProductFormDialog
-          product={editingProduct}
-          isOpen={!!editingProduct}
-          setIsOpen={(isOpen) => !isOpen && setEditingProduct(null)}
-          onProductAction={onProductUpdated}
-        />
-      )}
+        {editingProduct && (
+          <ProductFormDialog
+            product={editingProduct}
+            isOpen={!!editingProduct}
+            setIsOpen={(isOpen) => !isOpen && setEditingProduct(null)}
+            onProductAction={onProductUpdated}
+          />
+        )}
 
-      {addingRateToProduct && (
-        <AddRateDialog
-            product={addingRateToProduct}
-            isOpen={!!addingRateToProduct}
-            setIsOpen={(isOpen) => !isOpen && setAddingRateToProduct(null)}
-            onRateAdded={onRateAdded}
+        {addingRateToProduct && (
+          <AddRateDialog
+              product={addingRateToProduct}
+              isOpen={!!addingRateToProduct}
+              setIsOpen={(isOpen) => !isOpen && setAddingRateToProduct(null)}
+              onRateAdded={onRateAdded}
+          />
+        )}
+        <DeleteRateDialog
+          rateInfo={deletingRateInfo}
+          isOpen={!!deletingRateInfo}
+          setIsOpen={(isOpen) => !isOpen && setDeletingRateInfo(null)}
+          onRateDeleted={onRateDeleted}
         />
-      )}
-       <DeleteRateDialog
-        rateInfo={deletingRateInfo}
-        isOpen={!!deletingRateInfo}
-        setIsOpen={(isOpen) => !isOpen && setDeletingRateInfo(null)}
-        onRateDeleted={onRateDeleted}
-      />
-      <DeleteProductDialog
-        product={deletingProduct}
-        isOpen={!!deletingProduct}
-        setIsOpen={(isOpen) => !isOpen && setDeletingProduct(null)}
-        onProductDeleted={onProductDeleted}
-      />
-    </Card>
+        <DeleteProductDialog
+          product={deletingProduct}
+          isOpen={!!deletingProduct}
+          setIsOpen={(isOpen) => !isOpen && setDeletingProduct(null)}
+          onProductDeleted={onProductDeleted}
+        />
+      </Card>
+    </ProductTableContext.Provider>
   );
 }
 
@@ -980,7 +996,7 @@ function AddRateDialog({
   setIsOpen: (open: boolean) => void;
   onRateAdded: (productId: string, newRate: Rate) => void;
 }) {
-    const {rateHistories} = useProductTable();
+    const { rateHistories } = useProductTable();
     const latestRate = product && rateHistories[product.id]?.[0];
     const form = useForm<AddRateSchema>({
         resolver: zodResolver(addRateSchema),
@@ -1181,31 +1197,3 @@ function DeleteRateDialog({
         </AlertDialog>
     );
 }
-
-// Create a context to share state and functions
-const ProductTableContext = React.createContext<{
-    rateHistories: Record<string, Rate[]>;
-} | null>(null);
-
-// Custom hook to use the context
-const useProductTable = () => {
-    const context = React.useContext(ProductTableContext);
-    if (!context) {
-        throw new Error('useProductTable must be used within a ProductTableProvider');
-    }
-    return context;
-};
-
-// We need to wrap the export with a Provider so the context is available
-const ProductTableWrapper = (props: { initialProducts: Product[] }) => {
-    const [rateHistories, setRateHistories] = React.useState<Record<string, Rate[]>>({});
-
-    // This function will be passed down via context if needed, or we can manage state here.
-    // For now, let's keep it simple and just provide the state.
-    
-    return (
-        <ProductTableContext.Provider value={{ rateHistories }}>
-            <ProductTable {...props} />
-        </ProductTableContext.Provider>
-    );
-};
