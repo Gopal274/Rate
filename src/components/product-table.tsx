@@ -22,6 +22,7 @@ import {
   XCircle,
   Filter,
   ArrowUpDown,
+  Save,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -153,6 +154,15 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     if (typeof window !== 'undefined') {
       window.print();
     }
+  }, []);
+
+  const handleSaveToDrive = React.useCallback(() => {
+    console.log("Attempting to save to Google Drive...");
+    toast({
+        title: "Feature in progress",
+        description: "Connecting to Google Drive is being implemented.",
+    });
+    // We will implement the full logic in the next steps.
   }, []);
 
   React.useEffect(() => {
@@ -649,6 +659,10 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
               <Button onClick={handlePrint} variant="outline" size="icon">
                   <Printer className="h-4 w-4" />
                   <span className="sr-only">Print</span>
+              </Button>
+               <Button onClick={handleSaveToDrive} variant="outline" size="icon">
+                  <Save className="h-4 w-4" />
+                  <span className="sr-only">Save to Drive</span>
               </Button>
               { user && 
                   <ProductFormDialog onProductAction={onProductAdded}>
