@@ -1,3 +1,4 @@
+
 'use client';
 
 import AppHeader from '@/components/app-header';
@@ -31,11 +32,7 @@ export default function DashboardPage() {
         setError(null);
         try {
             const allProducts = await getAllProductsWithRatesAction();
-            const sortedProducts = allProducts.map(p => ({
-                ...p,
-                rates: p.rates.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            }));
-            setProductsWithRates(sortedProducts);
+            setProductsWithRates(allProducts);
         } catch (e: any) {
             console.error("Failed to fetch dashboard data:", e);
             setError(e);

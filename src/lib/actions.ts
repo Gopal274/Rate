@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -99,7 +100,9 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
 
 export async function getAllProductsWithRatesAction(): Promise<ProductWithRates[]> {
     try {
-        return await getAllProductsWithRates();
+        const products = await getAllProductsWithRates();
+        // Convert Date objects to strings before returning to the client
+        return JSON.parse(JSON.stringify(products));
     } catch (error) {
         console.error('getAllProductsWithRatesAction Error:', error);
         return [];

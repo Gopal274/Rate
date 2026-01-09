@@ -1,3 +1,4 @@
+
 'use client';
 
 import AppHeader from '@/components/app-header';
@@ -28,11 +29,7 @@ export default function Home() {
       setError(null);
       try {
         const allData = await getAllProductsWithRatesAction();
-         const sortedData = allData.map(p => ({
-            ...p,
-            rates: p.rates.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        }));
-        setProductsWithRates(sortedData);
+        setProductsWithRates(allData);
       } catch (e: any) {
         console.error("Failed to fetch all data:", e);
         setError(e);
