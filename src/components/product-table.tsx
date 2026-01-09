@@ -181,8 +181,8 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         }
         
         toast({ title: 'Syncing Data...', description: 'Finding or creating your Google Sheet.' });
-        const dataToSave = table.getFilteredRowModel().rows.map(row => row.original);
-        const actionResult = await syncToGoogleSheetAction(accessToken, dataToSave);
+        
+        const actionResult = await syncToGoogleSheetAction(accessToken);
         
         if (actionResult.success) {
             toast({ 

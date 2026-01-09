@@ -8,6 +8,7 @@ import {
   addRate as addRateToDb,
   deleteRate as deleteRateFromDb,
   getProductRates as getProductRatesFromDb,
+  getAllProductsWithRates, // We'll create this function
 } from './data';
 import type { Product, Rate, UpdateProductSchema, ProductWithRates } from './types';
 import { productSchema } from './types';
@@ -92,39 +93,42 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
 }
 
 
-function convertDataForSheet(data: ProductWithRates[]): (string | number | null)[][] {
+function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string | number)[][] {
     const headers = [
         'Product Name', 
-        'Rate', 
-        'Unit', 
-        'GST %', 
-        'Final Rate', 
         'Party Name', 
-        'Page No', 
+        'Category', 
+        'Unit', 
         'Bill Date', 
-        'Category'
+        'Page No', 
+        'Rate', 
+        'GST %', 
+        'Final Rate'
     ];
     
-    const rows = data.map(product => {
-        const latestRate = product.rates[0];
-        if (!latestRate) return null; // Skip products with no rates
+    const rows = allProductsWithRates.flatMap(product => {
+        // If a product has no rates, it won't be included in the sheet.
+        if (product.rates.length === 0) {
+            return [];
+        }
+        // Create a separate row for each rate history entry
+        return product.rates.map(rate => {
+            const finalRate = rate.rate * (1 + rate.gst / 100);
+            const billDate = new Date(rate.billDate).toISOString().split('T')[0];
 
-        const finalRate = latestRate.rate * (1 + latestRate.gst / 100);
-        // Format date as YYYY-MM-DD for Sheets to recognize it as a date
-        const billDate = new Date(latestRate.billDate).toISOString().split('T')[0]; 
-
-        return [
-            product.name,
-            latestRate.rate,
-            product.unit,
-            latestRate.gst,
-            finalRate,
-            product.partyName,
-            latestRate.pageNo,
-            billDate,
-            product.category
-        ];
-    }).filter((row): row is (string | number)[] => row !== null);
+            return [
+                product.name,
+                product.partyName,
+                product.category,
+                product.unit,
+                billDate,
+                rate.pageNo,
+                rate.rate,
+                rate.gst,
+                finalRate,
+            ];
+        });
+    });
 
     return [headers, ...rows];
 }
@@ -164,7 +168,7 @@ async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheet
     return { spreadsheetId, spreadsheetUrl };
 }
 
-export async function syncToGoogleSheetAction(accessToken: string, data: ProductWithRates[]) {
+export async function syncToGoogleSheetAction(accessToken: string) {
     if (!accessToken) {
         return { success: false, message: 'Authentication token is missing.' };
     }
@@ -176,19 +180,18 @@ export async function syncToGoogleSheetAction(accessToken: string, data: Product
         const drive = google.drive({ version: 'v3', auth: oAuth2Client });
         const sheets = google.sheets({ version: 'v4', auth: oAuth2Client });
         
-        // Find or create the target spreadsheet
         const { spreadsheetId, spreadsheetUrl } = await findOrCreateSheet(drive, sheets);
         
-        // Convert data to sheet format
-        const values = convertDataForSheet(data);
+        // Fetch ALL products and their complete rate histories
+        const allProductsWithRates = await getAllProductsWithRates();
 
-        // Clear the existing data
+        const values = convertDataForSheet(allProductsWithRates);
+
         await sheets.spreadsheets.values.clear({
             spreadsheetId,
-            range: 'Sheet1', // Assumes data is on the default 'Sheet1'
+            range: 'Sheet1',
         });
 
-        // Write the new data
         await sheets.spreadsheets.values.update({
             spreadsheetId,
             range: 'Sheet1',

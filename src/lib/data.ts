@@ -12,10 +12,11 @@ import {
   runTransaction,
   getDocs,
   Timestamp,
+  collectionGroup,
 } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import type { Product, Rate, ProductSchema, UpdateProductSchema } from './types';
+import type { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates } from './types';
 
 // Helper to initialize Firebase
 function getDb() {
@@ -140,4 +141,25 @@ export const addRate = async (productId: string, rate: number, billDate: Date, p
 export const deleteRate = async (productId: string, rateId: string): Promise<void> => {
   const rateDoc = doc(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION, rateId);
   await deleteDoc(rateDoc);
+};
+
+
+export const getAllProductsWithRates = async (): Promise<ProductWithRates[]> => {
+    const productsCollectionRef = collection(db, PRODUCTS_COLLECTION);
+    const productsSnapshot = await getDocs(productsCollectionRef);
+    
+    const productsWithRates: ProductWithRates[] = [];
+
+    for (const productDoc of productsSnapshot.docs) {
+        const productData = productDoc.data() as Omit<Product, 'id'>;
+        const rates = await getProductRates(productDoc.id);
+
+        productsWithRates.push({
+            id: productDoc.id,
+            ...productData,
+            rates: rates,
+        });
+    }
+
+    return productsWithRates;
 };
