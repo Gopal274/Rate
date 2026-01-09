@@ -18,14 +18,16 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 
-import { initializeFirebase } from '@/firebase/client';
+// IMPORTANT: Use the server-side initialization
+import { getSdks } from '@/firebase/server';
 import type { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates } from './types';
 import { categories, units } from './types';
 
 
 // Helper to initialize Firebase Admin
 async function getDb() {
-  const { firestore } = initializeFirebase();
+  // Use the server-side getSdks
+  const { firestore } = getSdks();
   return firestore;
 }
 
