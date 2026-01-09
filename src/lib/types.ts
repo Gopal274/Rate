@@ -48,8 +48,8 @@ export type Rate = {
   rate: number;
   gst: number;
   pageNo: number;
-  billDate: Date;
-  createdAt: Date; 
+  billDate: Date | string;
+  createdAt: Date | string; 
 };
 
 export type ProductWithRates = Product & { rates: Rate[] };

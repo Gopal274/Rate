@@ -238,12 +238,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   }, [allProductsWithRates]);
   
   const uniquePartyNames = React.useMemo(() => {
-    const partyNames = new Set((products || []).map(p => p.partyName));
+    if (!products) return [];
+    const partyNames = new Set(products.map(p => p.partyName));
     return Array.from(partyNames).sort();
   }, [products]);
 
   const uniqueCategories = React.useMemo(() => {
-    const categoryNames = new Set((products || []).map(p => p.category));
+    if (!products) return [];
+    const categoryNames = new Set(products.map(p => p.category));
     return Array.from(categoryNames).sort();
   }, [products]);
 
@@ -447,7 +449,12 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     {
       id: 'billDate',
       header: 'Bill Date',
-      cell: ({ row }) => format(new Date(row.original.rates[0]?.billDate ?? new Date()), 'dd/MM/yy'),
+      cell: ({ row }) => {
+        const billDate = row.original.rates[0]?.billDate;
+        if (!billDate) return '';
+        const date = new Date(billDate);
+        return isValid(date) ? format(date, 'dd/MM/yy') : '';
+      },
       enableSorting: false,
     },
     {
