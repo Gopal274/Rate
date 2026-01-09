@@ -202,8 +202,16 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         }
 
     } catch (error: any) {
-        console.error("Google Sync Error:", error);
-        toast({ title: 'Authentication Failed', description: error.message || "Could not connect to Google.", variant: 'destructive' });
+        if (error.code === 'auth/popup-closed-by-user') {
+            toast({
+                variant: 'destructive',
+                title: 'Process Canceled',
+                description: 'The sign-in process was canceled. Please try again to sync with Google Sheets.',
+            });
+        } else {
+            console.error("Google Sync Error:", error);
+            toast({ title: 'Authentication Failed', description: error.message || "Could not connect to Google.", variant: 'destructive' });
+        }
     }
   };
 
@@ -765,7 +773,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                             <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
-                              <TableCell className='whitespace-nowrap text-xs text-muted-foreground'>
+                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                                 {format(new Date(rate.createdAt), 'dd/MM/yy')}
                               </TableCell>
                               <TableCell className="text-right font-medium whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
