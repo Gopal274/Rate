@@ -22,13 +22,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 
 interface GroupedProductViewProps {
   allProducts: ProductWithRates[];
+  openParty: string | null;
+  onOpenChange: (partyName: string | null) => void;
 }
 
 interface GroupedProducts {
   [partyName: string]: ProductWithRates[];
 }
 
-const GroupedProductView: React.FC<GroupedProductViewProps> = ({ allProducts }) => {
+const GroupedProductView: React.FC<GroupedProductViewProps> = ({ allProducts, openParty, onOpenChange }) => {
   const groupedProducts = React.useMemo(() => {
     return allProducts.reduce((acc, product) => {
       const { partyName } = product;
@@ -59,7 +61,13 @@ const GroupedProductView: React.FC<GroupedProductViewProps> = ({ allProducts }) 
             <CardDescription>A view of all your products, grouped by party name.</CardDescription>
         </CardHeader>
         <CardContent>
-            <Accordion type="multiple" className="w-full">
+            <Accordion 
+              type="single" 
+              collapsible
+              className="w-full"
+              value={openParty ?? undefined}
+              onValueChange={onOpenChange}
+            >
             {sortedPartyNames.map((partyName) => {
                 const productsInGroup = groupedProducts[partyName];
                 const productCount = productsInGroup.length;

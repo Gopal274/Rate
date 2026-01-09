@@ -10,12 +10,16 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 import type { Product, Rate, ProductWithRates } from '@/lib/types';
 import GroupedProductView from '@/components/dashboard';
+import { PartyDistributionChart } from '@/components/party-distribution-chart';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function DashboardPage() {
   const { firestore, isUserLoading } = useFirebase();
   const { user } = useUser();
   const [productsWithRates, setProductsWithRates] = useState<ProductWithRates[]>([]);
   const [ratesLoading, setRatesLoading] = useState(true);
+  const [openPartyAccordion, setOpenPartyAccordion] = useState<string | null>(null);
+
 
   const productsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -47,7 +51,6 @@ export default function DashboardPage() {
         setProductsWithRates(allProductsWithRates);
         setRatesLoading(false);
       } else if (productsFromHook) {
-        // Handle case where there are no products
         setProductsWithRates([]);
         setRatesLoading(false);
       }
@@ -55,6 +58,12 @@ export default function DashboardPage() {
     
     fetchAllRates();
   }, [productsFromHook]);
+  
+  const handlePartySelect = (partyName: string) => {
+    // If the same party is clicked again, close it. Otherwise, open the new one.
+    setOpenPartyAccordion(prev => prev === partyName ? null : partyName);
+  };
+
 
   const isLoading = isUserLoading || productsLoading || ratesLoading;
 
@@ -91,8 +100,8 @@ export default function DashboardPage() {
       <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         {isLoading && !error && (
             <div className="space-y-4">
+                <Skeleton className="h-48 w-full" />
                 <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
             </div>
@@ -106,7 +115,20 @@ export default function DashboardPage() {
                 </AlertDescription>
             </Alert>
         )}
-        { !isLoading && !error && <GroupedProductView allProducts={productsWithRates} /> }
+        { !isLoading && !error && (
+          <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                    <CardTitle>Party Distribution</CardTitle>
+                    <CardDescription>Number of unique products supplied by each party.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <PartyDistributionChart allProducts={productsWithRates} onPartySelect={handlePartySelect} />
+                </CardContent>
+              </Card>
+              <GroupedProductView allProducts={productsWithRates} openParty={openPartyAccordion} onOpenChange={setOpenPartyAccordion}/>
+          </div>
+        )}
       </main>
     </div>
   );
