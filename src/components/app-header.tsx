@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Logo } from './icons';
@@ -60,20 +61,23 @@ export default function AppHeader() {
   return (
     <header className="border-b bg-card">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-3">
             <Logo className="h-8 w-8 text-primary" />
             <h1 className="text-xl font-bold tracking-tight text-foreground">
               Rate Record
             </h1>
           </Link>
-          <nav className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-                Dashboard
-            </Link>
-          </nav>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+            <nav className="flex items-center gap-4">
+                 <Link href="/" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                    Home
+                </Link>
+                <Link href="/dashboard" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                    Dashboard
+                </Link>
+            </nav>
             <ThemeToggle />
             {user && <UserNav />}
         </div>
