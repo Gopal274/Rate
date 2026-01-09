@@ -202,11 +202,9 @@ export async function syncToGoogleSheetAction(accessToken: string, data: Product
 
     } catch (error: any) {
         console.error('syncToGoogleSheetAction Error:', error);
-         if (error.message && error.message.includes('permission to access it')) {
-             return { success: false, message: `API Permission Error: Please ensure the Google Sheets API is enabled in your Google Cloud project.` };
+         if (error.message && (error.message.includes('API has not been used') || error.message.includes('API is disabled'))) {
+             return { success: false, message: `API Permission Error: The Google Sheets API is not enabled. Please enable it in your Google Cloud project and try again.` };
         }
         return { success: false, message: error.message || 'An error occurred while syncing to Google Sheets.' };
     }
 }
-
-    
