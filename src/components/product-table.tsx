@@ -690,7 +690,9 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                             <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
-                              <TableCell className='whitespace-nowrap'>{row.original.name}</TableCell>
+                              <TableCell className='whitespace-nowrap text-xs text-muted-foreground'>
+                                created on {format(new Date(rate.createdAt), 'dd/MM/yy, hh:mm a')}
+                              </TableCell>
                               <TableCell className="text-right font-medium whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
                               <TableCell className='whitespace-nowrap'>{rate.gst}%</TableCell>
