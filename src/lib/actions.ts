@@ -112,16 +112,15 @@ export async function getAllProductsWithRatesAction(): Promise<ProductWithRates[
 
 /**
  * Convert in-memory product+rates to rows usable by Google Sheets.
- * Note: GST is converted to decimal (e.g. 18 -> 0.18) so the sheet can display it as percent.
- * Date is converted to Google Sheets serial number (days since 1899-12-30).
+ * The 'Final Rate' is now calculated here instead of using a sheet formula.
  */
 function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string | number)[][] {
   const headers = [
     'Product Name', // A
     'Rate',         // B
     'Unit',         // C
-    'GST %',        // D (we store as decimal so cell formatting can be percent)
-    'Final Rate',   // E (formula)
+    'GST %',        // D
+    'Final Rate',   // E (now pre-calculated)
     'Party Name',   // F
     'Page No',      // G
     'Bill Date',    // H (serial number)
@@ -137,12 +136,14 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
     return product.rates.map(rate => {
       const billDate = rate.billDate ? new Date(rate.billDate as string) : null;
       const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : '';
+      const finalRate = (rate.rate ?? 0) * (1 + (rate.gst ?? 0) / 100);
+
       return [
         product.name,
         rate.rate,
         product.unit,
-        (rate.gst ?? 0) / 100, // send GST as decimal (0.18 for 18%)
-        '', // Final Rate will be computed by ARRAYFORMULA
+        (rate.gst ?? 0) / 100, // send GST as decimal for percent formatting
+        finalRate, // send the calculated final rate
         product.partyName,
         rate.pageNo,
         serialNumber,
@@ -153,6 +154,7 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
 
   return [headers, ...rows];
 }
+
 
 /**
  * Find the spreadsheet by name or create it.
@@ -195,8 +197,6 @@ async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheet
 
 /**
  * Sync local products/rates to Google Sheets.
- * - Writes data
- * - Applies formatting and formulas using the actual sheetId and sheet name
  */
 export async function syncToGoogleSheetAction(accessToken: string) {
   if (!accessToken) {
@@ -212,7 +212,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
 
     const { spreadsheetId, spreadsheetUrl } = await findOrCreateSheet(drive, sheets);
 
-    // Fetch spreadsheet metadata to get sheetId and sheet title (use first sheet)
     const meta = await sheets.spreadsheets.get({
       spreadsheetId,
       fields: 'sheets.properties(sheetId,title)',
@@ -229,7 +228,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     const allProductsWithRates = await getAllProductsWithRates();
     const values = convertDataForSheet(allProductsWithRates);
 
-    // Clear and write data to the actual sheet title
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
       range: `${sheetTitle}`,
@@ -242,12 +240,10 @@ export async function syncToGoogleSheetAction(accessToken: string) {
       requestBody: { values },
     });
 
-    // Prepare formatting / features using the actual sheetId
-    const numRows = values.length; // includes header
+    const numRows = values.length;
     const numCols = values.length > 0 ? values[0].length : 0;
 
     const requests: any[] = [
-      // Bold header row
       {
         repeatCell: {
           range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
@@ -255,7 +251,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
           fields: 'userEnteredFormat.textFormat.bold',
         },
       },
-      // Format Rate Column (B) as Currency
       {
         repeatCell: {
           range: { sheetId, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 },
@@ -263,7 +258,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
           fields: 'userEnteredFormat.numberFormat',
         },
       },
-      // Format GST Column (D) as Percentage
       {
         repeatCell: {
           range: { sheetId, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 },
@@ -271,7 +265,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
           fields: 'userEnteredFormat.numberFormat',
         },
       },
-      // Format Final Rate Column (E) as Currency
       {
         repeatCell: {
           range: { sheetId, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 },
@@ -279,7 +272,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
           fields: 'userEnteredFormat.numberFormat',
         },
       },
-      // Format Date Column (H) as date
       {
         repeatCell: {
           range: { sheetId, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
@@ -287,7 +279,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
           fields: 'userEnteredFormat.numberFormat',
         },
       },
-      // Set Basic Filter
       {
         setBasicFilter: {
           filter: {
@@ -295,7 +286,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
           },
         },
       },
-      // Auto-resize columns
       {
         autoResizeDimensions: {
           dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: numCols },
@@ -306,16 +296,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: { requests },
-    });
-
-    // Put an ARRAYFORMULA into Column E starting at E2 to compute final rate
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${sheetTitle}!E2`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [['=ARRAYFORMULA(IF(B2:B="","", B2:B * (1 + D2:D)))']],
-      },
     });
 
     return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
@@ -330,7 +310,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
 
 /**
  * Convert Google Sheets serial number back to Date (ISO string).
- * Google sheets uses epoch 1899-12-30 for serial numbers.
  */
 function serialNumberToIso(serial: number | string | undefined | null) {
   if (serial === undefined || serial === null || serial === '') return null;
@@ -343,7 +322,6 @@ function serialNumberToIso(serial: number | string | undefined | null) {
 
 /**
  * Import products & rates from the Google Sheet.
- * Normalizes date and GST values before calling importProductsAndRates.
  */
 export async function importFromGoogleSheetAction(accessToken: string) {
   if (!accessToken) {
@@ -359,7 +337,6 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
     const { spreadsheetId } = await findOrCreateSheet(drive, sheets);
 
-    // Read columns A:I
     const sheetDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: 'Sheet1!A:I',
@@ -374,15 +351,11 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
     const dataRows = rows.slice(1);
 
-    // Map and normalize each row to the format expected by importProductsAndRates
-    // Current mapping expectation: [name, partyName, category, unit, billDateISO, pageNo, rate, gstPercent]
     const mappedRows = dataRows.map(row => {
       const [name, rate, unit, gstRaw, _finalRate, partyName, pageNo, dateSerialNumber, category] = row;
 
-      // Convert serial date -> ISO
       const billDateISO = serialNumberToIso(dateSerialNumber) || '';
 
-      // Normalize GST: if value <=1, treat as decimal (0.18) and convert to percent 18
       let gstPercent = gstRaw;
       if (gstPercent === '' || gstPercent === undefined || gstPercent === null) {
         gstPercent = 0;
@@ -407,3 +380,5 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
   }
 }
+
+    
