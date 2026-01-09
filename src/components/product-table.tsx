@@ -34,7 +34,7 @@ import {
   addRateAction,
   deleteRateAction,
   getProductRatesAction,
-  saveToDriveAction,
+  syncToGoogleSheetAction,
 } from '@/lib/actions';
 import type { Product, ProductSchema, Rate, UpdateProductSchema, ProductWithRates } from '@/lib/types';
 import { categories, productSchema, units, updateProductSchema } from '@/lib/types';
@@ -160,17 +160,17 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     }
   }, []);
 
-  const handleSaveToDrive = async () => {
+  const handleSyncToSheet = async () => {
      if (!auth.currentUser) {
-        toast({ title: 'Error', description: 'You must be signed in to save to Drive.', variant: 'destructive'});
+        toast({ title: 'Error', description: 'You must be signed in to sync.', variant: 'destructive'});
         return;
     }
-    toast({ title: 'Connecting to Google Drive...', description: 'Please follow the prompts to grant permission.'});
+    toast({ title: 'Connecting to Google...', description: 'Please follow prompts to grant permission.'});
     try {
         const provider = new GoogleAuthProvider();
         provider.addScope('https://www.googleapis.com/auth/drive.file');
+        provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 
-        // Re-authenticate to get a fresh token with the required scope
         const result: UserCredential = await signInWithPopup(auth, provider);
 
         const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -180,9 +180,9 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             throw new Error("Could not retrieve access token from Google.");
         }
         
-        toast({ title: 'Processing Data...', description: 'Preparing your file for upload.' });
+        toast({ title: 'Syncing Data...', description: 'Finding or creating your Google Sheet.' });
         const dataToSave = table.getFilteredRowModel().rows.map(row => row.original);
-        const actionResult = await saveToDriveAction(accessToken, dataToSave);
+        const actionResult = await syncToGoogleSheetAction(accessToken, dataToSave);
         
         if (actionResult.success) {
             toast({ 
@@ -192,18 +192,18 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                     <a href={actionResult.link} target="_blank" rel="noopener noreferrer">
                         <Button variant="outline" size="sm">
                             <ExternalLink className="mr-2 h-4 w-4" />
-                            View File
+                            View Sheet
                         </Button>
                     </a>
                 ) : undefined,
             });
         } else {
-            toast({ title: 'Upload Failed', description: actionResult.message, variant: 'destructive'});
+            toast({ title: 'Sync Failed', description: actionResult.message, variant: 'destructive'});
         }
 
     } catch (error: any) {
-        console.error("Google Drive Auth Error:", error);
-        toast({ title: 'Authentication Failed', description: error.message || "Could not connect to Google Drive.", variant: 'destructive' });
+        console.error("Google Sync Error:", error);
+        toast({ title: 'Authentication Failed', description: error.message || "Could not connect to Google.", variant: 'destructive' });
     }
   };
 
@@ -702,9 +702,9 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   <Printer className="h-4 w-4" />
                   <span className="sr-only">Print</span>
               </Button>
-               <Button onClick={handleSaveToDrive} variant="outline" size="icon">
-                  <Save className="h-4 w-4" />
-                  <span className="sr-only">Save to Drive</span>
+               <Button onClick={handleSyncToSheet} variant="outline">
+                  <Save className="mr-2 h-4 w-4" />
+                  Sync with Google Sheets
               </Button>
               { user && 
                   <ProductFormDialog onProductAction={onProductAdded}>
@@ -1274,3 +1274,5 @@ function DeleteRateDialog({
         </AlertDialog>
     );
 }
+
+    

@@ -14,7 +14,8 @@ import { productSchema } from './types';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
-import { Readable } from 'stream';
+
+const SHEET_NAME = 'Rate Record Live Data';
 
 type ProductFormData = z.infer<typeof productSchema>;
 
@@ -91,11 +92,7 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
 }
 
 
-function convertToCsv(data: ProductWithRates[]): string {
-    if (data.length === 0) {
-        return "";
-    }
-
+function convertDataForSheet(data: ProductWithRates[]): (string | number | null)[][] {
     const headers = [
         'Product Name', 
         'Rate', 
@@ -107,34 +104,67 @@ function convertToCsv(data: ProductWithRates[]): string {
         'Bill Date', 
         'Category'
     ];
-    const csvRows = [headers.join(',')];
-
-    for (const product of data) {
+    
+    const rows = data.map(product => {
         const latestRate = product.rates[0];
-        if (!latestRate) continue;
+        if (!latestRate) return null; // Skip products with no rates
 
         const finalRate = latestRate.rate * (1 + latestRate.gst / 100);
-        const billDate = new Date(latestRate.billDate).toLocaleDateString('en-IN');
+        // Format date as YYYY-MM-DD for Sheets to recognize it as a date
+        const billDate = new Date(latestRate.billDate).toISOString().split('T')[0]; 
 
-        const values = [
-            `"${product.name.replace(/"/g, '""')}"`,
+        return [
+            product.name,
             latestRate.rate,
             product.unit,
             latestRate.gst,
-            finalRate.toFixed(2),
-            `"${product.partyName.replace(/"/g, '""')}"`,
+            finalRate,
+            product.partyName,
             latestRate.pageNo,
             billDate,
             product.category
         ];
-        csvRows.push(values.join(','));
-    }
+    }).filter((row): row is (string | number)[] => row !== null);
 
-    return csvRows.join('\n');
+    return [headers, ...rows];
 }
 
 
-export async function saveToDriveAction(accessToken: string, data: ProductWithRates[]) {
+async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheetId: string, spreadsheetUrl: string }> {
+    // 1. Search for the file by name
+    const searchResponse = await drive.files.list({
+        q: `name='${SHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+        fields: 'files(id, webViewLink)',
+    });
+
+    if (searchResponse.data.files && searchResponse.data.files.length > 0) {
+        const file = searchResponse.data.files[0];
+        if (file.id && file.webViewLink) {
+            return { spreadsheetId: file.id, spreadsheetUrl: file.webViewLink };
+        }
+    }
+    
+    // 2. If not found, create it
+    const createResponse = await sheets.spreadsheets.create({
+        requestBody: {
+            properties: {
+                title: SHEET_NAME,
+            },
+        },
+        fields: 'spreadsheetId,spreadsheetUrl',
+    });
+    
+    const spreadsheetId = createResponse.data.spreadsheetId;
+    const spreadsheetUrl = createResponse.data.spreadsheetUrl;
+    
+    if (!spreadsheetId || !spreadsheetUrl) {
+         throw new Error('Failed to create new Google Sheet.');
+    }
+
+    return { spreadsheetId, spreadsheetUrl };
+}
+
+export async function syncToGoogleSheetAction(accessToken: string, data: ProductWithRates[]) {
     if (!accessToken) {
         return { success: false, message: 'Authentication token is missing.' };
     }
@@ -144,38 +174,39 @@ export async function saveToDriveAction(accessToken: string, data: ProductWithRa
         oAuth2Client.setCredentials({ access_token: accessToken });
 
         const drive = google.drive({ version: 'v3', auth: oAuth2Client });
+        const sheets = google.sheets({ version: 'v4', auth: oAuth2Client });
         
-        const csvContent = convertToCsv(data);
-        if (!csvContent) {
-            return { success: false, message: 'No data to save.' };
-        }
+        // Find or create the target spreadsheet
+        const { spreadsheetId, spreadsheetUrl } = await findOrCreateSheet(drive, sheets);
         
-        const fileName = `rate-record-${new Date().toISOString().split('T')[0]}.csv`;
+        // Convert data to sheet format
+        const values = convertDataForSheet(data);
 
-        const fileMetadata = {
-            name: fileName,
-            mimeType: 'text/csv',
-        };
+        // Clear the existing data
+        await sheets.spreadsheets.values.clear({
+            spreadsheetId,
+            range: 'Sheet1', // Assumes data is on the default 'Sheet1'
+        });
 
-        const media = {
-            mimeType: 'text/csv',
-            body: Readable.from(csvContent),
-        };
-
-        const response = await drive.files.create({
-            requestBody: fileMetadata,
-            media: media,
-            fields: 'id,webViewLink',
+        // Write the new data
+        await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: 'Sheet1',
+            valueInputOption: 'USER_ENTERED',
+            requestBody: {
+                values: values,
+            },
         });
         
-        if (response.status === 200 && response.data.webViewLink) {
-             return { success: true, message: `File saved to Google Drive!`, link: response.data.webViewLink };
-        } else {
-             throw new Error('Failed to create file in Google Drive.');
-        }
+        return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
 
     } catch (error: any) {
-        console.error('saveToDriveAction Error:', error);
-        return { success: false, message: error.message || 'An error occurred while saving to Google Drive.' };
+        console.error('syncToGoogleSheetAction Error:', error);
+         if (error.message && error.message.includes('permission to access it')) {
+             return { success: false, message: `API Permission Error: Please ensure the Google Sheets API is enabled in your Google Cloud project.` };
+        }
+        return { success: false, message: error.message || 'An error occurred while syncing to Google Sheets.' };
     }
 }
+
+    
