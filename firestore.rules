@@ -2,32 +2,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Products Collection
-    match /products/{productId} {
-      allow read, write: if isSignedIn();
-
-      // Validate product writes
-      allow create, update: if request.resource.data.name is string &&
-                               request.resource.data.unit is string &&
-                               request.resource.data.partyName is string &&
-                               request.resource.data.category is string;
-
-      // Rates Subcollection
-      match /rates/{rateId} {
-        allow read, write: if isSignedIn();
-
-        // Validate rate writes
-        allow create, update: if request.resource.data.rate is number &&
-                                 request.resource.data.gst is number &&
-                                 request.resource.data.pageNo is number &&
-                                 request.resource.data.billDate is timestamp;
-      }
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }
