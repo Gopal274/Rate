@@ -12,7 +12,7 @@ import {
   getAllProductsWithRates,
   importProductsAndRates,
 } from './data';
-import type { Product, Rate, UpdateProductSchema, ProductWithRates } from './types';
+import type { Rate, UpdateProductSchema, ProductWithRates } from './types';
 import { productSchema } from './types';
 import { z } from 'zod';
 import { google } from 'googleapis';
@@ -22,13 +22,18 @@ const SHEET_NAME = 'Rate Record Live Data';
 
 type ProductFormData = z.infer<typeof productSchema>;
 
+/**
+ * Helper: run revalidation for the main pages in parallel
+ */
+async function revalidateMainPaths() {
+  await Promise.all([revalidatePath('/'), revalidatePath('/dashboard')]);
+}
+
+/* CRUD actions (unchanged semantics except revalidation batching) */
 export async function addProductAction(formData: ProductFormData) {
   try {
-    // The new addProductToDb function handles both product and initial rate creation
     const { product, rate } = await addProductToDb(formData);
-
-    revalidatePath('/');
-    revalidatePath('/dashboard');
+    await revalidateMainPaths();
     return { success: true, message: 'Product added successfully.', product, rate };
   } catch (error) {
     console.error('addProductAction Error:', error);
@@ -40,8 +45,7 @@ export async function addProductAction(formData: ProductFormData) {
 export async function addRateAction(productId: string, rate: number, billDate: Date, pageNo: number, gst: number) {
   try {
     const newRate = await addRateToDb(productId, rate, billDate, pageNo, gst);
-    revalidatePath('/');
-    revalidatePath('/dashboard');
+    await revalidateMainPaths();
     return { success: true, message: 'Rate added successfully.', rate: newRate };
   } catch (error) {
     console.error('addRateAction Error:', error);
@@ -53,8 +57,7 @@ export async function addRateAction(productId: string, rate: number, billDate: D
 export async function updateProductAction(productId: string, productData: UpdateProductSchema) {
   try {
     await updateProductInDb(productId, productData);
-    revalidatePath('/');
-    revalidatePath('/dashboard');
+    await revalidateMainPaths();
     return { success: true, message: 'Product updated successfully.' };
   } catch (error) {
     console.error('updateProductAction Error:', error);
@@ -66,8 +69,7 @@ export async function updateProductAction(productId: string, productData: Update
 export async function deleteProductAction(productId: string) {
   try {
     await deleteProductFromDb(productId);
-    revalidatePath('/');
-    revalidatePath('/dashboard');
+    await revalidateMainPaths();
     return { success: true, message: 'Product deleted successfully.' };
   } catch (error) {
     console.error('deleteProductAction Error:', error);
@@ -79,8 +81,7 @@ export async function deleteProductAction(productId: string) {
 export async function deleteRateAction(productId: string, rateId: string) {
   try {
     await deleteRateFromDb(productId, rateId);
-    revalidatePath('/');
-    revalidatePath('/dashboard');
+    await revalidateMainPaths();
     return { success: true, message: 'Rate deleted successfully.' };
   } catch (error) {
     console.error('deleteRateAction Error:', error);
@@ -99,70 +100,70 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
 }
 
 export async function getAllProductsWithRatesAction(): Promise<ProductWithRates[]> {
-    try {
-        const products = await getAllProductsWithRates();
-        // Convert Date objects to strings before returning to the client
-        return JSON.parse(JSON.stringify(products));
-    } catch (error) {
-        console.error('getAllProductsWithRatesAction Error:', error);
-        return [];
-    }
+  try {
+    const products = await getAllProductsWithRates();
+    // Convert Date objects to strings before returning to the client
+    return JSON.parse(JSON.stringify(products));
+  } catch (error) {
+    console.error('getAllProductsWithRatesAction Error:', error);
+    return [];
+  }
 }
 
-
+/**
+ * Convert in-memory product+rates to rows usable by Google Sheets.
+ * Note: GST is converted to decimal (e.g. 18 -> 0.18) so the sheet can display it as percent.
+ * Date is converted to Google Sheets serial number (days since 1899-12-30).
+ */
 function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string | number)[][] {
   const headers = [
     'Product Name', // A
     'Rate',         // B
     'Unit',         // C
-    'GST %',        // D
-    'Final Rate',   // E
+    'GST %',        // D (we store as decimal so cell formatting can be percent)
+    'Final Rate',   // E (formula)
     'Party Name',   // F
     'Page No',      // G
-    'Bill Date',    // H
+    'Bill Date',    // H (serial number)
     'Category',     // I
   ];
+
+  const excelEpoch = new Date('1899-12-30').getTime();
 
   const rows = allProductsWithRates.flatMap(product => {
     if (!product.rates || product.rates.length === 0) {
       return [];
     }
     return product.rates.map(rate => {
-        // Ensure billDate is a valid Date object before processing
-        const billDate = new Date(rate.billDate as string | Date);
-        if (isNaN(billDate.getTime())) {
-          return []; // Skip if date is invalid
-        }
-        
-        // Google Sheets date serial number is the number of days since 1899-12-30.
-        const excelEpoch = new Date('1899-12-30T00:00:00Z');
-        const msInDay = 86400000;
-        // Adjust for timezone offset to get the correct day number in UTC
-        const utcBillDate = new Date(billDate.getTime() + billDate.getTimezoneOffset() * 60000);
-        const serialNumber = (utcBillDate.getTime() - excelEpoch.getTime()) / msInDay;
-
-        return [
-            product.name,
-            rate.rate,
-            product.unit,
-            (rate.gst || 0) / 100, // Send as decimal
-            '', // Final Rate is a formula, so this cell is left blank
-            product.partyName,
-            rate.pageNo,
-            serialNumber,
-            product.category,
-        ];
-    }).filter(row => row.length > 0); // Filter out any empty rows from invalid dates
+      const billDate = rate.billDate ? new Date(rate.billDate as string) : null;
+      const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : '';
+      return [
+        product.name,
+        rate.rate,
+        product.unit,
+        (rate.gst ?? 0) / 100, // send GST as decimal (0.18 for 18%)
+        '', // Final Rate will be computed by ARRAYFORMULA
+        product.partyName,
+        rate.pageNo,
+        serialNumber,
+        product.category,
+      ];
+    });
   });
 
   return [headers, ...rows];
 }
 
+/**
+ * Find the spreadsheet by name or create it.
+ * Returns spreadsheetId & webViewLink.
+ */
+async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheetId: string; spreadsheetUrl: string }> {
+  // Escape single quotes in file name for the drive query
+  const escapeForQuery = (s: string) => s.replace(/'/g, "\\'");
 
-async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheetId: string, spreadsheetUrl: string }> {
-  // 1. Search for the file by name
   const searchResponse = await drive.files.list({
-    q: `name='${SHEET_NAME}' and mimeType='application/vnd.google-apps-spreadsheet' and trashed=false`,
+    q: `name='${escapeForQuery(SHEET_NAME)}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
     fields: 'files(id, webViewLink)',
   });
 
@@ -173,7 +174,6 @@ async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheet
     }
   }
 
-  // 2. If not found, create it
   const createResponse = await sheets.spreadsheets.create({
     requestBody: {
       properties: {
@@ -193,6 +193,11 @@ async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheet
   return { spreadsheetId, spreadsheetUrl };
 }
 
+/**
+ * Sync local products/rates to Google Sheets.
+ * - Writes data
+ * - Applies formatting and formulas using the actual sheetId and sheet name
+ */
 export async function syncToGoogleSheetAction(accessToken: string) {
   if (!accessToken) {
     return { success: false, message: 'Authentication token is missing.' };
@@ -207,107 +212,113 @@ export async function syncToGoogleSheetAction(accessToken: string) {
 
     const { spreadsheetId, spreadsheetUrl } = await findOrCreateSheet(drive, sheets);
 
-    const allProductsWithRates = await getAllProductsWithRates();
-
-    const values = convertDataForSheet(allProductsWithRates);
-
-    // --- Clear and Write Data ---
-    await sheets.spreadsheets.values.clear({
+    // Fetch spreadsheet metadata to get sheetId and sheet title (use first sheet)
+    const meta = await sheets.spreadsheets.get({
       spreadsheetId,
-      range: 'Sheet1',
+      fields: 'sheets.properties(sheetId,title)',
     });
 
-    const updateRequest = {
-        spreadsheetId,
-        range: 'Sheet1',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-            values: values,
-        },
-    };
-    await sheets.spreadsheets.values.update(updateRequest);
+    if (!meta.data.sheets || meta.data.sheets.length === 0) {
+      throw new Error('Spreadsheet has no sheets.');
+    }
 
-    // --- Start of Formatting and Feature Requests ---
-    const numRows = values.length;
+    const sheetProps = meta.data.sheets[0].properties!;
+    const sheetId = sheetProps.sheetId!;
+    const sheetTitle = sheetProps.title || 'Sheet1';
+
+    const allProductsWithRates = await getAllProductsWithRates();
+    const values = convertDataForSheet(allProductsWithRates);
+
+    // Clear and write data to the actual sheet title
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: `${sheetTitle}`,
+    });
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetTitle}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values },
+    });
+
+    // Prepare formatting / features using the actual sheetId
+    const numRows = values.length; // includes header
     const numCols = values.length > 0 ? values[0].length : 0;
 
-    const requests = [
-      // 1. Bold Header Row
+    const requests: any[] = [
+      // Bold header row
       {
         repeatCell: {
-          range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
           cell: { userEnteredFormat: { textFormat: { bold: true } } },
           fields: 'userEnteredFormat.textFormat.bold',
-        }
+        },
       },
-      // 2. Format Rate Column (B) as Currency
+      // Format Rate Column (B) as Currency
       {
         repeatCell: {
-          range: { sheetId: 0, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 },
+          range: { sheetId, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 },
           cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
-          fields: 'userEnteredFormat.numberFormat'
-        }
+          fields: 'userEnteredFormat.numberFormat',
+        },
       },
-       // 3. Format GST Column (D) as Percentage
+      // Format GST Column (D) as Percentage
       {
         repeatCell: {
-            range: { sheetId: 0, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 },
-            cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00"%"' } } },
-            fields: 'userEnteredFormat.numberFormat'
-        }
+          range: { sheetId, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 },
+          cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } },
+          fields: 'userEnteredFormat.numberFormat',
+        },
       },
-      // 4. Format Final Rate Column (E) as Currency
+      // Format Final Rate Column (E) as Currency
       {
         repeatCell: {
-          range: { sheetId: 0, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 },
+          range: { sheetId, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 },
           cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
-          fields: 'userEnteredFormat.numberFormat'
-        }
+          fields: 'userEnteredFormat.numberFormat',
+        },
       },
-      // 5. Format Date Column (H)
+      // Format Date Column (H) as date
       {
         repeatCell: {
-          range: { sheetId: 0, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
+          range: { sheetId, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
           cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd/mm/yyyy' } } },
-          fields: 'userEnteredFormat.numberFormat'
-        }
+          fields: 'userEnteredFormat.numberFormat',
+        },
       },
-      // 6. Set Basic Filter
+      // Set Basic Filter
       {
         setBasicFilter: {
           filter: {
-            range: { sheetId: 0, startRowIndex: 0, endRowIndex: numRows, startColumnIndex: 0, endColumnIndex: numCols }
-          }
-        }
+            range: { sheetId, startRowIndex: 0, endRowIndex: numRows, startColumnIndex: 0, endColumnIndex: numCols },
+          },
+        },
       },
-      // 7. Auto-resize all columns
+      // Auto-resize columns
       {
         autoResizeDimensions: {
-          dimensions: { sheetId: 0, dimension: 'COLUMNS', startIndex: 0, endIndex: numCols }
-        }
+          dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: numCols },
+        },
       },
     ];
 
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
-      requestBody: { requests }
+      requestBody: { requests },
     });
 
-    // Add ARRAYFORMULA for Final Rate (Column E) based on Rate (B) and GST (D)
+    // Put an ARRAYFORMULA into Column E starting at E2 to compute final rate
     await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: 'Sheet1!E2',
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-            values: [
-            ['=ARRAYFORMULA(IF(ISBLANK(B2:B), "", B2:B * (1+D2:D)))']
-            ]
-        }
+      spreadsheetId,
+      range: `${sheetTitle}!E2`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [['=ARRAYFORMULA(IF(B2:B="","", B2:B * (1 + D2:D)))']],
+      },
     });
-
 
     return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
-
   } catch (error: any) {
     console.error('syncToGoogleSheetAction Error:', error);
     if (error.message && (error.message.includes('API has not been used') || error.message.includes('API is disabled'))) {
@@ -317,6 +328,23 @@ export async function syncToGoogleSheetAction(accessToken: string) {
   }
 }
 
+/**
+ * Convert Google Sheets serial number back to Date (ISO string).
+ * Google sheets uses epoch 1899-12-30 for serial numbers.
+ */
+function serialNumberToIso(serial: number | string | undefined | null) {
+  if (serial === undefined || serial === null || serial === '') return null;
+  const n = Number(serial);
+  if (Number.isNaN(n)) return null;
+  const excelEpoch = new Date('1899-12-30').getTime();
+  const date = new Date(Math.round(n * 24 * 60 * 60 * 1000) + excelEpoch);
+  return date.toISOString();
+}
+
+/**
+ * Import products & rates from the Google Sheet.
+ * Normalizes date and GST values before calling importProductsAndRates.
+ */
 export async function importFromGoogleSheetAction(accessToken: string) {
   if (!accessToken) {
     return { success: false, message: 'Authentication token is missing.' };
@@ -331,6 +359,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
     const { spreadsheetId } = await findOrCreateSheet(drive, sheets);
 
+    // Read columns A:I
     const sheetDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: 'Sheet1!A:I',
@@ -345,18 +374,34 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
     const dataRows = rows.slice(1);
 
+    // Map and normalize each row to the format expected by importProductsAndRates
+    // Current mapping expectation: [name, partyName, category, unit, billDateISO, pageNo, rate, gstPercent]
     const mappedRows = dataRows.map(row => {
-      const [name, rate, unit, gst, _finalRate, partyName, pageNo, dateSerialNumber, category] = row;
-      // Important: The order here must match what importProductsAndRates expects
-      return [name, partyName, category, unit, dateSerialNumber, pageNo, rate, gst];
+      const [name, rate, unit, gstRaw, _finalRate, partyName, pageNo, dateSerialNumber, category] = row;
+
+      // Convert serial date -> ISO
+      const billDateISO = serialNumberToIso(dateSerialNumber) || '';
+
+      // Normalize GST: if value <=1, treat as decimal (0.18) and convert to percent 18
+      let gstPercent = gstRaw;
+      if (gstPercent === '' || gstPercent === undefined || gstPercent === null) {
+        gstPercent = 0;
+      } else {
+        const g = Number(gstPercent);
+        if (!Number.isNaN(g)) {
+          gstPercent = g <= 1 ? g * 100 : g;
+        } else {
+          gstPercent = 0;
+        }
+      }
+
+      return [name ?? '', partyName ?? '', category ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
     });
 
     const result = await importProductsAndRates(mappedRows);
 
-    revalidatePath('/');
-    revalidatePath('/dashboard');
+    await revalidateMainPaths();
     return { success: true, message: `Import complete. Added: ${result.added}, Updated: ${result.updated}, Skipped: ${result.skipped}.` };
-
   } catch (error: any) {
     console.error('importFromGoogleSheetAction Error:', error);
     return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
