@@ -124,26 +124,35 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
   ];
 
   const rows = allProductsWithRates.flatMap(product => {
-    if (product.rates.length === 0) {
+    if (!product.rates || product.rates.length === 0) {
       return [];
     }
     return product.rates.map(rate => {
-      const billDate = new Date(rate.billDate as string);
-      // Google Sheets date serial number is the number of days since 1899-12-30.
-      const serialNumber = (billDate.getTime() - new Date('1899-12-30').getTime()) / (24 * 60 * 60 * 1000);
+        // Ensure billDate is a valid Date object before processing
+        const billDate = new Date(rate.billDate as string | Date);
+        if (isNaN(billDate.getTime())) {
+          return []; // Skip if date is invalid
+        }
+        
+        // Google Sheets date serial number is the number of days since 1899-12-30.
+        const excelEpoch = new Date('1899-12-30T00:00:00Z');
+        const msInDay = 86400000;
+        // Adjust for timezone offset to get the correct day number in UTC
+        const utcBillDate = new Date(billDate.getTime() + billDate.getTimezoneOffset() * 60000);
+        const serialNumber = (utcBillDate.getTime() - excelEpoch.getTime()) / msInDay;
 
-      return [
-        product.name,
-        rate.rate,
-        product.unit,
-        (rate.gst || 0) / 100, // Send as decimal
-        '', // Final Rate is a formula
-        product.partyName,
-        rate.pageNo,
-        serialNumber,
-        product.category,
-      ];
-    });
+        return [
+            product.name,
+            rate.rate,
+            product.unit,
+            (rate.gst || 0) / 100, // Send as decimal
+            '', // Final Rate is a formula, so this cell is left blank
+            product.partyName,
+            rate.pageNo,
+            serialNumber,
+            product.category,
+        ];
+    }).filter(row => row.length > 0); // Filter out any empty rows from invalid dates
   });
 
   return [headers, ...rows];
@@ -291,7 +300,7 @@ export async function syncToGoogleSheetAction(accessToken: string) {
         valueInputOption: 'USER_ENTERED',
         requestBody: {
             values: [
-            ['=ARRAYFORMULA(IF(B2:B="","", B2:B * (1+D2:D)))']
+            ['=ARRAYFORMULA(IF(ISBLANK(B2:B), "", B2:B * (1+D2:D)))']
             ]
         }
     });
