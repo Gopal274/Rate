@@ -642,14 +642,14 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border relative overflow-x-auto">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
                       return (
-                        <TableHead key={header.id} className={header.id === 'actions' ? 'no-print' : ''}>
+                        <TableHead key={header.id} className={cn('whitespace-nowrap', header.id === 'actions' ? 'no-print' : '')}>
                           {header.isPlaceholder
                             ? null
                             : flexRender(
@@ -676,7 +676,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                           onClick={() => hasHistory && toggleCollapsible(row.original.id)}
                         >
                           {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id} className={cn(cell.column.id === 'actions' ? 'no-print' : '')}>
+                            <TableCell key={cell.id} className={cn('whitespace-nowrap', cell.column.id === 'actions' ? 'no-print' : '')}>
                               {flexRender(
                                 cell.column.columnDef.cell,
                                 cell.getContext()
@@ -688,18 +688,18 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                           const finalRate = rate.rate * (1 + rate.gst / 100);
                           return (
                             <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
-                              <TableCell></TableCell>
-                              <TableCell></TableCell>
-                              <TableCell>{row.original.name}</TableCell>
-                              <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
-                              <TableCell>{row.original.unit}</TableCell>
-                              <TableCell>{rate.gst}%</TableCell>
-                              <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
-                              <TableCell>{row.original.partyName}</TableCell>
-                              <TableCell>{rate.pageNo}</TableCell>
-                              <TableCell>{format(new Date(rate.billDate), 'dd/MM/yy')}</TableCell>
-                              <TableCell>{row.original.category}</TableCell>
-                              <TableCell className="no-print">
+                              <TableCell className='whitespace-nowrap'></TableCell>
+                              <TableCell className='whitespace-nowrap'></TableCell>
+                              <TableCell className='whitespace-nowrap'>{row.original.name}</TableCell>
+                              <TableCell className="text-right font-medium whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{rate.gst}%</TableCell>
+                              <TableCell className="text-right font-bold whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{format(new Date(rate.billDate), 'dd/MM/yy')}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{row.original.category}</TableCell>
+                              <TableCell className="no-print whitespace-nowrap">
                                 <TooltipProvider>
                                   <div className="flex items-center justify-center">
                                     <Tooltip>

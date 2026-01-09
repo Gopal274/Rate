@@ -7,6 +7,7 @@ import { signOut } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { LogOut } from 'lucide-react';
+import { ThemeToggle } from './theme-toggle';
 
 function UserNav() {
     const { user } = useUser();
@@ -54,6 +55,7 @@ function UserNav() {
 
 
 export default function AppHeader() {
+  const { user } = useUser();
   return (
     <header className="border-b bg-card">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -63,7 +65,10 @@ export default function AppHeader() {
             Rate Record
           </h1>
         </div>
-        <UserNav />
+        <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {user && <UserNav />}
+        </div>
       </div>
     </header>
   );
