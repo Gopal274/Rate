@@ -259,7 +259,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   ...r,
                   billDate: new Date(r.billDate),
                   createdAt: new Date(r.createdAt),
-              }));
+              })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
               allHistories[product.id] = ratesWithDates;
             } catch (error) {
               console.error(`Failed to fetch rates for product ${product.id}:`, error);
@@ -316,7 +316,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
         return dataToSort.sort((a, b) => getFinalRate(b) - getFinalRate(a));
       case 'newest':
       default:
-        return dataToSort.sort((a, b) => new Date(b.rates[0].billDate).getTime() - new Date(a.rates[0].billDate).getTime());
+        return dataToSort.sort((a, b) => new Date(b.rates[0].createdAt).getTime() - new Date(a.rates[0].createdAt).getTime());
     }
   }, [products, rateHistories, activeSort]);
 
@@ -380,8 +380,8 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     },
     {
       id: 'gst',
-      header: 'GST %',
-      cell: ({ row }) => `${row.original.rates[0]?.gst ?? 0}%`,
+      header: () => <div className="text-center">GST %</div>,
+      cell: ({ row }) => <div className="text-center">{`${row.original.rates[0]?.gst ?? 0}%`}</div>,
       enableSorting: false,
     },
     {
@@ -828,11 +828,11 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                             <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                {format(new Date(rate.createdAt), 'dd/MM/yy')}
+                                {format(new Date(rate.createdAt), 'dd/MM/yy, h:mm a')}
                               </TableCell>
                               <TableCell className="text-right font-medium whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
-                              <TableCell className='whitespace-nowrap'>{rate.gst}%</TableCell>
+                              <TableCell className='text-center whitespace-nowrap'>{rate.gst}%</TableCell>
                               <TableCell className="text-right font-bold whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
                               <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>

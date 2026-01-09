@@ -13,6 +13,7 @@ import {
   getDocs,
   Timestamp,
   writeBatch,
+  addDoc,
 } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp } from 'firebase/app';
@@ -129,11 +130,8 @@ export const addRate = async (productId: string, rate: number, billDate: Date, p
         billDate,
         createdAt: serverTimestamp()
     };
-
-    await runTransaction(db, async (transaction) => {
-        // Just add the new rate document. No need to touch the parent product.
-        transaction.set(newRateRef, newRateData);
-    });
+    
+    await addDoc(collection(productRef, RATES_SUBCOLLECTION), newRateData);
 
     // We return a client-side representation. The serverTimestamp will be resolved by Firestore.
     return { id: newRateRef.id, ...newRateData, createdAt: new Date() };
@@ -195,14 +193,16 @@ export async function importProductsAndRates(rows: any[][]) {
     const rate = parseFloat(rateStr);
     const pageNo = parseInt(pageNoStr, 10);
     // Google Sheets might pass GST as a string like "5.00%", so we parse it
-    const gst = parseFloat(gstStr) * 100;
+    const gstValue = parseFloat(gstStr);
+    const gst = isNaN(gstValue) ? 0 : gstValue;
+
     // Convert Google Sheet's date serial number to a JS Date
     const billDate = new Date(Date.UTC(1899, 11, 30 + parseInt(dateSerialNumber)));
 
 
     if (
       !name || !partyName || !category || !unit ||
-      isNaN(rate) || isNaN(pageNo) || isNaN(gst) || isNaN(billDate.getTime()) ||
+      isNaN(rate) || isNaN(pageNo) || isNaN(billDate.getTime()) ||
       !categories.includes(category as any) || !units.includes(unit as any)
     ) {
       skipped++;

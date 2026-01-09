@@ -2,70 +2,57 @@
 
 import AppHeader from '@/components/app-header';
 import { AuthForm } from '@/components/auth-form';
-import { useCollection, useFirebase, useUser, useMemoFirebase, getProductRatesAction } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useFirebase, useUser, getAllProductsWithRatesAction } from '@/firebase';
+import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
-import type { Product, Rate, ProductWithRates } from '@/lib/types';
+import type { ProductWithRates } from '@/lib/types';
 import GroupedProductView from '@/components/dashboard';
 import { PartyDistributionChart } from '@/components/party-distribution-chart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function DashboardPage() {
-  const { firestore, isUserLoading } = useFirebase();
+  const { isUserLoading } = useFirebase();
   const { user } = useUser();
   const [productsWithRates, setProductsWithRates] = useState<ProductWithRates[]>([]);
-  const [ratesLoading, setRatesLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [openPartyAccordion, setOpenPartyAccordion] = useState<string | null>(null);
 
-
-  const productsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'products'));
-  }, [firestore]);
-
-  const { data: productsFromHook, isLoading: productsLoading, error } = useCollection<Product>(productsQuery);
-
   useEffect(() => {
-    const fetchAllRates = async () => {
-      if (productsFromHook && productsFromHook.length > 0) {
-        setRatesLoading(true);
-        const allProductsWithRates: ProductWithRates[] = [];
-        for (const product of productsFromHook) {
-          try {
-            const fetchedRates = await getProductRatesAction(product.id);
-            const ratesWithDates = fetchedRates.map(r => ({
-                ...r,
-                billDate: new Date(r.billDate),
-                createdAt: new Date(r.createdAt),
-            })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-            
-            allProductsWithRates.push({ ...product, rates: ratesWithDates });
-          } catch (error) {
-            console.error(`Failed to fetch rates for product ${product.id}:`, error);
-            allProductsWithRates.push({ ...product, rates: [] });
-          }
+    const fetchDashboardData = async () => {
+        if (!user) {
+            setDataLoading(false);
+            return;
+        };
+
+        setDataLoading(true);
+        setError(null);
+        try {
+            const allProducts = await getAllProductsWithRatesAction();
+            const sortedProducts = allProducts.map(p => ({
+                ...p,
+                rates: p.rates.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            }));
+            setProductsWithRates(sortedProducts);
+        } catch (e: any) {
+            console.error("Failed to fetch dashboard data:", e);
+            setError(e);
+        } finally {
+            setDataLoading(false);
         }
-        setProductsWithRates(allProductsWithRates);
-        setRatesLoading(false);
-      } else if (productsFromHook) {
-        setProductsWithRates([]);
-        setRatesLoading(false);
-      }
-    };
+    }
     
-    fetchAllRates();
-  }, [productsFromHook]);
+    fetchDashboardData();
+  }, [user]);
   
   const handlePartySelect = (partyName: string) => {
-    // If the same party is clicked again, close it. Otherwise, open the new one.
     setOpenPartyAccordion(prev => prev === partyName ? null : partyName);
   };
 
 
-  const isLoading = isUserLoading || productsLoading || ratesLoading;
+  const isLoading = isUserLoading || dataLoading;
 
   if (isUserLoading) {
     return (
