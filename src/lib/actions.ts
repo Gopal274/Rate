@@ -116,7 +116,7 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
     'Rate',         // B
     'Unit',         // C
     'GST %',        // D
-    'Final Rate',   // E 
+    'Final Rate',   // E
     'Party Name',   // F
     'Page No',      // G
     'Bill Date',    // H
@@ -128,19 +128,20 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
       return [];
     }
     return product.rates.map(rate => {
-      const billDate = new Date(rate.billDate);
+      const billDate = new Date(rate.billDate as string);
+      // Google Sheets date serial number is the number of days since 1899-12-30.
       const serialNumber = (billDate.getTime() - new Date('1899-12-30').getTime()) / (24 * 60 * 60 * 1000);
 
       return [
-        product.name,      // A
-        rate.rate,         // B
-        product.unit,      // C
-        rate.gst,          // D
-        '',                // E (Final Rate placeholder for manual entry)
-        product.partyName, // F
-        rate.pageNo,       // G
-        serialNumber,      // H
-        product.category,  // I
+        product.name,
+        rate.rate, // Send the raw number
+        product.unit,
+        (rate.gst || 0) / 100, // Send GST as a decimal (e.g., 5% becomes 0.05)
+        '', // Final Rate is a formula, leave empty
+        product.partyName,
+        rate.pageNo,
+        serialNumber, // Send the date serial number
+        product.category,
       ];
     });
   });
@@ -283,14 +284,14 @@ export async function syncToGoogleSheetAction(accessToken: string) {
       requestBody: { requests }
     });
 
-    // Add ARRAYFORMULA for Final Rate
+    // Add ARRAYFORMULA for Final Rate (Column E) based on Rate (B) and GST (D)
     await sheets.spreadsheets.values.update({
         spreadsheetId,
         range: 'Sheet1!E2',
         valueInputOption: 'USER_ENTERED',
         requestBody: {
             values: [
-            ['=ARRAYFORMULA(IF(B2:B="","", B2:B + (B2:B * D2:D)))']
+            ['=ARRAYFORMULA(IF(B2:B="","", B2:B * (1+D2:D)))']
             ]
         }
     });
