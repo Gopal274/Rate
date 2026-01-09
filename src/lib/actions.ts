@@ -12,7 +12,7 @@ import {
   importProductsAndRates,
 } from './data';
 import type { Product, Rate, UpdateProductSchema, ProductWithRates } from './types';
-import { productSchema, categories, units } from './types';
+import { productSchema } from './types';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
@@ -112,20 +112,19 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
             return [];
         }
         return product.rates.map(rate => {
-            const finalRate = rate.rate * (1 + rate.gst / 100);
             const billDate = new Date(rate.billDate);
-            const formattedBillDate = `${billDate.getFullYear()}-${String(billDate.getMonth() + 1).padStart(2, '0')}-${String(billDate.getDate()).padStart(2, '0')}`;
+            // We use a special date format that Google Sheets recognizes regardless of locale
+            const serialNumber = (billDate.getTime() - new Date('1899-12-30').getTime()) / (24 * 60 * 60 * 1000);
 
             return [
                 product.name,
                 product.partyName,
                 product.category,
                 product.unit,
-                formattedBillDate,
+                serialNumber, // Use serial number for dates
                 rate.pageNo,
                 rate.rate,
-                rate.gst,
-                finalRate,
+                rate.gst / 100, // Store GST as a decimal for percentage formatting
             ];
         });
     });
@@ -185,20 +184,95 @@ export async function syncToGoogleSheetAction(accessToken: string) {
         const allProductsWithRates = await getAllProductsWithRates();
 
         const values = convertDataForSheet(allProductsWithRates);
+        
+        // Add the formula for Final Rate in the header row itself.
+        values[0][8] = '=ARRAYFORMULA(IF(ISBLANK(G2:G), "", G2:G * (1 + H2:H)))';
+
 
         await sheets.spreadsheets.values.clear({
             spreadsheetId,
             range: 'Sheet1',
         });
-
-        await sheets.spreadsheets.values.update({
+        
+        const dataWriteRequest = sheets.spreadsheets.values.update({
             spreadsheetId,
             range: 'Sheet1',
-            valueInputOption: 'USER_ENTERED',
+            valueInputOption: 'USER_ENTERED', // Use USER_ENTERED to parse formulas
             requestBody: {
                 values: values,
             },
         });
+        
+        // --- Start of Formatting and Feature Requests ---
+        const numRows = values.length;
+        const numCols = values[0].length;
+        
+        const formattingRequests = {
+            spreadsheetId,
+            requestBody: {
+                requests: [
+                    // 1. Bold Header Row
+                    {
+                        repeatCell: {
+                            range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
+                            cell: { userEnteredFormat: { textFormat: { bold: true } } },
+                            fields: 'userEnteredFormat.textFormat.bold',
+                        }
+                    },
+                    // 2. Format Date Column (E)
+                    {
+                        repeatCell: {
+                             range: { sheetId: 0, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 },
+                             cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd/mm/yyyy' } } },
+                             fields: 'userEnteredFormat.numberFormat'
+                        }
+                    },
+                    // 3. Format Rate Column as Currency (G)
+                    {
+                        repeatCell: {
+                             range: { sheetId: 0, startColumnIndex: 6, endColumnIndex: 7, startRowIndex: 1 },
+                             cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
+                             fields: 'userEnteredFormat.numberFormat'
+                        }
+                    },
+                    // 4. Format GST Column as Percentage (H)
+                     {
+                        repeatCell: {
+                             range: { sheetId: 0, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
+                             cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '#0.00%' } } },
+                             fields: 'userEnteredFormat.numberFormat'
+                        }
+                    },
+                    // 5. Format Final Rate Column as Currency (I)
+                     {
+                        repeatCell: {
+                             range: { sheetId: 0, startColumnIndex: 8, endColumnIndex: 9, startRowIndex: 1 },
+                             cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
+                             fields: 'userEnteredFormat.numberFormat'
+                        }
+                    },
+                    // 6. Set Basic Filter
+                    {
+                       setBasicFilter: {
+                           filter: {
+                               range: { sheetId: 0, startRowIndex: 0, endRowIndex: numRows, startColumnIndex: 0, endColumnIndex: numCols }
+                           }
+                       }
+                    },
+                     // 7. Auto-resize all columns
+                    {
+                        autoResizeDimensions: {
+                            dimensions: { sheetId: 0, dimension: 'COLUMNS', startIndex: 0, endIndex: numCols }
+                        }
+                    }
+                ]
+            }
+        };
+
+        const formattingRequest = sheets.spreadsheets.batchUpdate(formattingRequests);
+
+        // Run data write and formatting in parallel
+        await Promise.all([dataWriteRequest, formattingRequest]);
         
         return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
 
@@ -248,3 +322,5 @@ export async function importFromGoogleSheetAction(accessToken: string) {
         return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
     }
 }
+
+    
