@@ -1,35 +1,23 @@
+
 'use server';
 
 import { 
-  getFirestore, 
-  collection, 
-  doc, 
   serverTimestamp, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  orderBy,
-  runTransaction,
-  getDocs,
   Timestamp,
-  writeBatch,
-  addDoc,
-} from 'firebase/firestore';
-import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp } from 'firebase/app';
+  FieldValue,
+} from 'firebase-admin/firestore';
+
+import { getFirebaseAdmin } from '@/firebase/admin';
 import type { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates } from './types';
 import { categories, units } from './types';
 
 
-// Helper to initialize Firebase
-function getDb() {
-  if (getApps().length === 0) {
-    initializeApp(firebaseConfig);
-  }
-  return getFirestore(getApp());
+// Helper to initialize Firebase Admin
+async function getDb() {
+  const { firestore } = await getFirebaseAdmin();
+  return firestore;
 }
 
-const db = getDb();
 const PRODUCTS_COLLECTION = 'products';
 const RATES_SUBCOLLECTION = 'rates';
 
@@ -37,8 +25,9 @@ const RATES_SUBCOLLECTION = 'rates';
 type ProductCreationData = Omit<ProductSchema, 'rate' | 'gst' | 'pageNo' | 'billDate'>;
 
 export const addProduct = async (formData: ProductSchema): Promise<{product: Product, rate: Rate}> => {
+  const db = await getDb();
   const { name, unit, partyName, category, rate, gst, pageNo, billDate } = formData;
-  const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
+  const newProductRef = db.collection(PRODUCTS_COLLECTION).doc();
   
   const productData: ProductCreationData = { name, unit, partyName, category };
 
@@ -50,12 +39,12 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
     createdAt: serverTimestamp(),
   };
 
-  await runTransaction(db, async (transaction) => {
+  await db.runTransaction(async (transaction) => {
     // 1. Set the main product document
     transaction.set(newProductRef, productData);
 
     // 2. Set the initial rate in the subcollection
-    const newRateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
+    const newRateRef = newProductRef.collection(RATES_SUBCOLLECTION).doc();
     transaction.set(newRateRef, rateData);
   });
 
@@ -75,17 +64,19 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
 
 
 export const updateProduct = async (productId: string, updateData: Partial<UpdateProductSchema>): Promise<void> => {
-  const productDoc = doc(db, PRODUCTS_COLLECTION, productId);
-  await updateDoc(productDoc, updateData);
+  const db = await getDb();
+  const productDoc = db.collection(PRODUCTS_COLLECTION).doc(productId);
+  await productDoc.update(updateData);
 };
 
 export const deleteProduct = async (productId: string): Promise<void> => {
-  const productDocRef = doc(db, PRODUCTS_COLLECTION, productId);
+  const db = await getDb();
+  const productDocRef = db.collection(PRODUCTS_COLLECTION).doc(productId);
   
-  await runTransaction(db, async (transaction) => {
+  await db.runTransaction(async (transaction) => {
     // Get all rates for the product
-    const ratesQuery = query(collection(productDocRef, RATES_SUBCOLLECTION));
-    const ratesSnapshot = await getDocs(ratesQuery);
+    const ratesQuery = productDocRef.collection(RATES_SUBCOLLECTION);
+    const ratesSnapshot = await transaction.get(ratesQuery);
     
     // Delete each rate in the transaction
     ratesSnapshot.forEach((rateDoc) => {
@@ -99,9 +90,10 @@ export const deleteProduct = async (productId: string): Promise<void> => {
 
 
 export const getProductRates = async (productId: string): Promise<Rate[]> => {
-  const ratesCol = collection(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION);
-  const q = query(ratesCol, orderBy('createdAt', 'desc'));
-  const ratesSnapshot = await getDocs(q);
+  const db = await getDb();
+  const ratesCol = db.collection(PRODUCTS_COLLECTION).doc(productId).collection(RATES_SUBCOLLECTION);
+  const q = ratesCol.orderBy('createdAt', 'desc');
+  const ratesSnapshot = await q.get();
 
   return ratesSnapshot.docs.map(doc => {
       const data = doc.data();
@@ -120,8 +112,8 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
 };
 
 export const addRate = async (productId: string, rate: number, billDate: Date, pageNo: number, gst: number): Promise<Rate> => {
-    const productRef = doc(db, PRODUCTS_COLLECTION, productId);
-    const newRateRef = doc(collection(productRef, RATES_SUBCOLLECTION));
+    const db = await getDb();
+    const productRef = db.collection(PRODUCTS_COLLECTION).doc(productId);
     
     const newRateData = {
         rate,
@@ -131,7 +123,7 @@ export const addRate = async (productId: string, rate: number, billDate: Date, p
         createdAt: serverTimestamp()
     };
     
-    await addDoc(collection(productRef, RATES_SUBCOLLECTION), newRateData);
+    const newRateRef = await productRef.collection(RATES_SUBCOLLECTION).add(newRateData);
 
     // We return a client-side representation. The serverTimestamp will be resolved by Firestore.
     return { id: newRateRef.id, ...newRateData, createdAt: new Date() };
@@ -139,14 +131,16 @@ export const addRate = async (productId: string, rate: number, billDate: Date, p
 
 
 export const deleteRate = async (productId: string, rateId: string): Promise<void> => {
-  const rateDoc = doc(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION, rateId);
-  await deleteDoc(rateDoc);
+  const db = await getDb();
+  const rateDoc = db.collection(PRODUCTS_COLLECTION).doc(productId).collection(RATES_SUBCOLLECTION).doc(rateId);
+  await rateDoc.delete();
 };
 
 
 export const getAllProductsWithRates = async (options?: { onlyLatestRate: boolean }): Promise<ProductWithRates[]> => {
-    const productsCollectionRef = collection(db, PRODUCTS_COLLECTION);
-    const productsSnapshot = await getDocs(productsCollectionRef);
+    const db = await getDb();
+    const productsCollectionRef = db.collection(PRODUCTS_COLLECTION);
+    const productsSnapshot = await productsCollectionRef.get();
     
     const productsWithRates: ProductWithRates[] = [];
 
@@ -172,6 +166,7 @@ type ProductCheckMap = {
 };
 
 export async function importProductsAndRates(rows: any[][]) {
+  const db = await getDb();
   let added = 0;
   let updated = 0;
   let skipped = 0;
@@ -184,7 +179,7 @@ export async function importProductsAndRates(rows: any[][]) {
     return acc;
   }, {} as ProductCheckMap);
 
-  const batch = writeBatch(db);
+  const batch = db.batch();
 
   for (const row of rows) {
     const [name, partyName, category, unit, dateSerialNumber, pageNoStr, rateStr, gstStr] = row;
@@ -223,23 +218,23 @@ export async function importProductsAndRates(rows: any[][]) {
       const areDetailsDifferent = existingProduct.category !== category || existingProduct.unit !== unit;
 
       if (isRateDifferent) {
-        const newRateRef = doc(collection(db, PRODUCTS_COLLECTION, existingProduct.id, RATES_SUBCOLLECTION));
+        const newRateRef = db.collection(PRODUCTS_COLLECTION).doc(existingProduct.id).collection(RATES_SUBCOLLECTION).doc();
         batch.set(newRateRef, { rate, gst, pageNo, billDate, createdAt: serverTimestamp() });
         updated++;
       }
 
       if (areDetailsDifferent) {
-        const productRef = doc(db, PRODUCTS_COLLECTION, existingProduct.id);
+        const productRef = db.collection(PRODUCTS_COLLECTION).doc(existingProduct.id);
         batch.update(productRef, { category, unit });
         if (!isRateDifferent) updated++; // Only count as update once
       }
 
     } else {
       // 4. New product: Add product and its first rate
-      const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
+      const newProductRef = db.collection(PRODUCTS_COLLECTION).doc();
       batch.set(newProductRef, { name, partyName, category, unit });
 
-      const newRateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
+      const newRateRef = newProductRef.collection(RATES_SUBCOLLECTION).doc();
       batch.set(newRateRef, { rate, gst, pageNo, billDate, createdAt: serverTimestamp() });
       added++;
     }
