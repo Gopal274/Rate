@@ -199,13 +199,11 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
 
 
   const uniquePartyNames = React.useMemo(() => {
-    if (!allProductsWithRates) return [];
     const partyNames = new Set(allProductsWithRates.map(p => p.partyName));
     return Array.from(partyNames).sort();
   }, [allProductsWithRates]);
 
   const uniqueCategories = React.useMemo(() => {
-    if (!allProductsWithRates) return [];
     const categoryNames = new Set(allProductsWithRates.map(p => p.category));
     return Array.from(categoryNames).sort();
   }, [allProductsWithRates]);
@@ -277,7 +275,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             Product Name
              <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
+                <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
                   <Filter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -324,7 +322,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         return (
             <div className="flex items-center justify-end gap-2">
                 Final Rate
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setActiveSort(prev => prev === 'final-rate-desc' ? 'final-rate-asc' : 'final-rate-desc')}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 no-print" onClick={() => setActiveSort(prev => prev === 'final-rate-desc' ? 'final-rate-asc' : 'final-rate-desc')}>
                     <ArrowUpDown className="h-4 w-4" />
                 </Button>
             </div>
@@ -349,31 +347,12 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       header: ({ column }) => {
         const selectedParties = (column?.getFilterValue() as string[] | undefined) ?? [];
 
-        const handleSelectAll = (checked: boolean) => {
-            if (checked) {
-                column?.setFilterValue(uniquePartyNames);
-            } else {
-                column?.setFilterValue([]);
-            }
-        };
-
-        const handleSelectParty = (partyName: string, checked: boolean) => {
-            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
-            if (checked) {
-                column?.setFilterValue([...currentSelection, partyName]);
-            } else {
-                column?.setFilterValue(currentSelection.filter(p => p !== partyName));
-            }
-        };
-
-        const allSelected = selectedParties.length === uniquePartyNames.length && uniquePartyNames.length > 0;
-
         return (
           <div className="flex items-center gap-2">
             Party Name
              <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
+                <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
                   <Filter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -381,8 +360,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 <DropdownMenuLabel>Filter by Party</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
-                  checked={allSelected}
-                  onCheckedChange={handleSelectAll}
+                  checked={selectedParties.length === uniquePartyNames.length}
+                  onCheckedChange={(checked) => column?.setFilterValue(checked ? uniquePartyNames : [])}
                   onSelect={(e) => e.preventDefault()}
                 >
                   Select All
@@ -393,7 +372,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     <DropdownMenuCheckboxItem
                         key={party}
                         checked={selectedParties.includes(party)}
-                        onCheckedChange={(checked) => handleSelectParty(party, Boolean(checked))}
+                        onCheckedChange={(checked) => {
+                            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
+                            if (checked) {
+                                column?.setFilterValue([...currentSelection, party]);
+                            } else {
+                                column?.setFilterValue(currentSelection.filter(p => p !== party));
+                            }
+                        }}
                         onSelect={(e) => e.preventDefault()}
                     >
                         {party}
@@ -437,32 +423,13 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       accessorKey: 'category',
       header: ({ column }) => {
         const selectedCategories = (column?.getFilterValue() as string[] | undefined) ?? [];
-
-        const handleSelectAll = (checked: boolean) => {
-            if (checked) {
-                column?.setFilterValue(uniqueCategories);
-            } else {
-                column?.setFilterValue([]);
-            }
-        };
-
-        const handleSelectCategory = (category: string, checked: boolean) => {
-            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
-            if (checked) {
-                column?.setFilterValue([...currentSelection, category]);
-            } else {
-                column?.setFilterValue(currentSelection.filter(c => c !== category));
-            }
-        };
         
-        const allSelected = selectedCategories.length === uniqueCategories.length && uniqueCategories.length > 0;
-
         return (
           <div className="flex items-center gap-2">
             Category
              <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
+                <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
                   <Filter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -470,8 +437,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
-                  checked={allSelected}
-                  onCheckedChange={handleSelectAll}
+                  checked={selectedCategories.length === uniqueCategories.length}
+                  onCheckedChange={(checked) => column?.setFilterValue(checked ? uniqueCategories : [])}
                   onSelect={(e) => e.preventDefault()}
                 >
                   Select All
@@ -482,7 +449,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     <DropdownMenuCheckboxItem
                         key={category}
                         checked={selectedCategories.includes(category)}
-                        onCheckedChange={(checked) => handleSelectCategory(category, Boolean(checked))}
+                        onCheckedChange={(checked) => {
+                            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
+                            if (checked) {
+                                column?.setFilterValue([...currentSelection, category]);
+                            } else {
+                                column?.setFilterValue(currentSelection.filter(c => c !== category));
+                            }
+                        }}
                         onSelect={(e) => e.preventDefault()}
                     >
                         {category}
