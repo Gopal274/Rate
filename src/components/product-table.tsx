@@ -23,6 +23,7 @@ import {
   Filter,
   ArrowUpDown,
   Save,
+  ExternalLink,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -35,7 +36,7 @@ import {
   getProductRatesAction,
   saveToDriveAction,
 } from '@/lib/actions';
-import type { Product, ProductSchema, Rate, UpdateProductSchema } from '@/lib/types';
+import type { Product, ProductSchema, Rate, UpdateProductSchema, ProductWithRates } from '@/lib/types';
 import { categories, productSchema, units, updateProductSchema } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -122,7 +123,7 @@ const useProductTable = () => {
     return context;
 };
 
-type ProductWithRates = Product & { rates: Rate[] };
+
 type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc' | 'final-rate-asc' | 'final-rate-desc';
 
 
@@ -179,14 +180,25 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             throw new Error("Could not retrieve access token from Google.");
         }
         
-        // Prepare the data to be saved
+        toast({ title: 'Processing Data...', description: 'Preparing your file for upload.' });
         const dataToSave = table.getFilteredRowModel().rows.map(row => row.original);
         const actionResult = await saveToDriveAction(accessToken, dataToSave);
         
         if (actionResult.success) {
-            toast({ title: 'In Progress', description: actionResult.message });
+            toast({ 
+                title: 'Success!', 
+                description: actionResult.message,
+                action: actionResult.link ? (
+                    <a href={actionResult.link} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" size="sm">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            View File
+                        </Button>
+                    </a>
+                ) : undefined,
+            });
         } else {
-            toast({ title: 'Error', description: actionResult.message, variant: 'destructive'});
+            toast({ title: 'Upload Failed', description: actionResult.message, variant: 'destructive'});
         }
 
     } catch (error: any) {

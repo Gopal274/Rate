@@ -51,3 +51,5 @@ export type Rate = {
   billDate: Date;
   createdAt: Date; 
 };
+
+export type ProductWithRates = Product & { rates: Rate[] };
