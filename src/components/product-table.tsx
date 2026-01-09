@@ -296,6 +296,15 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       enableSorting: false,
     },
     {
+      id: 'sno',
+      header: 'S.No',
+      cell: ({ row, table }) => {
+        const rowIndex = table.getSortedRowModel().rows.findIndex(sortedRow => sortedRow.id === row.id);
+        return <div className="text-center">{rowIndex + 1}</div>;
+      },
+      enableSorting: false,
+    },
+    {
       accessorKey: 'name',
       header: () => {
         return (
@@ -797,6 +806,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                           const finalRate = rate.rate * (1 + rate.gst / 100);
                           return (
                             <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
+                              <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                                 {format(new Date(rate.createdAt), 'dd/MM/yy, h:mm a')}
