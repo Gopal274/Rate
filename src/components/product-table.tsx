@@ -114,7 +114,7 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 };
 
 
-export function ProductTable({ allProductsWithRates, onDataChange }: { allProductsWithRates: ProductWithRates[], onDataChange?: () => void }) {
+export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
   const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort', 'newest');
@@ -179,7 +179,6 @@ export function ProductTable({ allProductsWithRates, onDataChange }: { allProduc
                     </a>
                 ) : undefined,
             });
-            onDataChange?.();
         } else {
             toast({ title: 'Action Failed', description: actionResult.message, variant: 'destructive'});
         }
@@ -251,7 +250,7 @@ export function ProductTable({ allProductsWithRates, onDataChange }: { allProduc
       id: 'sno',
       header: 'S.No',
       cell: ({ row, table }) => {
-        const sortedRows = table.getSortedRowModel().rows;
+        const sortedRows = table.getCoreRowModel().rows;
         const rowIndex = sortedRows.findIndex(sortedRow => sortedRow.id === row.id);
         return <div className="text-center">{rowIndex + 1}</div>;
       },
@@ -568,7 +567,7 @@ export function ProductTable({ allProductsWithRates, onDataChange }: { allProduc
       },
       enableSorting: false,
     },
-  ], [openCollapsibles, uniquePartyNames, uniqueCategories, setActiveSort, onDataChange]);
+  ], [openCollapsibles, uniquePartyNames, uniqueCategories, setActiveSort]);
 
   const table = useReactTable({
     data: sortedData,
@@ -657,7 +656,7 @@ export function ProductTable({ allProductsWithRates, onDataChange }: { allProduc
                   Sync with Google Sheets
               </Button>
               { user && 
-                  <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen} onDataChange={onDataChange}>
+                  <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
                       <Button onClick={() => setIsAddProductOpen(true)}>
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Product
                       </Button>
@@ -779,7 +778,6 @@ export function ProductTable({ allProductsWithRates, onDataChange }: { allProduc
             product={editingProduct}
             isOpen={!!editingProduct}
             setIsOpen={(isOpen) => !isOpen && setEditingProduct(null)}
-            onDataChange={onDataChange}
           />
         )}
 
@@ -788,20 +786,17 @@ export function ProductTable({ allProductsWithRates, onDataChange }: { allProduc
               product={addingRateToProduct as ProductWithRates}
               isOpen={!!addingRateToProduct}
               setIsOpen={(isOpen) => !isOpen && setAddingRateToProduct(null)}
-              onDataChange={onDataChange}
           />
         )}
         <DeleteRateDialog
           rateInfo={deletingRateInfo}
           isOpen={!!deletingRateInfo}
           setIsOpen={(isOpen) => !isOpen && setDeletingRateInfo(null)}
-          onDataChange={onDataChange}
         />
         <DeleteProductDialog
           product={deletingProduct}
           isOpen={!!deletingProduct}
           setIsOpen={(isOpen) => !isOpen && setDeletingProduct(null)}
-          onDataChange={onDataChange}
         />
       </Card>
     </>
