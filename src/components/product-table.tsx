@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -220,7 +221,10 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     const getFinalRate = (p: ProductWithRates) => {
         const latestRateInfo = p.rates[0];
         if (!latestRateInfo) return 0;
-        return latestRateInfo.rate * (1 + latestRateInfo.gst / 100);
+        const rate = latestRateInfo.rate;
+        const gst = latestRateInfo.gst;
+        if (typeof rate !== 'number' || typeof gst !== 'number') return 0;
+        return rate * (1 + gst / 100);
     };
 
     switch (activeSort) {
@@ -247,6 +251,16 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
 
   const columns: ColumnDef<ProductWithRates>[] = React.useMemo(() => [
      {
+      id: 'sno',
+      header: 'S.No',
+      cell: ({ row, table }) => {
+        const sortedRows = table.getSortedRowModel().rows;
+        const rowIndex = sortedRows.findIndex(sortedRow => sortedRow.id === row.id);
+        return <div className="text-center">{rowIndex + 1}</div>;
+      },
+      enableSorting: false,
+    },
+    {
       id: 'expander',
       header: () => null,
       cell: ({ row }) => {
@@ -256,16 +270,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         return (
              <ChevronDown className={cn("h-4 w-4 transition-transform", openCollapsibles.has(row.original.id) && "rotate-180" )} />
         )
-      },
-      enableSorting: false,
-    },
-    {
-      id: 'sno',
-      header: 'S.No',
-      cell: ({ row, table }) => {
-        const sortedRows = table.getSortedRowModel().rows;
-        const rowIndex = sortedRows.findIndex(sortedRow => sortedRow.id === row.id);
-        return <div className="text-center">{rowIndex + 1}</div>;
       },
       enableSorting: false,
     },
@@ -300,7 +304,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         const latestRate = row.original.rates[0]?.rate ?? 0;
         return (
             <div className="text-right font-medium">
-            {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(latestRate)}
+            {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(latestRate as number)}
             </div>
         )
       },
@@ -333,7 +337,9 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       cell: ({ row }) => {
         const latestRateInfo = row.original.rates[0];
         if (!latestRateInfo) return null;
-        const finalRate = latestRateInfo.rate * (1 + latestRateInfo.gst / 100);
+        const rate = latestRateInfo.rate as number;
+        const gst = latestRateInfo.gst as number;
+        const finalRate = rate * (1 + gst / 100);
         return (
           <div className="text-right font-bold">
             {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}
@@ -426,7 +432,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       cell: ({ row }) => {
         const billDate = row.original.rates[0]?.billDate;
         if (!billDate) return '';
-        const date = new Date(billDate);
+        const date = new Date(billDate as string);
         return isValid(date) ? format(date, 'dd/MM/yy') : '';
       },
       enableSorting: false,
@@ -536,7 +542,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                       onClick={(e) => {
                         e.stopPropagation();
                         if (canDeleteRate && latestRate) {
-                            setDeletingRateInfo({ product, rate: latestRate });
+                            setDeletingRateInfo({ product, rate: latestRate as Rate });
                         } else {
                             setDeletingProduct(product);
                         }
@@ -628,8 +634,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         rates: [{
             ...initialRate,
             id: `temp-${Date.now()}`,
-            billDate: new Date(initialRate.billDate),
-            createdAt: new Date(initialRate.createdAt)
+            billDate: new Date(initialRate.billDate).toISOString(),
+            createdAt: new Date(initialRate.createdAt).toISOString()
         }]
     };
     setProducts(prev => [newProductWithRates, ...prev]);
@@ -647,8 +653,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const onRateAdded = (productId: string, newRate: Rate) => {
      const rateWithDateObjects = { 
         ...newRate, 
-        billDate: new Date(newRate.billDate),
-        createdAt: new Date(newRate.createdAt)
+        billDate: new Date(newRate.billDate).toISOString(),
+        createdAt: new Date(newRate.createdAt).toISOString()
     };
      setProducts(prevProducts => {
         return prevProducts.map(p => {
@@ -707,7 +713,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   Sync with Google Sheets
               </Button>
               { user && 
-                  <ProductFormDialog onProductAction={onProductAdded}>
+                  <ProductFormDialog onProductAdded={onProductAdded} onProductUpdated={onProductUpdated}>
                       <Button>
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Product
                       </Button>
@@ -768,28 +774,28 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                           ))}
                         </TableRow>
                         {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
-                          const finalRate = rate.rate * (1 + rate.gst / 100);
+                          const finalRate = (rate.rate as number) * (1 + (rate.gst as number) / 100);
                           return (
                             <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                {format(new Date(rate.createdAt), 'dd/MM/yy, h:mm a')}
+                                {format(new Date(rate.createdAt as string), 'dd/MM/yy, h:mm a')}
                               </TableCell>
-                              <TableCell className="text-right font-medium whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
+                              <TableCell className="text-right font-medium whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate as number)}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
                               <TableCell className='text-center whitespace-nowrap'>{rate.gst}%</TableCell>
                               <TableCell className="text-right font-bold whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
                               <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
-                              <TableCell className='whitespace-nowrap'>{format(new Date(rate.billDate), 'dd/MM/yy')}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{format(new Date(rate.billDate as string), 'dd/MM/yy')}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.category}</TableCell>
                               <TableCell className="no-print whitespace-nowrap">
                                 <TooltipProvider>
                                   <div className="flex items-center justify-center">
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate }); }}>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate: rate as Rate }); }}>
                                           <Trash2 className="h-4 w-4 text-destructive" />
                                         </Button>
                                       </TooltipTrigger>
@@ -829,7 +835,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             product={editingProduct}
             isOpen={!!editingProduct}
             setIsOpen={(isOpen) => !isOpen && setEditingProduct(null)}
-            onProductAction={onProductUpdated}
+            onProductUpdated={onProductUpdated}
+            onProductAdded={() => {}}
           />
         )}
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -76,13 +77,15 @@ const getInitialEditFormValues = (product: Product) => {
 };
 
 export function ProductFormDialog({
-  onProductAction,
+  onProductAdded,
+  onProductUpdated,
   product,
   isOpen,
   setIsOpen,
   children,
 }: {
-  onProductAction: (product: any, rate?: any) => void;
+  onProductAdded: (product: any, rate?: any) => void;
+  onProductUpdated: (product: any) => void;
   product?: Product;
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
@@ -124,7 +127,7 @@ export function ProductFormDialog({
     if (isEditing) {
       const result = await updateProductAction(product.id, values as UpdateProductSchema);
       if (result.success) {
-        onProductAction(values);
+        onProductUpdated(values);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -132,7 +135,7 @@ export function ProductFormDialog({
     } else {
       const result = await addProductAction(values as ProductSchema);
        if (result.success && result.product && result.rate) {
-        onProductAction(result.product, result.rate);
+        onProductAdded(result.product, result.rate);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -269,8 +272,8 @@ export function AddRateDialog({
         defaultValues: {
         rate: '' as any,
         billDate: format(new Date(), 'yyyy-MM-dd'),
-        pageNo: latestRate?.pageNo ?? 1,
-        gst: latestRate?.gst ?? 0,
+        pageNo: latestRate?.pageNo as number ?? 1,
+        gst: latestRate?.gst as number ?? 0,
         },
     });
   const { toast } = useToast();
@@ -282,8 +285,8 @@ export function AddRateDialog({
         form.reset({
             rate: '' as any,
             billDate: format(new Date(), 'yyyy-MM-dd'),
-            pageNo: latestRateInfo?.pageNo,
-            gst: latestRateInfo?.gst,
+            pageNo: latestRateInfo?.pageNo as number | undefined,
+            gst: latestRateInfo?.gst as number | undefined,
         })
     }
   }, [product, form]);
@@ -450,7 +453,7 @@ export function DeleteRateDialog({
             <AlertDialogHeader>
             <AlertDialogTitle>Delete This Rate?</AlertDialogTitle>
             <AlertDialogDescription>
-                Are you sure you want to delete the rate of <span className="font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rateInfo.rate.rate)}</span> from <span className="font-semibold text-foreground">{format(new Date(rateInfo.rate.createdAt), 'dd/MM/yy')}</span>? This action cannot be undone.
+                Are you sure you want to delete the rate of <span className="font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rateInfo.rate.rate as number)}</span> from <span className="font-semibold text-foreground">{format(new Date(rateInfo.rate.createdAt as string), 'dd/MM/yy')}</span>? This action cannot be undone.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
