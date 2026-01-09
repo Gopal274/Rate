@@ -691,7 +691,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap text-xs text-muted-foreground'>
-                                created on {format(new Date(rate.createdAt), 'dd/MM/yy, hh:mm a')}
+                                {format(new Date(rate.createdAt), 'dd/MM/yy')}
                               </TableCell>
                               <TableCell className="text-right font-medium whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate)}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
