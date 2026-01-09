@@ -387,7 +387,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     {
       id: 'billDate',
       header: 'Bill Date',
-      cell: ({ row }) => format(new Date(row.original.rates[0]?.billDate ?? new Date()), 'PPP'),
+      cell: ({ row }) => format(new Date(row.original.rates[0]?.billDate ?? new Date()), 'dd/MM/yy'),
       enableSorting: false,
     },
     {
@@ -697,7 +697,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                               <TableCell className="text-right font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
                               <TableCell>{row.original.partyName}</TableCell>
                               <TableCell>{rate.pageNo}</TableCell>
-                              <TableCell>{format(new Date(rate.billDate), 'PPP')}</TableCell>
+                              <TableCell>{format(new Date(rate.billDate), 'dd/MM/yy')}</TableCell>
                               <TableCell>{row.original.category}</TableCell>
                               <TableCell className="no-print">
                                 <TooltipProvider>
@@ -1184,7 +1184,7 @@ function DeleteRateDialog({
             <AlertDialogHeader>
             <AlertDialogTitle>Delete This Rate?</AlertDialogTitle>
             <AlertDialogDescription>
-                Are you sure you want to delete the rate of <span className="font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rateInfo.rate.rate)}</span> from <span className="font-semibold text-foreground">{format(new Date(rateInfo.rate.createdAt), 'PPP')}</span>? This action cannot be undone.
+                Are you sure you want to delete the rate of <span className="font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rateInfo.rate.rate)}</span> from <span className="font-semibold text-foreground">{format(new Date(rateInfo.rate.createdAt), 'dd/MM/yy')}</span>? This action cannot be undone.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
