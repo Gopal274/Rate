@@ -145,7 +145,7 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
         product.name,
         rateAsNumber,
         product.unit,
-        gstAsNumber / 100, // send GST as decimal
+        gstAsNumber,
         finalRate,
         product.partyName,
         rate.pageNo,
@@ -187,6 +187,9 @@ async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheet
     },
     fields: 'spreadsheetId,spreadsheetUrl',
   });
+  
+  // Wait for 5 seconds to allow Google Drive to index the new file.
+  await new Promise(resolve => setTimeout(resolve, 5000));
 
   const spreadsheetId = createResponse.data.spreadsheetId;
   const spreadsheetUrl = createResponse.data.spreadsheetUrl;
@@ -264,7 +267,7 @@ export async function syncToGoogleSheetAction(accessToken: string) {
       {
         repeatCell: {
           range: { sheetId, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 },
-          cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } },
+          cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '0' } } },
           fields: 'userEnteredFormat.numberFormat',
         },
       },
