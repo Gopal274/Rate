@@ -115,11 +115,11 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [products, setProducts] = React.useState<ProductWithRates[]>(allProductsWithRates);
   const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort', 'newest');
 
+  const [isAddProductOpen, setIsAddProductOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
   const [addingRateToProduct, setAddingRateToProduct] = React.useState<Product | null>(null);
@@ -198,25 +198,21 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   };
 
 
-  React.useEffect(() => {
-    setProducts(allProductsWithRates);
-  }, [allProductsWithRates]);
-  
   const uniquePartyNames = React.useMemo(() => {
-    if (!products) return [];
-    const partyNames = new Set(products.map(p => p.partyName));
+    if (!allProductsWithRates) return [];
+    const partyNames = new Set(allProductsWithRates.map(p => p.partyName));
     return Array.from(partyNames).sort();
-  }, [products]);
+  }, [allProductsWithRates]);
 
   const uniqueCategories = React.useMemo(() => {
-    if (!products) return [];
-    const categoryNames = new Set(products.map(p => p.category));
+    if (!allProductsWithRates) return [];
+    const categoryNames = new Set(allProductsWithRates.map(p => p.category));
     return Array.from(categoryNames).sort();
-  }, [products]);
+  }, [allProductsWithRates]);
 
 
   const sortedData = React.useMemo(() => {
-    let dataToSort = [...products].filter(p => p.rates.length > 0); 
+    let dataToSort = [...allProductsWithRates].filter(p => p.rates.length > 0); 
     
     const getFinalRate = (p: ProductWithRates) => {
         const latestRateInfo = p.rates[0];
@@ -246,7 +242,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       default:
         return dataToSort.sort((a, b) => new Date(b.rates[0].createdAt).getTime() - new Date(a.rates[0].createdAt).getTime());
     }
-  }, [products, activeSort]);
+  }, [allProductsWithRates, activeSort]);
 
 
   const columns: ColumnDef<ProductWithRates>[] = React.useMemo(() => [
@@ -628,59 +624,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         }
     }, [table, uniqueCategories, columnFilters]);
 
-  const onProductAdded = (newProduct: Product, initialRate: Rate) => {
-    const newProductWithRates: ProductWithRates = {
-        ...newProduct,
-        rates: [{
-            ...initialRate,
-            id: `temp-${Date.now()}`,
-            billDate: new Date(initialRate.billDate).toISOString(),
-            createdAt: new Date(initialRate.createdAt).toISOString()
-        }]
-    };
-    setProducts(prev => [newProductWithRates, ...prev]);
-  };
-
-  const onProductUpdated = (updatedProductData: Partial<Product>) => {
-    const productId = editingProduct?.id;
-    if(!productId) return;
-
-    setProducts(prev => prev.map(p => 
-        p.id === productId ? { ...p, ...updatedProductData } : p
-    ));
-  };
-  
-  const onRateAdded = (productId: string, newRate: Rate) => {
-     const rateWithDateObjects = { 
-        ...newRate, 
-        billDate: new Date(newRate.billDate).toISOString(),
-        createdAt: new Date(newRate.createdAt).toISOString()
-    };
-     setProducts(prevProducts => {
-        return prevProducts.map(p => {
-            if (p.id === productId) {
-                const newRates = [rateWithDateObjects, ...p.rates].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                return {...p, rates: newRates};
-            }
-            return p;
-        });
-     });
-  }
-
-  const onProductDeleted = (deletedProductId: string) => {
-    setProducts(prev => prev.filter(p => p.id !== deletedProductId));
-  }
-
-  const onRateDeleted = (productId: string, rateId: string) => {
-    setProducts(prevProducts => {
-        return prevProducts.map(p => {
-            if (p.id === productId) {
-                return {...p, rates: p.rates.filter(r => r.id !== rateId)};
-            }
-            return p;
-        });
-    });
-  }
 
   return (
     <>
@@ -713,8 +656,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   Sync with Google Sheets
               </Button>
               { user && 
-                  <ProductFormDialog onProductAdded={onProductAdded} onProductUpdated={onProductUpdated}>
-                      <Button>
+                  <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
+                      <Button onClick={() => setIsAddProductOpen(true)}>
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Product
                       </Button>
                   </ProductFormDialog> 
@@ -835,8 +778,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             product={editingProduct}
             isOpen={!!editingProduct}
             setIsOpen={(isOpen) => !isOpen && setEditingProduct(null)}
-            onProductUpdated={onProductUpdated}
-            onProductAdded={() => {}}
           />
         )}
 
@@ -845,20 +786,17 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
               product={addingRateToProduct as ProductWithRates}
               isOpen={!!addingRateToProduct}
               setIsOpen={(isOpen) => !isOpen && setAddingRateToProduct(null)}
-              onRateAdded={onRateAdded}
           />
         )}
         <DeleteRateDialog
           rateInfo={deletingRateInfo}
           isOpen={!!deletingRateInfo}
           setIsOpen={(isOpen) => !isOpen && setDeletingRateInfo(null)}
-          onRateDeleted={onRateDeleted}
         />
         <DeleteProductDialog
           product={deletingProduct}
           isOpen={!!deletingProduct}
           setIsOpen={(isOpen) => !isOpen && setDeletingProduct(null)}
-          onProductDeleted={onProductDeleted}
         />
       </Card>
     </>

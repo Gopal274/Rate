@@ -77,15 +77,11 @@ const getInitialEditFormValues = (product: Product) => {
 };
 
 export function ProductFormDialog({
-  onProductAdded,
-  onProductUpdated,
   product,
   isOpen,
   setIsOpen,
   children,
 }: {
-  onProductAdded: (product: any, rate?: any) => void;
-  onProductUpdated: (product: any) => void;
   product?: Product;
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
@@ -127,15 +123,13 @@ export function ProductFormDialog({
     if (isEditing) {
       const result = await updateProductAction(product.id, values as UpdateProductSchema);
       if (result.success) {
-        onProductUpdated(values);
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
     } else {
       const result = await addProductAction(values as ProductSchema);
-       if (result.success && result.product && result.rate) {
-        onProductAdded(result.product, result.rate);
+       if (result.success) {
         toast({ title: 'Success', description: result.message });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -259,12 +253,10 @@ export function AddRateDialog({
   product,
   isOpen,
   setIsOpen,
-  onRateAdded,
 }: {
   product: ProductWithRates | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  onRateAdded: (productId: string, newRate: Rate) => void;
 }) {
     const latestRate = product?.rates[0];
     const form = useForm<AddRateSchema>({
@@ -297,7 +289,6 @@ export function AddRateDialog({
     const billDate = new Date(values.billDate);
     const result = await addRateAction(product.id, values.rate, billDate, values.pageNo, values.gst);
     if (result.success && result.rate) {
-      onRateAdded(product.id, result.rate);
       toast({ title: 'Success', description: 'New rate added.' });
       setIsOpen(false);
     } else {
@@ -373,12 +364,10 @@ export function DeleteProductDialog({
   product,
   isOpen,
   setIsOpen,
-  onProductDeleted
 }: {
   product: Product | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  onProductDeleted: (id: string) => void;
 }) {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -388,7 +377,6 @@ export function DeleteProductDialog({
     setIsDeleting(true);
     const result = await deleteProductAction(product.id);
     if (result.success) {
-      onProductDeleted(product.id);
       toast({ title: 'Success', description: result.message });
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -421,12 +409,10 @@ export function DeleteRateDialog({
   rateInfo,
   isOpen,
   setIsOpen,
-  onRateDeleted
 }: {
   rateInfo: {product: Product, rate: Rate} | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  onRateDeleted: (productId: string, rateId: string) => void;
 }) {
     const { toast } = useToast();
     const [isDeleting, setIsDeleting] = React.useState(false);
@@ -436,7 +422,6 @@ export function DeleteRateDialog({
         setIsDeleting(true);
         const result = await deleteRateAction(rateInfo.product.id, rateInfo.rate.id);
         if (result.success) {
-            onRateDeleted(rateInfo.product.id, rateInfo.rate.id);
             toast({ title: 'Success', description: result.message });
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
