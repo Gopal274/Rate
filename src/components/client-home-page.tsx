@@ -1,78 +1,58 @@
 
 'use client';
 
-import { useMemoFirebase, useUser, useFirestore, useCollection } from '@/firebase';
+import { useMemo, useState } from 'react';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { AuthForm } from '@/components/auth-form';
 import { ProductTable } from '@/components/product-table';
-import type { Product, Rate } from '@/lib/types';
+import type { Product, Rate, ProductWithRates } from '@/lib/types';
 import { collection, query, orderBy } from 'firebase/firestore';
+
+// A new component to fetch rates for a single product.
+function ProductRatesLoader({ product, onRatesLoaded }: { product: Product, onRatesLoaded: (productId: string, rates: Rate[]) => void }) {
+    const firestore = useFirestore();
+    const ratesQuery = useMemoFirebase(
+      () => firestore ? query(collection(firestore, 'products', product.id, 'rates'), orderBy('createdAt', 'desc')) : null,
+      [firestore, product.id]
+    );
+    const { data: rates, isLoading } = useCollection<Rate>(ratesQuery);
+
+    useMemo(() => {
+      if (!isLoading && rates) {
+        onRatesLoaded(product.id, rates);
+      }
+    }, [product.id, rates, isLoading, onRatesLoaded]);
+    
+    // This component doesn't render anything itself, it just loads data.
+    return null;
+}
+
 
 export default function ClientHomePage() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const [ratesByProductId, setRatesByProductId] = useState<Record<string, Rate[]>>({});
+  const [loadedProductIds, setLoadedProductIds] = useState<Set<string>>(new Set());
 
   const productsRef = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
   const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsRef);
 
-  const ratesCollections = useMemoFirebase(() => {
-    if (!products || !firestore) return {};
-    const rateRefs: { [productId: string]: any } = {};
-    products.forEach(p => {
-        rateRefs[p.id] = query(collection(firestore, 'products', p.id, 'rates'), orderBy('createdAt', 'desc'));
-    });
-    return rateRefs;
-  }, [products, firestore]);
+  const handleRatesLoaded = useMemo(() => (productId: string, rates: Rate[]) => {
+      setRatesByProductId(prev => ({ ...prev, [productId]: rates }));
+      setLoadedProductIds(prev => new Set(prev).add(productId));
+  }, []);
 
-  const productIds = products?.map(p => p.id).join(',') || '';
-  
-  const rateQueries = useMemoFirebase(() => {
-      const queries: any[] = [];
-      if (!productIds || !Object.keys(ratesCollections).length) return queries;
-      
-      const ids = productIds.split(',');
-      ids.forEach(id => {
-          if (ratesCollections[id]) {
-              queries.push(ratesCollections[id]);
-          }
-      });
-      return queries;
-  }, [productIds, ratesCollections]);
-
-
-  // We can't use useCollection in a loop, so we fetch each rate subcollection individually
-  // This is not ideal, but it's a limitation we have to work with for now.
-  // A better approach would be to denormalize the latest rate onto the product document.
-  const useRateCollections = (queries: any[]) => {
-    const results = queries.map(q => useCollection<Rate>(q));
-    const isLoading = results.some(r => r.isLoading);
-    
-    const ratesByProductId = useMemoFirebase(() => {
-        const map: { [productId: string]: Rate[] } = {};
-        if (isLoading || !products) return map;
-
-        products.forEach((p, index) => {
-            const rateResult = results[index];
-            if (rateResult && rateResult.data) {
-                map[p.id] = rateResult.data;
-            }
-        });
-        return map;
-    }, [isLoading, products, ...results.map(r => r.data)]);
-
-    return { ratesByProductId, isLoading: isLoading };
-  };
-  
-  const { ratesByProductId, isLoading: isLoadingRates } = useRateCollections(rateQueries);
-
-  const productsWithRates = useMemoFirebase(() => {
-    if (!products) return [];
-    return products.map(p => ({
-      ...p,
-      rates: ratesByProductId[p.id] || []
-    }));
+  const productsWithRates = useMemo((): ProductWithRates[] => {
+      if (!products) return [];
+      return products.map(p => ({
+          ...p,
+          rates: ratesByProductId[p.id] || []
+      }));
   }, [products, ratesByProductId]);
-
-  const isLoading = isLoadingProducts || isLoadingRates;
+  
+  const allProductsCount = products?.length || 0;
+  const allRatesLoaded = loadedProductIds.size === allProductsCount;
+  const isLoading = isLoadingProducts || !allRatesLoaded;
 
   if (!user) {
     return (
@@ -82,7 +62,7 @@ export default function ClientHomePage() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading && !productsWithRates.length) { // Show loading only on initial load
       return (
           <div className="flex items-center justify-center h-96">
               <p>Loading products...</p>
@@ -92,6 +72,9 @@ export default function ClientHomePage() {
 
   return (
     <>
+      {products && products.map(product => (
+          <ProductRatesLoader key={product.id} product={product} onRatesLoaded={handleRatesLoaded} />
+      ))}
       <ProductTable allProductsWithRates={productsWithRates ?? []} />
     </>
   );

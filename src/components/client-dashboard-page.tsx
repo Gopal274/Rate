@@ -1,75 +1,58 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AuthForm } from '@/components/auth-form';
 import ClientDashboard from '@/components/client-dashboard';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import type { Product, Rate } from '@/lib/types';
+import type { Product, Rate, ProductWithRates } from '@/lib/types';
 import { collection, query, orderBy } from 'firebase/firestore';
+
+// A new component to fetch rates for a single product.
+function ProductRatesLoader({ product, onRatesLoaded }: { product: Product, onRatesLoaded: (productId: string, rates: Rate[]) => void }) {
+    const firestore = useFirestore();
+    const ratesQuery = useMemoFirebase(
+      () => firestore ? query(collection(firestore, 'products', product.id, 'rates'), orderBy('createdAt', 'desc')) : null,
+      [firestore, product.id]
+    );
+    const { data: rates, isLoading } = useCollection<Rate>(ratesQuery);
+
+    useMemo(() => {
+      if (!isLoading && rates) {
+        onRatesLoaded(product.id, rates);
+      }
+    }, [product.id, rates, isLoading, onRatesLoaded]);
+    
+    // This component doesn't render anything itself, it just loads data.
+    return null;
+}
+
 
 export default function ClientDashboardPage() {
     const { user } = useUser();
     const firestore = useFirestore();
+    const [ratesByProductId, setRatesByProductId] = useState<Record<string, Rate[]>>({});
+    const [loadedProductIds, setLoadedProductIds] = useState<Set<string>>(new Set());
 
     const productsRef = useMemoFirebase(() => firestore ? collection(firestore, 'products') : null, [firestore]);
     const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsRef);
 
-    const ratesCollections = useMemoFirebase(() => {
-        if (!products || !firestore) return {};
-        const rateRefs: { [productId: string]: any } = {};
-        products.forEach(p => {
-            rateRefs[p.id] = query(collection(firestore, 'products', p.id, 'rates'), orderBy('createdAt', 'desc'));
-        });
-        return rateRefs;
-    }, [products, firestore]);
+    const handleRatesLoaded = useMemo(() => (productId: string, rates: Rate[]) => {
+        setRatesByProductId(prev => ({ ...prev, [productId]: rates }));
+        setLoadedProductIds(prev => new Set(prev).add(productId));
+    }, []);
 
-    const productIds = products?.map(p => p.id).join(',') || '';
-    
-    const rateQueries = useMemoFirebase(() => {
-        const queries: any[] = [];
-        if (!productIds || !Object.keys(ratesCollections).length) return queries;
-        
-        const ids = productIds.split(',');
-        ids.forEach(id => {
-            if (ratesCollections[id]) {
-                queries.push(ratesCollections[id]);
-            }
-        });
-        return queries;
-    }, [productIds, ratesCollections]);
-
-    const useRateCollections = (queries: any[]) => {
-        const results = queries.map(q => useCollection<Rate>(q));
-        const isLoading = results.some(r => r.isLoading);
-        
-        const ratesByProductId = useMemoFirebase(() => {
-            const map: { [productId: string]: Rate[] } = {};
-            if (isLoading || !products) return map;
-
-            products.forEach((p, index) => {
-                const rateResult = results[index];
-                if (rateResult && rateResult.data) {
-                    map[p.id] = rateResult.data;
-                }
-            });
-            return map;
-        }, [isLoading, products, ...results.map(r => r.data)]);
-
-        return { ratesByProductId, isLoading: isLoading };
-    };
-    
-    const { ratesByProductId, isLoading: isLoadingRates } = useRateCollections(rateQueries);
-
-    const productsWithRates = useMemoFirebase(() => {
+    const productsWithRates = useMemo((): ProductWithRates[] => {
         if (!products) return [];
         return products.map(p => ({
-        ...p,
-        rates: ratesByProductId[p.id] || []
+            ...p,
+            rates: ratesByProductId[p.id] || []
         }));
     }, [products, ratesByProductId]);
-
-    const isLoading = isLoadingProducts || isLoadingRates;
+    
+    const allProductsCount = products?.length || 0;
+    const allRatesLoaded = loadedProductIds.size === allProductsCount;
+    const isLoading = isLoadingProducts || !allRatesLoaded;
 
     if (!user) {
         return (
@@ -79,7 +62,7 @@ export default function ClientDashboardPage() {
         )
     }
 
-    if (isLoading) {
+    if (isLoading && !productsWithRates.length) { // Show loading only on initial load
         return (
             <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8 flex items-center justify-center">
                 <p>Loading dashboard...</p>
@@ -89,6 +72,9 @@ export default function ClientDashboardPage() {
 
     return (
         <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+            {products && products.map(product => (
+                <ProductRatesLoader key={product.id} product={product} onRatesLoaded={handleRatesLoaded} />
+            ))}
             <ClientDashboard productsWithRates={productsWithRates} />
         </main>
     );
