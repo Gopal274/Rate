@@ -114,7 +114,7 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 };
 
 
-export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
+export function ProductTable({ allProductsWithRates, onDataChange }: { allProductsWithRates: ProductWithRates[], onDataChange?: () => void }) {
   const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort', 'newest');
@@ -122,7 +122,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const [isAddProductOpen, setIsAddProductOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
-  const [addingRateToProduct, setAddingRateToProduct] = React.useState<Product | null>(null);
+  const [addingRateToProduct, setAddingRateToProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingRateInfo, setDeletingRateInfo] = React.useState<{ product: Product; rate: Rate } | null>(null);
   
 
@@ -179,6 +179,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     </a>
                 ) : undefined,
             });
+            onDataChange?.();
         } else {
             toast({ title: 'Action Failed', description: actionResult.message, variant: 'destructive'});
         }
@@ -567,7 +568,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       },
       enableSorting: false,
     },
-  ], [openCollapsibles, uniquePartyNames, uniqueCategories, setActiveSort]);
+  ], [openCollapsibles, uniquePartyNames, uniqueCategories, setActiveSort, onDataChange]);
 
   const table = useReactTable({
     data: sortedData,
@@ -656,7 +657,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   Sync with Google Sheets
               </Button>
               { user && 
-                  <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
+                  <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen} onDataChange={onDataChange}>
                       <Button onClick={() => setIsAddProductOpen(true)}>
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Product
                       </Button>
@@ -778,6 +779,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             product={editingProduct}
             isOpen={!!editingProduct}
             setIsOpen={(isOpen) => !isOpen && setEditingProduct(null)}
+            onDataChange={onDataChange}
           />
         )}
 
@@ -786,17 +788,20 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
               product={addingRateToProduct as ProductWithRates}
               isOpen={!!addingRateToProduct}
               setIsOpen={(isOpen) => !isOpen && setAddingRateToProduct(null)}
+              onDataChange={onDataChange}
           />
         )}
         <DeleteRateDialog
           rateInfo={deletingRateInfo}
           isOpen={!!deletingRateInfo}
           setIsOpen={(isOpen) => !isOpen && setDeletingRateInfo(null)}
+          onDataChange={onDataChange}
         />
         <DeleteProductDialog
           product={deletingProduct}
           isOpen={!!deletingProduct}
           setIsOpen={(isOpen) => !isOpen && setDeletingProduct(null)}
+          onDataChange={onDataChange}
         />
       </Card>
     </>

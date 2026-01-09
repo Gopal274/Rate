@@ -80,11 +80,13 @@ export function ProductFormDialog({
   product,
   isOpen,
   setIsOpen,
+  onDataChange,
   children,
 }: {
   product?: Product;
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
+  onDataChange?: () => void;
   children?: React.ReactNode;
 }) {
   const isEditing = !!product;
@@ -124,6 +126,7 @@ export function ProductFormDialog({
       const result = await updateProductAction(product.id, values as UpdateProductSchema);
       if (result.success) {
         toast({ title: 'Success', description: result.message });
+        onDataChange?.();
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
@@ -131,6 +134,7 @@ export function ProductFormDialog({
       const result = await addProductAction(values as ProductSchema);
        if (result.success) {
         toast({ title: 'Success', description: result.message });
+        onDataChange?.();
       } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
@@ -253,10 +257,12 @@ export function AddRateDialog({
   product,
   isOpen,
   setIsOpen,
+  onDataChange,
 }: {
   product: ProductWithRates | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  onDataChange?: () => void;
 }) {
     const latestRate = product?.rates[0];
     const form = useForm<AddRateSchema>({
@@ -290,6 +296,7 @@ export function AddRateDialog({
     const result = await addRateAction(product.id, values.rate, billDate, values.pageNo, values.gst);
     if (result.success && result.rate) {
       toast({ title: 'Success', description: 'New rate added.' });
+      onDataChange?.();
       setIsOpen(false);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message || 'Failed to add rate.' });
@@ -364,10 +371,12 @@ export function DeleteProductDialog({
   product,
   isOpen,
   setIsOpen,
+  onDataChange,
 }: {
   product: Product | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  onDataChange?: () => void;
 }) {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -378,6 +387,7 @@ export function DeleteProductDialog({
     const result = await deleteProductAction(product.id);
     if (result.success) {
       toast({ title: 'Success', description: result.message });
+      onDataChange?.();
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -409,10 +419,12 @@ export function DeleteRateDialog({
   rateInfo,
   isOpen,
   setIsOpen,
+  onDataChange,
 }: {
   rateInfo: {product: Product, rate: Rate} | null;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  onDataChange?: () => void;
 }) {
     const { toast } = useToast();
     const [isDeleting, setIsDeleting] = React.useState(false);
@@ -423,6 +435,7 @@ export function DeleteRateDialog({
         const result = await deleteRateAction(rateInfo.product.id, rateInfo.rate.id);
         if (result.success) {
             toast({ title: 'Success', description: result.message });
+            onDataChange?.();
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }

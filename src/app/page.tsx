@@ -1,4 +1,3 @@
-
 'use client';
 
 import AppHeader from '@/components/app-header';
@@ -17,6 +16,11 @@ export default function Home() {
   const [productsWithRates, setProductsWithRates] = useState<ProductWithRates[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleDataRefresh = () => {
+    setRefreshKey(prevKey => prevKey + 1);
+  };
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -39,7 +43,7 @@ export default function Home() {
     };
 
     fetchAllData();
-  }, [user]);
+  }, [user, refreshKey]);
 
   const isLoading = isUserLoading || dataLoading;
 
@@ -92,7 +96,7 @@ export default function Home() {
                 </AlertDescription>
             </Alert>
         )}
-        { !isLoading && !error && <ProductTable allProductsWithRates={productsWithRates ?? []} /> }
+        { !isLoading && !error && <ProductTable allProductsWithRates={productsWithRates ?? []} onDataChange={handleDataRefresh} /> }
       </main>
     </div>
   );
