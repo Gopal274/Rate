@@ -189,18 +189,21 @@ export async function importProductsAndRates(rows: any[][]) {
   const batch = writeBatch(db);
 
   for (const row of rows) {
-    const [name, partyName, category, unit, billDateStr, pageNoStr, rateStr, gstStr] = row;
-
-    // 2. Data Validation
+    const [name, partyName, category, unit, dateSerialNumber, pageNoStr, rateStr, gstStr] = row;
+    
+    // 2. Data Validation & Conversion
     const rate = parseFloat(rateStr);
     const pageNo = parseInt(pageNoStr, 10);
-    const gst = parseFloat(gstStr);
-    const billDate = new Date(billDateStr);
+    // Google Sheets might pass GST as a string like "5.00%", so we parse it
+    const gst = parseFloat(gstStr) * 100;
+    // Convert Google Sheet's date serial number to a JS Date
+    const billDate = new Date(Date.UTC(1899, 11, 30 + parseInt(dateSerialNumber)));
+
 
     if (
       !name || !partyName || !category || !unit ||
       isNaN(rate) || isNaN(pageNo) || isNaN(gst) || isNaN(billDate.getTime()) ||
-      !categories.includes(category) || !units.includes(unit)
+      !categories.includes(category as any) || !units.includes(unit as any)
     ) {
       skipped++;
       continue; // Skip invalid row
@@ -215,7 +218,7 @@ export async function importProductsAndRates(rows: any[][]) {
       
       const isRateDifferent = !latestRate || 
           latestRate.rate !== rate || 
-          new Date(latestRate.billDate).getTime() !== billDate.getTime();
+          Math.abs(new Date(latestRate.billDate).getTime() - billDate.getTime()) > (24 * 60 * 60 * 1000) ; // Compare dates, allowing for timezone differences
       
       const areDetailsDifferent = existingProduct.category !== category || existingProduct.unit !== unit;
 

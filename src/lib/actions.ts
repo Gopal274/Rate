@@ -111,6 +111,7 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
         if (product.rates.length === 0) {
             return [];
         }
+        // Create a row for each historical rate
         return product.rates.map(rate => {
             const billDate = new Date(rate.billDate);
             // We use a special date format that Google Sheets recognizes regardless of locale
@@ -185,7 +186,7 @@ export async function syncToGoogleSheetAction(accessToken: string) {
 
         const values = convertDataForSheet(allProductsWithRates);
         
-        // Add the formula for Final Rate in the header row itself.
+        // Replace 'Final Rate' header with the formula
         values[0][8] = '=ARRAYFORMULA(IF(ISBLANK(G2:G), "", G2:G * (1 + H2:H)))';
 
 
@@ -301,7 +302,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
         const sheetDataResponse = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: 'Sheet1!A:I', // Read all columns
+            range: 'Sheet1!A:H', // Read up to GST column
         });
 
         const rows = sheetDataResponse.data.values;
@@ -322,5 +323,3 @@ export async function importFromGoogleSheetAction(accessToken: string) {
         return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
     }
 }
-
-    
