@@ -12,11 +12,13 @@ import {
   runTransaction,
   getDocs,
   Timestamp,
-  collectionGroup,
+  writeBatch,
 } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import type { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates } from './types';
+import { categories, units } from './types';
+
 
 // Helper to initialize Firebase
 function getDb() {
@@ -144,7 +146,7 @@ export const deleteRate = async (productId: string, rateId: string): Promise<voi
 };
 
 
-export const getAllProductsWithRates = async (): Promise<ProductWithRates[]> => {
+export const getAllProductsWithRates = async (options?: { onlyLatestRate: boolean }): Promise<ProductWithRates[]> => {
     const productsCollectionRef = collection(db, PRODUCTS_COLLECTION);
     const productsSnapshot = await getDocs(productsCollectionRef);
     
@@ -157,9 +159,91 @@ export const getAllProductsWithRates = async (): Promise<ProductWithRates[]> => 
         productsWithRates.push({
             id: productDoc.id,
             ...productData,
-            rates: rates,
+            rates: options?.onlyLatestRate ? rates.slice(0, 1) : rates,
         });
     }
 
     return productsWithRates;
 };
+
+// --- Import Logic ---
+
+// Type for the data structure we'll use to check for existing products
+type ProductCheckMap = {
+  [key: string]: { id: string; latestRate: Rate | undefined, category: string, unit: string };
+};
+
+export async function importProductsAndRates(rows: any[][]) {
+  let added = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  // 1. Fetch all existing products and their latest rate for efficient checking
+  const existingProductsData = await getAllProductsWithRates({ onlyLatestRate: true });
+  const productCheckMap: ProductCheckMap = existingProductsData.reduce((acc, p) => {
+    const key = `${p.name.toLowerCase()}_${p.partyName.toLowerCase()}`;
+    acc[key] = { id: p.id, latestRate: p.rates[0], category: p.category, unit: p.unit };
+    return acc;
+  }, {} as ProductCheckMap);
+
+  const batch = writeBatch(db);
+
+  for (const row of rows) {
+    const [name, partyName, category, unit, billDateStr, pageNoStr, rateStr, gstStr] = row;
+
+    // 2. Data Validation
+    const rate = parseFloat(rateStr);
+    const pageNo = parseInt(pageNoStr, 10);
+    const gst = parseFloat(gstStr);
+    const billDate = new Date(billDateStr);
+
+    if (
+      !name || !partyName || !category || !unit ||
+      isNaN(rate) || isNaN(pageNo) || isNaN(gst) || isNaN(billDate.getTime()) ||
+      !categories.includes(category) || !units.includes(unit)
+    ) {
+      skipped++;
+      continue; // Skip invalid row
+    }
+    
+    const productKey = `${name.toLowerCase()}_${partyName.toLowerCase()}`;
+    const existingProduct = productCheckMap[productKey];
+
+    if (existingProduct) {
+      // 3. Product exists: Check if it's a new rate or just a detail update
+      const latestRate = existingProduct.latestRate;
+      
+      const isRateDifferent = !latestRate || 
+          latestRate.rate !== rate || 
+          new Date(latestRate.billDate).getTime() !== billDate.getTime();
+      
+      const areDetailsDifferent = existingProduct.category !== category || existingProduct.unit !== unit;
+
+      if (isRateDifferent) {
+        const newRateRef = doc(collection(db, PRODUCTS_COLLECTION, existingProduct.id, RATES_SUBCOLLECTION));
+        batch.set(newRateRef, { rate, gst, pageNo, billDate, createdAt: serverTimestamp() });
+        updated++;
+      }
+
+      if (areDetailsDifferent) {
+        const productRef = doc(db, PRODUCTS_COLLECTION, existingProduct.id);
+        batch.update(productRef, { category, unit });
+        if (!isRateDifferent) updated++; // Only count as update once
+      }
+
+    } else {
+      // 4. New product: Add product and its first rate
+      const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
+      batch.set(newProductRef, { name, partyName, category, unit });
+
+      const newRateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
+      batch.set(newRateRef, { rate, gst, pageNo, billDate, createdAt: serverTimestamp() });
+      added++;
+    }
+  }
+  
+  // 5. Commit all changes at once
+  await batch.commit();
+
+  return { added, updated, skipped };
+}

@@ -24,6 +24,7 @@ import {
   ArrowUpDown,
   Save,
   ExternalLink,
+  Upload,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -35,6 +36,7 @@ import {
   deleteRateAction,
   getProductRatesAction,
   syncToGoogleSheetAction,
+  importFromGoogleSheetAction,
 } from '@/lib/actions';
 import type { Product, ProductSchema, Rate, UpdateProductSchema, ProductWithRates } from '@/lib/types';
 import { categories, productSchema, units, updateProductSchema } from '@/lib/types';
@@ -160,19 +162,20 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
     }
   }, []);
 
-  const handleSyncToSheet = async () => {
-     if (!auth.currentUser) {
-        toast({ title: 'Error', description: 'You must be signed in to sync.', variant: 'destructive'});
+  const handleGoogleApiAction = async (action: 'sync' | 'import') => {
+    if (!auth.currentUser) {
+        toast({ title: 'Error', description: 'You must be signed in to perform this action.', variant: 'destructive'});
         return;
     }
+    
     toast({ title: 'Connecting to Google...', description: 'Please follow prompts to grant permission.'});
+    
     try {
         const provider = new GoogleAuthProvider();
         provider.addScope('https://www.googleapis.com/auth/drive.file');
         provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 
         const result: UserCredential = await signInWithPopup(auth, provider);
-
         const credential = GoogleAuthProvider.credentialFromResult(result);
         const accessToken = credential?.accessToken;
 
@@ -180,16 +183,21 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             throw new Error("Could not retrieve access token from Google.");
         }
         
-        toast({ title: 'Syncing Data...', description: 'Finding or creating your Google Sheet.' });
-        
-        const actionResult = await syncToGoogleSheetAction(accessToken);
+        let actionResult;
+        if (action === 'sync') {
+            toast({ title: 'Syncing Data...', description: 'Pushing all local data to your Google Sheet.' });
+            actionResult = await syncToGoogleSheetAction(accessToken);
+        } else {
+            toast({ title: 'Importing Data...', description: 'Reading your Google Sheet and updating local data.' });
+            actionResult = await importFromGoogleSheetAction(accessToken);
+        }
         
         if (actionResult.success) {
             toast({ 
                 title: 'Success!', 
                 description: actionResult.message,
-                action: actionResult.link ? (
-                    <a href={actionResult.link} target="_blank" rel="noopener noreferrer">
+                action: (actionResult as any).link ? (
+                    <a href={(actionResult as any).link} target="_blank" rel="noopener noreferrer">
                         <Button variant="outline" size="sm">
                             <ExternalLink className="mr-2 h-4 w-4" />
                             View Sheet
@@ -198,7 +206,7 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                 ) : undefined,
             });
         } else {
-            toast({ title: 'Sync Failed', description: actionResult.message, variant: 'destructive'});
+            toast({ title: 'Action Failed', description: actionResult.message, variant: 'destructive'});
         }
 
     } catch (error: any) {
@@ -206,14 +214,15 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
             toast({
                 variant: 'destructive',
                 title: 'Process Canceled',
-                description: 'The sign-in process was canceled. Please try again to sync with Google Sheets.',
+                description: 'The sign-in process was canceled. Please try again.',
             });
         } else {
-            console.error("Google Sync Error:", error);
+            console.error("Google API Action Error:", error);
             toast({ title: 'Authentication Failed', description: error.message || "Could not connect to Google.", variant: 'destructive' });
         }
     }
   };
+
 
   React.useEffect(() => {
     setProducts(initialProducts);
@@ -710,7 +719,11 @@ export function ProductTable({ initialProducts }: { initialProducts: Product[] }
                   <Printer className="h-4 w-4" />
                   <span className="sr-only">Print</span>
               </Button>
-               <Button onClick={handleSyncToSheet} variant="outline">
+               <Button onClick={() => handleGoogleApiAction('import')} variant="outline">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import from Sheet
+              </Button>
+              <Button onClick={() => handleGoogleApiAction('sync')} variant="outline">
                   <Save className="mr-2 h-4 w-4" />
                   Sync with Google Sheets
               </Button>
