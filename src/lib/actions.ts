@@ -146,7 +146,7 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
         rateAsNumber,
         product.unit,
         gstAsNumber,
-        finalRate,
+        Number(finalRate.toFixed(2)),
         product.partyName,
         rate.pageNo,
         serialNumber,
@@ -250,6 +250,17 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     const numCols = values.length > 0 ? values[0].length : 0;
 
     const requests: any[] = [
+      {
+        repeatCell: {
+          range: { sheetId, startRowIndex: 0, endRowIndex: numRows, startColumnIndex: 0, endColumnIndex: numCols },
+          cell: {
+            userEnteredFormat: {
+              horizontalAlignment: 'CENTER',
+            },
+          },
+          fields: 'userEnteredFormat.horizontalAlignment',
+        },
+      },
       {
         repeatCell: {
           range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
