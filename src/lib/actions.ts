@@ -129,31 +129,31 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
 
   const excelEpoch = new Date('1899-12-30').getTime();
 
-  const rows = allProductsWithRates.flatMap(product => {
+  const rows = allProductsWithRates.map(product => {
     if (!product.rates || product.rates.length === 0) {
-      return [];
+      return null;
     }
-    return product.rates.map(rate => {
-      const billDate = rate.billDate ? new Date(rate.billDate as string) : null;
-      const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : '';
-      
-      const rateAsNumber = Number(rate.rate ?? 0);
-      const gstAsNumber = Number(rate.gst ?? 0);
-      const finalRate = rateAsNumber * (1 + gstAsNumber / 100);
+    const latestRate = product.rates[0]; // Take only the most recent rate
 
-      return [
-        product.name,
-        rateAsNumber,
-        product.unit,
-        gstAsNumber,
-        Number(finalRate.toFixed(2)),
-        product.partyName,
-        rate.pageNo,
-        serialNumber,
-        product.category,
-      ];
-    });
-  });
+    const billDate = latestRate.billDate ? new Date(latestRate.billDate as string) : null;
+    const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : '';
+    
+    const rateAsNumber = Number(latestRate.rate ?? 0);
+    const gstAsNumber = Number(latestRate.gst ?? 0);
+    const finalRate = rateAsNumber * (1 + gstAsNumber / 100);
+
+    return [
+      product.name,
+      rateAsNumber,
+      product.unit,
+      gstAsNumber,
+      Number(finalRate.toFixed(2)),
+      product.partyName,
+      latestRate.pageNo,
+      serialNumber,
+      product.category,
+    ];
+  }).filter(row => row !== null) as (string | number)[][];
 
   return [headers, ...rows];
 }
