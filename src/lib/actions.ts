@@ -97,37 +97,35 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
 
 function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string | number)[][] {
     const headers = [
-        'Product Name', 
-        'Rate', 
-        'Unit', 
-        'GST %', 
-        'Final Rate',
-        'Party Name', 
-        'Page No',
-        'Bill Date', 
-        'Category',
+        'Product Name', // A
+        'Rate',         // B
+        'Unit',         // C
+        'GST %',        // D
+        'Final Rate',   // E (Formula Placeholder)
+        'Party Name',   // F
+        'Page No',      // G
+        'Bill Date',    // H
+        'Category',     // I
     ];
     
     const rows = allProductsWithRates.flatMap(product => {
         if (product.rates.length === 0) {
             return [];
         }
-        // Create a row for each historical rate
         return product.rates.map(rate => {
             const billDate = new Date(rate.billDate);
-            // We use a special date format that Google Sheets recognizes regardless of locale
             const serialNumber = (billDate.getTime() - new Date('1899-12-30').getTime()) / (24 * 60 * 60 * 1000);
 
             return [
-                product.name,
-                rate.rate,
-                product.unit,
-                rate.gst,
-                '', // Placeholder for Final Rate formula
-                product.partyName,
-                rate.pageNo,
-                serialNumber, // Use serial number for dates
-                product.category,
+                product.name,      // A
+                rate.rate,         // B
+                product.unit,      // C
+                rate.gst,          // D
+                '',                // E (Final Rate placeholder)
+                product.partyName, // F
+                rate.pageNo,       // G
+                serialNumber,      // H
+                product.category,  // I
             ];
         });
     });
@@ -272,11 +270,10 @@ export async function syncToGoogleSheetAction(accessToken: string) {
         // This is done separately after formatting
         await sheets.spreadsheets.values.update({
              spreadsheetId,
-             range: 'Sheet1!E2', // Final Rate column, first data row
+             range: 'Sheet1!E2', // Final Rate column (E), first data row (2)
              valueInputOption: 'USER_ENTERED',
              requestBody: {
                  values: [
-                     // Formula for Final Rate = Rate + (Rate * GST / 100)
                      ['=IF(B2="","", B2 + (B2 * D2 / 100))']
                  ]
              }
@@ -309,7 +306,6 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
         const sheetDataResponse = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            // Adjust the range to read the columns in the new order
             range: 'Sheet1!A:I', 
         });
 
@@ -318,10 +314,8 @@ export async function importFromGoogleSheetAction(accessToken: string) {
             return { success: true, message: 'Sheet is empty or only has a header. Nothing to import.' };
         }
         
-        // Remove header row
         const dataRows = rows.slice(1);
 
-        // We need to re-map the data from the sheet row to what importProductsAndRates expects
         const mappedRows = dataRows.map(row => {
             const [name, rateStr, unit, gstStr, _finalRate, partyName, pageNoStr, dateSerialNumber, category] = row;
             return [name, partyName, category, unit, dateSerialNumber, pageNoStr, rateStr, gstStr];
