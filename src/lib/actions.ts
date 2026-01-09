@@ -186,10 +186,7 @@ export async function syncToGoogleSheetAction(accessToken: string) {
 
         const values = convertDataForSheet(allProductsWithRates);
         
-        // Replace 'Final Rate' header with the formula
-        values[0][8] = '=ARRAYFORMULA(IF(ISBLANK(G2:G), "", G2:G * (1 + H2:H)))';
-
-
+        // Clear all previous data and formatting
         await sheets.spreadsheets.values.clear({
             spreadsheetId,
             range: 'Sheet1',
@@ -198,11 +195,24 @@ export async function syncToGoogleSheetAction(accessToken: string) {
         const dataWriteRequest = sheets.spreadsheets.values.update({
             spreadsheetId,
             range: 'Sheet1',
-            valueInputOption: 'USER_ENTERED', // Use USER_ENTERED to parse formulas
+            valueInputOption: 'USER_ENTERED', // Use USER_ENTERED to parse formulas and values
             requestBody: {
                 values: values,
             },
         });
+
+        // Add formula for Final Rate to the first data row (I2)
+        const formulaUpdateRequest = sheets.spreadsheets.values.update({
+             spreadsheetId,
+             range: 'Sheet1!I2',
+             valueInputOption: 'USER_ENTERED', // IMPORTANT: Use USER_ENTERED to treat the string as a formula
+             requestBody: {
+                 values: [
+                     ['=IF(G2="","", G2*(1+H2))']
+                 ]
+             }
+        });
+
         
         // --- Start of Formatting and Feature Requests ---
         const numRows = values.length;
@@ -272,8 +282,8 @@ export async function syncToGoogleSheetAction(accessToken: string) {
 
         const formattingRequest = sheets.spreadsheets.batchUpdate(formattingRequests);
 
-        // Run data write and formatting in parallel
-        await Promise.all([dataWriteRequest, formattingRequest]);
+        // Run all requests in parallel for maximum efficiency
+        await Promise.all([dataWriteRequest, formulaUpdateRequest, formattingRequest]);
         
         return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
 
