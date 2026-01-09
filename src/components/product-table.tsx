@@ -980,6 +980,7 @@ function AddRateDialog({
   setIsOpen: (open: boolean) => void;
   onRateAdded: (productId: string, newRate: Rate) => void;
 }) {
+    const {rateHistories} = useProductTable();
     const latestRate = product && rateHistories[product.id]?.[0];
     const form = useForm<AddRateSchema>({
         resolver: zodResolver(addRateSchema),
@@ -992,7 +993,6 @@ function AddRateDialog({
     });
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const {rateHistories} = useProductTable();
 
   React.useEffect(() => {
     if(product) {
