@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -19,6 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { safeToDate } from '@/lib/utils';
 
 interface GroupedProductViewProps {
   allProducts: ProductWithRates[];
@@ -108,7 +110,7 @@ const GroupedProductView: React.FC<GroupedProductViewProps> = ({ allProducts, op
                                     {finalRate ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate) : '-'}
                                 </TableCell>
                                 <TableCell className="text-center">
-                                    {latestRate ? format(new Date(latestRate.billDate), 'dd MMM yyyy') : '-'}
+                                    {latestRate ? format(safeToDate(latestRate.billDate), 'dd MMM yyyy') : '-'}
                                 </TableCell>
                             </TableRow>
                             );
