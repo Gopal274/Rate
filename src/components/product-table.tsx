@@ -36,7 +36,7 @@ import {
 } from '@/lib/actions';
 import type { Product, Rate, ProductWithRates } from '@/lib/types';
 
-import { cn } from '@/lib/utils';
+import { cn, safeToDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -70,7 +70,7 @@ import {
 } from './ui/card';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { ScrollArea } from './ui/scroll-area';
-import { GoogleAuthProvider, signInWithPopup, UserCredential, getRedirectResult } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, UserCredential, getRedirectResult, getAuth, signInWithRedirect } from 'firebase/auth';
 import {
     ProductFormDialog,
     AddRateDialog,
@@ -147,6 +147,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     provider.addScope('https://www.googleapis.com/auth/spreadsheets');
     
     try {
+        // First, try to get the credential from a redirect result.
         let credential = null;
         try {
             const result = await getRedirectResult(auth);
@@ -154,9 +155,12 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 credential = GoogleAuthProvider.credentialFromResult(result);
             }
         } catch (error) {
-            // This can happen if the user is not coming from a redirect. We'll ignore it and try the popup.
+            // This error is expected if the user is not coming from a redirect.
+            // We can safely ignore it and proceed to the popup method.
+            console.info("getRedirectResult did not find a result, proceeding with popup/normal flow.");
         }
-
+        
+        // If redirect didn't provide a credential, it means we need to initiate the sign-in.
         if (!credential) {
             const result = await signInWithPopup(auth, provider);
             credential = GoogleAuthProvider.credentialFromResult(result);
@@ -249,7 +253,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         return dataToSort.sort((a, b) => getFinalRate(b) - getFinalRate(a));
       case 'newest':
       default:
-        return dataToSort.sort((a, b) => new Date(b.rates[0].createdAt).getTime() - new Date(a.rates[0].createdAt).getTime());
+        return dataToSort.sort((a, b) => safeToDate(b.rates[0].createdAt).getTime() - safeToDate(a.rates[0].createdAt).getTime());
     }
   }, [allProductsWithRates, activeSort]);
 
@@ -425,7 +429,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       cell: ({ row }) => {
         const billDate = row.original.rates[0]?.billDate;
         if (!billDate) return '';
-        const date = new Date(billDate as string);
+        const date = safeToDate(billDate);
         return isValid(date) ? format(date, 'dd/MM/yy') : '';
       },
       enableSorting: false,
@@ -694,7 +698,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                {format(new Date(rate.createdAt as string), 'dd/MM/yy, h:mm a')}
+                                {format(safeToDate(rate.createdAt), 'dd/MM/yy, h:mm a')}
                               </TableCell>
                               <TableCell className="text-right font-medium whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate as number)}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
@@ -702,7 +706,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                               <TableCell className="text-right font-bold whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
                               <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
-                              <TableCell className='whitespace-nowrap'>{format(new Date(rate.billDate as string), 'dd/MM/yy')}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{format(safeToDate(rate.billDate), 'dd/MM/yy')}</TableCell>
                               <TableCell className='whitespace-nowrap'>{row.original.category}</TableCell>
                               <TableCell className="no-print whitespace-nowrap">
                                 <TooltipProvider>
