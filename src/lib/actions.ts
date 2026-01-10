@@ -178,8 +178,6 @@ async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheet
     requestBody: { properties: { title: SHEET_NAME } },
     fields: 'spreadsheetId,spreadsheetUrl',
   });
-  
-  await new Promise(resolve => setTimeout(resolve, 5000));
 
   const { spreadsheetId, spreadsheetUrl } = createResponse.data;
   if (!spreadsheetId || !spreadsheetUrl) {
@@ -371,7 +369,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
         const g = Number(gstRaw);
         if (!Number.isNaN(g)) {
            // If the value is a decimal like 0.05, convert to 5. Otherwise, use as is.
-          gstPercent = g < 1 ? g * 100 : g;
+          gstPercent = g < 1 && g !== 0 ? g * 100 : g;
         }
       }
       return [name ?? '', partyName ?? '', category ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
