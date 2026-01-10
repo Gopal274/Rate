@@ -13,7 +13,7 @@ import {
   importProductsAndRates,
 } from './data';
 import type { Rate, UpdateProductSchema, ProductWithRates } from './types';
-import { productSchema } from './types';
+import { productSchema, categories, units } from './types';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
@@ -125,6 +125,10 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
       'Page No', 'Bill Date', 'Category',
     ];
 
+    // The Final Rate header will be replaced by an ArrayFormula
+    headers[4] = '=ARRAYFORMULA(IF(ROW(E:E)=1, "Final Rate", IF(ISBLANK(B:B), "", B:B * (1 + D:D))))';
+
+
     const excelEpoch = new Date('1899-12-30').getTime();
 
     const rows = allProductsWithRates.flatMap(product => {
@@ -142,7 +146,7 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
           rateValue,
           product.unit,
           gstValue / 100, 
-          null, 
+          null, // This will be calculated by the ArrayFormula
           product.partyName,
           rate.pageNo,
           serialNumber,
@@ -218,12 +222,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
 
     const allProductsWithRates = await getAllProductsWithRates();
     const values = convertDataForSheet(allProductsWithRates);
-    
-    for (let i = 1; i < values.length; i++) { // Start from 1 to skip header
-        const rowNum = i + 1;
-        values[i][4] = `=B${rowNum} * (1 + D${rowNum})`;
-    }
-
 
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
@@ -241,6 +239,7 @@ export async function syncToGoogleSheetAction(accessToken: string) {
         { repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: 'userEnteredFormat.textFormat.bold' } },
         { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } },
         { autoResizeDimensions: { dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 9 } } },
+        // Apply formatting to entire columns
         { repeatCell: { range: { sheetId, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } }, fields: 'userEnteredFormat.numberFormat' } },
         { repeatCell: { range: { sheetId, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } }, fields: 'userEnteredFormat.numberFormat' } },
         { repeatCell: { range: { sheetId, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } }, fields: 'userEnteredFormat.numberFormat' } },
@@ -248,12 +247,11 @@ export async function syncToGoogleSheetAction(accessToken: string) {
         { setBasicFilter: { filter: { range: { sheetId } } } },
     ];
 
-    if (requests.length > 0) {
-        await sheets.spreadsheets.batchUpdate({
-            spreadsheetId,
-            requestBody: { requests },
-        });
-    }
+    await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests },
+    });
+    
 
     return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
   } catch (error: any) {
@@ -309,6 +307,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     const dataRows = rows.slice(1);
 
     const mappedRows = dataRows.map(row => {
+      // Correct order: 'Product Name', 'Rate', 'Unit', 'GST %', 'Final Rate', 'Party Name', 'Page No', 'Bill Date', 'Category'
       const [name, rate, unit, gstRaw, _finalRate, partyName, pageNo, dateSerialNumber, category] = row;
       const billDateISO = serialNumberToIso(dateSerialNumber) || '';
       
@@ -316,11 +315,12 @@ export async function importFromGoogleSheetAction(accessToken: string) {
       if (gstRaw !== '' && gstRaw !== undefined && gstRaw !== null) {
         const g = Number(gstRaw);
         if (!Number.isNaN(g)) {
-           // This handles both decimal (0.05) and whole number (5) inputs from the sheet
+          // Handles both decimal (0.05) and whole number (5) inputs from the sheet
           gstPercent = g < 1 ? g * 100 : g;
         }
       }
-      return [name, partyName, category, unit, billDateISO, pageNo, rate, gstPercent];
+      // Correct mapping for importProductsAndRates: [name, partyName, category, unit, billDate, pageNo, rate, gst]
+      return [name ?? '', partyName ?? '', category ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
     });
 
     const result = await importProductsAndRates(mappedRows);
@@ -338,4 +338,3 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
   }
 }
-
