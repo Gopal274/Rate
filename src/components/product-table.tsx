@@ -203,7 +203,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
 
   const uniquePartyNames = React.useMemo(() => {
     const partyNames = new Set(allProductsWithRates.map(p => p.partyName));
-    return Array.from(partyNames).sort();
+    return Array.from(partyNames).sort((a, b) => a.localeCompare(b));
   }, [allProductsWithRates]);
 
     const uniqueFirstLetters = React.useMemo(() => {
