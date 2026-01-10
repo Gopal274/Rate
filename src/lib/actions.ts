@@ -130,16 +130,13 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
     const rows = allProductsWithRates.flatMap(product => {
       if (!product.rates || product.rates.length === 0) return [];
       
-      return product.rates.map((rate, index) => {
+      return product.rates.map((rate) => {
         const billDate = rate.billDate ? new Date(rate.billDate as string) : null;
         const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : null;
         
         const rateValue = parseFloat(String(rate.rate ?? 0));
         const gstValue = parseFloat(String(rate.gst ?? 0));
         
-        // Let Google Sheets calculate the Final Rate with a formula
-        const finalRateFormula = `=B${index + 2}*(1+D${index + 2}/100)`;
-
         return [
           product.name,
           rateValue,
