@@ -141,8 +141,8 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
           product.name,
           rateValue,
           product.unit,
-          gstValue / 100, // Store as decimal for percentage formatting
-          null, // Placeholder for formula
+          gstValue, 
+          null, 
           product.partyName,
           rate.pageNo,
           serialNumber,
@@ -222,7 +222,7 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     // Add formulas for the Final Rate column
     for (let i = 1; i < values.length; i++) { // Start from 1 to skip header
         const rowNum = i + 1;
-        values[i][4] = `=B${rowNum} * (1 + D${rowNum})`;
+        values[i][4] = `=B${rowNum} * (1 + D${rowNum}/100)`;
     }
 
 
@@ -368,10 +368,10 @@ export async function importFromGoogleSheetAction(accessToken: string) {
       if (gstRaw !== '' && gstRaw !== undefined && gstRaw !== null) {
         const g = Number(gstRaw);
         if (!Number.isNaN(g)) {
-           // If the value is a decimal like 0.05, convert to 5. Otherwise, use as is.
-          gstPercent = g < 1 && g !== 0 ? g * 100 : g;
+          gstPercent = g;
         }
       }
+      // The order for importProductsAndRates is: name, partyName, category, unit, billDate, pageNo, rate, gst
       return [name ?? '', partyName ?? '', category ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
     });
 
