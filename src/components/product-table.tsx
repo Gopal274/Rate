@@ -147,25 +147,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     provider.addScope('https://www.googleapis.com/auth/spreadsheets');
     
     try {
-        // First, try to get the credential from a redirect result.
-        let credential = null;
-        try {
-            const result = await getRedirectResult(auth);
-            if (result) {
-                credential = GoogleAuthProvider.credentialFromResult(result);
-            }
-        } catch (error) {
-            // This error is expected if the user is not coming from a redirect.
-            // We can safely ignore it and proceed to the popup method.
-            console.info("getRedirectResult did not find a result, proceeding with popup/normal flow.");
-        }
-        
-        // If redirect didn't provide a credential, it means we need to initiate the sign-in.
-        if (!credential) {
-            const result = await signInWithPopup(auth, provider);
-            credential = GoogleAuthProvider.credentialFromResult(result);
-        }
-
+        const result = await signInWithPopup(auth, provider);
+        const credential = GoogleAuthProvider.credentialFromResult(result);
         const accessToken = credential?.accessToken;
 
         if (!accessToken) {
@@ -777,3 +760,5 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    
