@@ -170,7 +170,7 @@ export const getAllProductsWithRates = async (options?: { onlyLatestRate: boolea
 
 // Type for the data structure we'll use to check for existing products
 type ProductCheckMap = {
-  [key: string]: { id: string; rates: Rate[], unit: string };
+  [key: string]: { id: string; rates: Rate[] };
 };
 
 export async function importProductsAndRates(rows: any[][]) {
@@ -183,7 +183,7 @@ export async function importProductsAndRates(rows: any[][]) {
   const existingProductsData = await getAllProductsWithRates({ onlyLatestRate: false });
   const productCheckMap: ProductCheckMap = existingProductsData.reduce((acc, p) => {
     const key = `${p.name.toLowerCase()}_${p.partyName.toLowerCase()}`;
-    acc[key] = { id: p.id, rates: p.rates, unit: p.unit };
+    acc[key] = { id: p.id, rates: p.rates };
     return acc;
   }, {} as ProductCheckMap);
 
@@ -195,68 +195,62 @@ export async function importProductsAndRates(rows: any[][]) {
     // 2. Data Validation & Conversion
     const rate = parseFloat(rateStr);
     const pageNo = parseInt(pageNoStr, 10);
-    const gst = parseFloat(gstStr); // GST is already a percentage number here
+    const gst = parseFloat(gstStr);
 
-    let billDate: Date;
-    if (billDateISO && typeof billDateISO === 'string' && !isNaN(Date.parse(billDateISO))) {
-        billDate = new Date(billDateISO);
-    } else {
+    // Basic validation: ensure all required fields from the sheet have a value.
+    if (!name || !partyName || !unit || !billDateISO || !rateStr || !pageNoStr || !gstStr) {
         skipped++;
-        continue; // Skip if date is invalid
+        continue;
     }
 
-    if (
-      !name || !partyName || !unit ||
-      isNaN(rate) || isNaN(pageNo) || isNaN(gst) || isNaN(billDate.getTime())
-    ) {
+    let billDate: Date;
+    try {
+        billDate = new Date(billDateISO);
+        if (isNaN(billDate.getTime())) {
+            // If date is not valid after parsing, skip it.
+            skipped++;
+            continue;
+        }
+    } catch (e) {
+        skipped++;
+        continue;
+    }
+
+    if (isNaN(rate) || isNaN(pageNo) || isNaN(gst)) {
       skipped++;
-      continue; // Skip invalid row
+      continue; // Skip if numeric conversions fail
     }
     
     const productKey = `${name.toLowerCase()}_${partyName.toLowerCase()}`;
     const existingProduct = productCheckMap[productKey];
 
     if (existingProduct) {
-      // 3. Product exists: Check if rate already exists in history
-      const allRates = existingProduct.rates;
-      
-      const rateAlreadyExists = allRates.some(existingRate => {
+      // 3. Product exists: Check if this specific rate already exists in history.
+      const rateAlreadyExists = existingProduct.rates.some(existingRate => {
         const existingBillDate = new Date(existingRate.billDate);
-        // Compare rate, and date (ignoring time)
+        // Compare rate, and date (ignoring time part)
         return existingRate.rate === rate &&
-               existingBillDate.getFullYear() === billDate.getFullYear() &&
-               existingBillDate.getMonth() === billDate.getMonth() &&
-               existingBillDate.getDate() === billDate.getDate();
+               existingBillDate.toDateString() === billDate.toDateString();
       });
 
-      const areDetailsDifferent = existingProduct.unit.toLowerCase() !== String(unit).toLowerCase();
-
-      if (!rateAlreadyExists) {
+      if (rateAlreadyExists) {
+        skipped++;
+      } else {
+        // Rate is new for this product, so add it.
         const newRateRef = doc(collection(db, PRODUCTS_COLLECTION, existingProduct.id, RATES_SUBCOLLECTION));
         batch.set(newRateRef, { rate, gst, pageNo, billDate, createdAt: serverTimestamp() });
         updated++;
       }
-      
-      if (areDetailsDifferent) {
-        const productRef = doc(db, PRODUCTS_COLLECTION, existingProduct.id);
-        batch.update(productRef, { unit });
-        if (rateAlreadyExists) updated++; // Count as update if only details changed
-      }
-
-      if(!areDetailsDifferent && rateAlreadyExists) {
-        skipped++;
-      }
-
     } else {
-      // 4. New product: Add product and its first rate
+      // 4. New product: Add product and its first rate.
       const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
       batch.set(newProductRef, { name, partyName, unit });
 
       const newRateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
       batch.set(newRateRef, { rate, gst, pageNo, billDate, createdAt: serverTimestamp() });
       
-      // Add to our map so we don't re-add it if it appears again in the same sheet
-      productCheckMap[productKey] = { id: newProductRef.id, rates: [{ rate, billDate } as Rate], unit };
+      // Add to our map so we don't re-add it if it appears again in the same sheet.
+      productCheckMap[productKey] = { id: newProductRef.id, rates: [] };
       
       added++;
     }
