@@ -114,7 +114,7 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v3', []);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v4', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
 
@@ -560,7 +560,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
                       return (
-                        <TableHead key={header.id} className={cn('whitespace-nowrap', header.id === 'actions' ? 'no-print' : '')} style={{ width: header.getSize() }}>
+                        <TableHead key={header.id} className={cn('whitespace-nowrap text-foreground font-semibold text-base', header.id === 'actions' ? 'no-print' : '')} style={{ width: header.getSize() }}>
                           {header.isPlaceholder
                             ? null
                             : flexRender(
