@@ -70,7 +70,7 @@ import {
 } from './ui/card';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { ScrollArea } from './ui/scroll-area';
-import { GoogleAuthProvider, signInWithPopup, UserCredential } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, UserCredential, getRedirectResult } from 'firebase/auth';
 import {
     ProductFormDialog,
     AddRateDialog,
@@ -141,16 +141,27 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         toast({ title: 'Error', description: 'You must be signed in to perform this action.', variant: 'destructive'});
         return;
     }
-    
-    toast({ title: 'Connecting to Google...', description: 'Please follow prompts to grant permission.'});
+
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive.file');
+    provider.addScope('https://www.googleapis.com/auth/spreadsheets');
     
     try {
-        const provider = new GoogleAuthProvider();
-        provider.addScope('https://www.googleapis.com/auth/drive.file');
-        provider.addScope('https://www.googleapis.com/auth/spreadsheets');
+        let credential = null;
+        try {
+            const result = await getRedirectResult(auth);
+            if (result) {
+                credential = GoogleAuthProvider.credentialFromResult(result);
+            }
+        } catch (error) {
+            // This can happen if the user is not coming from a redirect. We'll ignore it and try the popup.
+        }
 
-        const result: UserCredential = await signInWithPopup(auth, provider);
-        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (!credential) {
+            const result = await signInWithPopup(auth, provider);
+            credential = GoogleAuthProvider.credentialFromResult(result);
+        }
+
         const accessToken = credential?.accessToken;
 
         if (!accessToken) {
