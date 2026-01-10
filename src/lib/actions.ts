@@ -321,7 +321,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
         }
       }
       
-      return [name ?? '', partyName ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
+      return [name, partyName, unit, billDateISO, pageNo, rate, gstPercent];
     });
 
     const result = await importProductsAndRates(mappedRows);
