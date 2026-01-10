@@ -119,7 +119,7 @@ export async function getAllProductsWithRatesAction(): Promise<ProductWithRates[
 /**
  * Convert in-memory product+rates to rows usable by Google Sheets.
  */
-function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string | number)[][] {
+function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string | number | null)[][] {
     const headers = [
       'Product Name', 'Rate', 'Unit', 'GST %', 'Final Rate', 'Party Name',
       'Page No', 'Bill Date', 'Category',
@@ -130,20 +130,22 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
     const rows = allProductsWithRates.flatMap(product => {
       if (!product.rates || product.rates.length === 0) return [];
       
-      return product.rates.map(rate => {
+      return product.rates.map((rate, index) => {
         const billDate = rate.billDate ? new Date(rate.billDate as string) : null;
-        const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : '';
+        const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : null;
         
         const rateValue = parseFloat(String(rate.rate ?? 0));
         const gstValue = parseFloat(String(rate.gst ?? 0));
-        const finalRate = rateValue * (1 + gstValue / 100);
+        
+        // Let Google Sheets calculate the Final Rate with a formula
+        const finalRateFormula = `=B${index + 2}*(1+D${index + 2}/100)`;
 
         return [
           product.name,
           rateValue,
           product.unit,
-          gstValue,
-          finalRate,
+          gstValue / 100, // Store as decimal for percentage formatting
+          null, // Placeholder for formula
           product.partyName,
           rate.pageNo,
           serialNumber,
@@ -216,11 +218,18 @@ export async function syncToGoogleSheetAction(accessToken: string) {
       throw new Error('Spreadsheet has no sheets.');
     }
 
-    const sheetProps = meta.data.sheets[0].properties!;
-    const sheetTitle = sheetProps.title || 'Sheet1';
+    const sheetId = meta.data.sheets[0].properties!.sheetId!;
+    const sheetTitle = meta.data.sheets[0].properties!.title || 'Sheet1';
 
     const allProductsWithRates = await getAllProductsWithRates();
     const values = convertDataForSheet(allProductsWithRates);
+    
+    // Add formulas for the Final Rate column
+    for (let i = 1; i < values.length; i++) { // Start from 1 to skip header
+        const rowNum = i + 1;
+        values[i][4] = `=B${rowNum} * (1 + D${rowNum})`;
+    }
+
 
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
@@ -230,9 +239,78 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${sheetTitle}`,
-      valueInputOption: 'USER_ENTERED',
+      valueInputOption: 'USER_ENTERED', // Important for formulas
       requestBody: { values },
     });
+    
+    // --- Add Formatting ---
+    const requests = [
+        // 1. Bold Header
+        {
+            repeatCell: {
+                range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+                cell: { userEnteredFormat: { textFormat: { bold: true } } },
+                fields: 'userEnteredFormat.textFormat.bold',
+            },
+        },
+        // 2. Freeze Header Row
+        {
+            updateSheetProperties: {
+                properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
+                fields: 'gridProperties.frozenRowCount',
+            },
+        },
+        // 3. Auto-resize all columns
+        {
+            autoResizeDimensions: {
+                dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 9 },
+            },
+        },
+        // 4. Format columns B and E as INR currency
+        {
+            repeatCell: {
+                range: { sheetId, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 },
+                cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } },
+                fields: 'userEnteredFormat.numberFormat',
+            },
+        },
+        {
+            repeatCell: {
+                range: { sheetId, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 },
+                cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } },
+                fields: 'userEnteredFormat.numberFormat',
+            },
+        },
+        // 5. Format column D as Percentage
+        {
+            repeatCell: {
+                range: { sheetId, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 },
+                cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } },
+                fields: 'userEnteredFormat.numberFormat',
+            },
+        },
+        // 6. Format column H as Date
+        {
+            repeatCell: {
+                range: { sheetId, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
+                cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd/mm/yyyy' } } },
+                fields: 'userEnteredFormat.numberFormat',
+            },
+        },
+        // 7. Add filter views
+        {
+            setBasicFilter: {
+                filter: { range: { sheetId } },
+            },
+        },
+    ];
+
+    if (requests.length > 0) {
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: { requests },
+        });
+    }
 
     return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
   } catch (error: any) {
