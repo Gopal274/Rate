@@ -23,15 +23,15 @@ import {
   XCircle,
   Filter,
   ArrowUpDown,
-  Save,
   ExternalLink,
   RotateCcw,
   Download,
+  Upload,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
 import {
-  syncToGoogleSheetAction,
+  exportToGoogleSheetAction,
   importFromGoogleSheetAction,
 } from '@/lib/actions';
 import type { Product, Rate, ProductWithRates } from '@/lib/types';
@@ -146,7 +146,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     }
   }, []);
 
-  const handleGoogleApiAction = async (action: 'sync' | 'import') => {
+  const handleGoogleApiAction = async (action: 'export' | 'import') => {
     if (!auth.currentUser) {
         toast({ title: 'Error', description: 'You must be signed in to perform this action.', variant: 'destructive'});
         return;
@@ -166,15 +166,15 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         }
         
         let actionResult;
-        if (action === 'sync') {
-            toast({ title: 'Syncing Data...', description: 'Pushing all local data to your Google Sheet.' });
-            actionResult = await syncToGoogleSheetAction(accessToken);
+        if (action === 'export') {
+            toast({ title: 'Exporting Data...', description: 'Pushing all local data to your Google Sheet.' });
+            actionResult = await exportToGoogleSheetAction(accessToken);
         } else if (action === 'import') {
             toast({ title: 'Importing Data...', description: 'Reading data from your Google Sheet to add here.' });
             actionResult = await importFromGoogleSheetAction(accessToken);
         }
         
-        if (actionResult.success) {
+        if (actionResult?.success) {
             toast({ 
                 title: 'Success!', 
                 description: actionResult.message,
@@ -188,7 +188,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 ) : undefined,
             });
         } else {
-            toast({ title: 'Action Failed', description: actionResult.message, variant: 'destructive'});
+            toast({ title: 'Action Failed', description: actionResult?.message, variant: 'destructive'});
         }
 
     } catch (error: any) {
@@ -630,9 +630,9 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   <Download className="mr-2 h-4 w-4" />
                   Import from Sheet
               </Button>
-              <Button onClick={() => handleGoogleApiAction('sync')} variant="outline">
-                  <Save className="mr-2 h-4 w-4" />
-                  Sync to Sheet
+              <Button onClick={() => handleGoogleApiAction('export')} variant="outline">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Export to Sheet
               </Button>
               { user && 
                   <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
@@ -783,11 +783,3 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
-
-    
-
-    
-
-    
-
-    

@@ -191,9 +191,9 @@ async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheet
 }
 
 /**
- * Sync local products/rates to Google Sheets.
+ * Export local products/rates to Google Sheets.
  */
-export async function syncToGoogleSheetAction(accessToken: string) {
+export async function exportToGoogleSheetAction(accessToken: string) {
   if (!accessToken) {
     return { success: false, message: 'Authentication token is missing.' };
   }
@@ -254,13 +254,13 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     }
     
 
-    return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
+    return { success: true, message: `Data exported to Google Sheet!`, link: spreadsheetUrl };
   } catch (error: any) {
-    console.error('syncToGoogleSheetAction Error:', error);
+    console.error('exportToGoogleSheetAction Error:', error);
     if (error.message && (error.message.includes('API has not been used') || error.message.includes('API is disabled'))) {
       return { success: false, message: `API Permission Error: The Google Sheets API is not enabled. Please enable it in your Google Cloud project and try again.` };
     }
-    return { success: false, message: error.message || 'An error occurred while syncing to Google Sheets.' };
+    return { success: false, message: error.message || 'An error occurred while exporting to Google Sheets.' };
   }
 }
 
@@ -340,5 +340,3 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
   }
 }
-
-    
