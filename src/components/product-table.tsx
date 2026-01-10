@@ -123,7 +123,7 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v6', []);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v7', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
 
@@ -401,6 +401,12 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       accessorKey: 'partyName',
       header: ({ column }) => {
         const selectedParties = (column?.getFilterValue() as string[] | undefined) ?? [];
+        const [searchTerm, setSearchTerm] = React.useState('');
+
+        const filteredParties = React.useMemo(() => {
+            return uniquePartyNames.filter(party => party.toLowerCase().includes(searchTerm.toLowerCase()));
+        }, [uniquePartyNames, searchTerm]);
+
 
         return (
           <div className="flex items-center gap-2">
@@ -412,6 +418,16 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">
+                <div className="p-2">
+                    <Input
+                        placeholder="Search parties..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full"
+                        autoFocus
+                    />
+                </div>
+                <DropdownMenuSeparator />
                 <DropdownMenuLabel>Filter by Party</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
@@ -423,7 +439,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuSeparator />
                 <ScrollArea className="h-48">
-                {uniquePartyNames.map(party => (
+                {filteredParties.map(party => (
                     <DropdownMenuCheckboxItem
                         key={party}
                         checked={selectedParties.includes(party)}
