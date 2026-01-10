@@ -123,7 +123,7 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v5', []);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v6', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
 
@@ -248,7 +248,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const columns: ColumnDef<ProductWithRates>[] = React.useMemo(() => [
      {
       id: 'sno',
-      header: 'S.No',
+      header: () => <div className="text-center">S.No</div>,
       cell: ({ row, table }) => {
         const sortedRows = table.getCoreRowModel().rows;
         const rowIndex = sortedRows.findIndex(sortedRow => sortedRow.id === row.id);
@@ -276,66 +276,70 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
 
         return (
           <div className="flex items-center gap-2">
-            Product Name
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
-                  <ArrowUpDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => setActiveSort('newest')}>Newest first</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveSort('oldest')}>Oldest first</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveSort('asc')}>A-Z</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveSort('desc')}>Z-A</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
-                    {alphabetFilterValue.length === 1 ? (
-                        <span className="font-bold">{alphabetFilterValue[0]}</span>
-                    ) : (
-                        <Filter className="h-4 w-4" />
-                    )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuLabel>Filter by First Letter</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={alphabetFilterValue.length === 0 || alphabetFilterValue.length === uniqueFirstLetters.length}
-                  onCheckedChange={(checked) => column?.setFilterValue(checked ? uniqueFirstLetters : [])}
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  Select All
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuSeparator />
-                <ScrollArea className="h-48">
-                {uniqueFirstLetters.map(letter => (
-                    <DropdownMenuCheckboxItem
-                        key={letter}
-                        checked={alphabetFilterValue.includes(letter)}
-                        onCheckedChange={(checked) => {
-                            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
-                            if (checked) {
-                                column?.setFilterValue([letter]); // Only allow one letter to be selected at a time
-                            } else {
-                                column?.setFilterValue(currentSelection.filter(l => l !== letter));
-                            }
-                        }}
-                        onSelect={(e) => e.preventDefault()}
-                    >
-                        {letter}
-                    </DropdownMenuCheckboxItem>
-                ))}
-                </ScrollArea>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => column?.setFilterValue([])}>
-                    <RotateCcw className="mr-2 h-4 w-4" /> Clear Filter
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <span>Product Name</span>
+            <div onClick={(e) => e.stopPropagation()}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => setActiveSort('newest')}>Newest first</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSort('oldest')}>Oldest first</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSort('asc')}>A-Z</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSort('desc')}>Z-A</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div onClick={(e) => e.stopPropagation()}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
+                      {alphabetFilterValue.length === 1 ? (
+                          <span className="font-bold">{alphabetFilterValue[0]}</span>
+                      ) : (
+                          <Filter className="h-4 w-4" />
+                      )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuLabel>Filter by First Letter</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={alphabetFilterValue.length === 0 || alphabetFilterValue.length === uniqueFirstLetters.length}
+                    onCheckedChange={(checked) => column?.setFilterValue(checked ? uniqueFirstLetters : [])}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Select All
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                  <ScrollArea className="h-48">
+                  {uniqueFirstLetters.map(letter => (
+                      <DropdownMenuCheckboxItem
+                          key={letter}
+                          checked={alphabetFilterValue.includes(letter)}
+                          onCheckedChange={(checked) => {
+                              const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
+                              if (checked) {
+                                  column?.setFilterValue([letter]); // Only allow one letter to be selected at a time
+                              } else {
+                                  column?.setFilterValue(currentSelection.filter(l => l !== letter));
+                              }
+                          }}
+                          onSelect={(e) => e.preventDefault()}
+                      >
+                          {letter}
+                      </DropdownMenuCheckboxItem>
+                  ))}
+                  </ScrollArea>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => column?.setFilterValue([])}>
+                      <RotateCcw className="mr-2 h-4 w-4" /> Clear Filter
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         )
       },
