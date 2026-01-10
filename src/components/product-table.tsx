@@ -431,8 +431,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 <DropdownMenuLabel>Filter by Party</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
-                  checked={selectedParties.length === uniquePartyNames.length}
-                  onCheckedChange={(checked) => column?.setFilterValue(checked ? uniquePartyNames : [])}
+                  checked={selectedParties.length === filteredParties.length}
+                  onCheckedChange={(checked) => column?.setFilterValue(checked ? filteredParties : [])}
                   onSelect={(e) => e.preventDefault()}
                 >
                   Select All
@@ -638,7 +638,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         <CardContent>
           <div ref={tableContainerRef} className="rounded-md relative overflow-auto" style={{ height: '60vh' }}>
             <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
+              <TableHeader className="sticky top-0 bg-background z-10 border-b-2 border-border">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
@@ -774,6 +774,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    
 
     
 
