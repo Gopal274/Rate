@@ -25,7 +25,6 @@ import {
   ArrowUpDown,
   Save,
   ExternalLink,
-  Upload,
   RotateCcw,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
@@ -87,6 +86,16 @@ const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
     return Array.isArray(filterValue) && filterValue.includes(value);
 };
 
+const startsWithFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
+    if (!filterValue || (Array.isArray(filterValue) && filterValue.length === 0)) {
+        return true;
+    }
+    const value = row.getValue(columnId) as string;
+    const firstLetter = value.charAt(0).toUpperCase();
+    return Array.isArray(filterValue) && filterValue.includes(firstLetter);
+};
+
+
 const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
     const [state, setState] = React.useState<T>(() => {
         if (typeof window === 'undefined') {
@@ -114,7 +123,7 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v4', []);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v5', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
 
@@ -197,6 +206,11 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     return Array.from(partyNames).sort();
   }, [allProductsWithRates]);
 
+    const uniqueFirstLetters = React.useMemo(() => {
+        const firstLetters = new Set(allProductsWithRates.map(p => p.name.charAt(0).toUpperCase()));
+        return Array.from(firstLetters).sort();
+    }, [allProductsWithRates]);
+
   const sortedData = React.useMemo(() => {
     let dataToSort = [...allProductsWithRates].filter(p => p.rates.length > 0); 
     
@@ -257,14 +271,16 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     },
     {
       accessorKey: 'name',
-      header: () => {
+      header: ({ column }) => {
+        const alphabetFilterValue = (column.getFilterValue() as string[] | undefined) ?? [];
+
         return (
           <div className="flex items-center gap-2">
             Product Name
              <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
-                  <Filter className="h-4 w-4" />
+                  <ArrowUpDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
@@ -274,10 +290,57 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 <DropdownMenuItem onClick={() => setActiveSort('desc')}>Z-A</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
+                    {alphabetFilterValue.length === 1 ? (
+                        <span className="font-bold">{alphabetFilterValue[0]}</span>
+                    ) : (
+                        <Filter className="h-4 w-4" />
+                    )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuLabel>Filter by First Letter</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={alphabetFilterValue.length === 0 || alphabetFilterValue.length === uniqueFirstLetters.length}
+                  onCheckedChange={(checked) => column?.setFilterValue(checked ? uniqueFirstLetters : [])}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  Select All
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <ScrollArea className="h-48">
+                {uniqueFirstLetters.map(letter => (
+                    <DropdownMenuCheckboxItem
+                        key={letter}
+                        checked={alphabetFilterValue.includes(letter)}
+                        onCheckedChange={(checked) => {
+                            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
+                            if (checked) {
+                                column?.setFilterValue([letter]); // Only allow one letter to be selected at a time
+                            } else {
+                                column?.setFilterValue(currentSelection.filter(l => l !== letter));
+                            }
+                        }}
+                        onSelect={(e) => e.preventDefault()}
+                    >
+                        {letter}
+                    </DropdownMenuCheckboxItem>
+                ))}
+                </ScrollArea>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => column?.setFilterValue([])}>
+                    <RotateCcw className="mr-2 h-4 w-4" /> Clear Filter
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )
       },
       cell: ({ row }) => row.original.name,
+      filterFn: startsWithFilterFn,
     },
     {
       id: 'rate',
@@ -472,7 +535,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       },
       enableSorting: false,
     },
-  ], [openCollapsibles, uniquePartyNames, setActiveSort]);
+  ], [openCollapsibles, uniquePartyNames, uniqueFirstLetters, setActiveSort]);
 
   const table = useReactTable({
     data: sortedData,
@@ -688,3 +751,5 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    
