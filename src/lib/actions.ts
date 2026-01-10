@@ -312,12 +312,13 @@ export async function importFromGoogleSheetAction(accessToken: string) {
       const [name, rate, unit, gstRaw, _finalRate, partyName, pageNo, dateSerialNumber] = row;
       const billDateISO = serialNumberToIso(dateSerialNumber) || '';
       
+      // The sheet stores GST as a decimal (e.g., 0.05 for 5%), but our DB expects the percentage number (e.g., 5).
       let gstPercent = 0;
       if (gstRaw !== '' && gstRaw !== undefined && gstRaw !== null) {
         const g = Number(gstRaw);
         if (!Number.isNaN(g)) {
-          // Handles both decimal (0.05) and whole number (5) inputs from the sheet
-          gstPercent = g < 1 ? g * 100 : g;
+          // The data from sheet is a decimal like 0.05, so we convert to 5
+          gstPercent = g * 100;
         }
       }
       
@@ -339,3 +340,5 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
   }
 }
+
+    

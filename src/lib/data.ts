@@ -197,7 +197,6 @@ export async function importProductsAndRates(rows: any[][]) {
     const pageNo = parseInt(pageNoStr, 10);
     const gst = parseFloat(gstStr);
 
-    // Basic validation: ensure all required fields from the sheet have a value.
     if (!name || !partyName || !unit || !billDateISO || !rateStr || !pageNoStr || !gstStr) {
         skipped++;
         continue;
@@ -207,7 +206,6 @@ export async function importProductsAndRates(rows: any[][]) {
     try {
         billDate = new Date(billDateISO);
         if (isNaN(billDate.getTime())) {
-            // If date is not valid after parsing, skip it.
             skipped++;
             continue;
         }
@@ -218,7 +216,7 @@ export async function importProductsAndRates(rows: any[][]) {
 
     if (isNaN(rate) || isNaN(pageNo) || isNaN(gst)) {
       skipped++;
-      continue; // Skip if numeric conversions fail
+      continue; 
     }
     
     const productKey = `${name.toLowerCase()}_${partyName.toLowerCase()}`;
@@ -228,7 +226,6 @@ export async function importProductsAndRates(rows: any[][]) {
       // 3. Product exists: Check if this specific rate already exists in history.
       const rateAlreadyExists = existingProduct.rates.some(existingRate => {
         const existingBillDate = new Date(existingRate.billDate);
-        // Compare rate, and date (ignoring time part)
         return existingRate.rate === rate &&
                existingBillDate.toDateString() === billDate.toDateString();
       });
@@ -249,15 +246,15 @@ export async function importProductsAndRates(rows: any[][]) {
       const newRateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
       batch.set(newRateRef, { rate, gst, pageNo, billDate, createdAt: serverTimestamp() });
       
-      // Add to our map so we don't re-add it if it appears again in the same sheet.
       productCheckMap[productKey] = { id: newProductRef.id, rates: [] };
       
       added++;
     }
   }
   
-  // 5. Commit all changes at once
   await batch.commit();
 
   return { added, updated, skipped };
 }
+
+    

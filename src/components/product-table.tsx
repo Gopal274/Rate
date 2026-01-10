@@ -26,11 +26,13 @@ import {
   Save,
   ExternalLink,
   RotateCcw,
+  Download,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
 import {
   syncToGoogleSheetAction,
+  importFromGoogleSheetAction,
 } from '@/lib/actions';
 import type { Product, Rate, ProductWithRates } from '@/lib/types';
 
@@ -144,7 +146,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     }
   }, []);
 
-  const handleGoogleApiAction = async (action: 'sync') => {
+  const handleGoogleApiAction = async (action: 'sync' | 'import') => {
     if (!auth.currentUser) {
         toast({ title: 'Error', description: 'You must be signed in to perform this action.', variant: 'destructive'});
         return;
@@ -167,6 +169,9 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         if (action === 'sync') {
             toast({ title: 'Syncing Data...', description: 'Pushing all local data to your Google Sheet.' });
             actionResult = await syncToGoogleSheetAction(accessToken);
+        } else if (action === 'import') {
+            toast({ title: 'Importing Data...', description: 'Reading data from your Google Sheet to add here.' });
+            actionResult = await importFromGoogleSheetAction(accessToken);
         }
         
         if (actionResult.success) {
@@ -621,9 +626,13 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   <Printer className="h-4 w-4" />
                   <span className="sr-only">Print</span>
               </Button>
+              <Button onClick={() => handleGoogleApiAction('import')} variant="outline">
+                  <Download className="mr-2 h-4 w-4" />
+                  Import from Sheet
+              </Button>
               <Button onClick={() => handleGoogleApiAction('sync')} variant="outline">
                   <Save className="mr-2 h-4 w-4" />
-                  Sync with Google Sheets
+                  Sync to Sheet
               </Button>
               { user && 
                   <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
@@ -640,10 +649,10 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10 border-b-2 border-border">
                 {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
+                  <TableRow key={headerGroup.id} className='bg-transparent shadow-none hover:bg-transparent'>
                     {headerGroup.headers.map((header) => {
                       return (
-                        <TableHead key={header.id} className={cn('whitespace-nowrap text-foreground font-semibold text-base', header.id === 'actions' ? 'no-print' : '')} style={{ width: header.getSize() }}>
+                        <TableHead key={header.id} className={cn('whitespace-nowrap text-foreground font-semibold text-base bg-background', header.id === 'actions' ? 'no-print' : '')} style={{ width: header.getSize() }}>
                           {header.isPlaceholder
                             ? null
                             : flexRender(
@@ -673,7 +682,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                           key={`main-${row.original.id}`}
                           data-state={row.getIsSelected() && 'selected'}
                           className={cn(
-                            "transition-shadow duration-200 shadow-sm hover:shadow-md bg-card/50",
+                            "transition-colors duration-200 bg-card/50 hover:bg-card",
                             hasHistory && "cursor-pointer"
                           )}
                           onClick={() => hasHistory && table.options.meta?.toggleCollapsible(row.original.id)}
@@ -774,6 +783,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    
 
     
 
