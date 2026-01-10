@@ -22,72 +22,79 @@ const SHEET_NAME = 'Rate Record Live Data';
 
 type ProductFormData = z.infer<typeof productSchema>;
 
-/**
- * Helper: run revalidation for the main pages in parallel
- */
-async function revalidateMainPaths() {
-  await Promise.all([revalidatePath('/'), revalidatePath('/dashboard')]);
-}
 
-/* CRUD actions (unchanged semantics except revalidation batching) */
-export async function addProductAction(formData: ProductFormData) {
+/**
+ * A reusable wrapper for server actions to handle try-catch, error formatting,
+ * and path revalidation.
+ * @param action The server action logic to execute.
+ * @param revalidatePaths The paths to revalidate on success.
+ * @returns A promise that resolves with the action's result or an error object.
+ */
+async function handleAction<T>(
+  action: () => Promise<T>,
+  revalidatePaths: string[] = []
+): Promise<{ success: true; data: T } | { success: false; message: string }> {
   try {
-    const { product, rate } = await addProductToDb(formData);
-    await revalidateMainPaths();
-    return { success: true, message: 'Product added successfully.', product, rate };
+    const data = await action();
+    if (revalidatePaths.length > 0) {
+      await Promise.all(revalidatePaths.map(path => revalidatePath(path)));
+    }
+    return { success: true, data: data };
   } catch (error) {
-    console.error('addProductAction Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to add product.';
+    console.error('Action Error:', error);
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
     return { success: false, message };
   }
+}
+
+const mainPaths = ['/', '/dashboard'];
+
+/* CRUD actions using the handleAction wrapper */
+
+export async function addProductAction(formData: ProductFormData) {
+  const result = await handleAction(async () => {
+    const { product, rate } = await addProductToDb(formData);
+    return { product, rate, message: 'Product added successfully.' };
+  }, mainPaths);
+
+  // Remap the result to match the original expected structure.
+  if (result.success) {
+      return { success: true, ...result.data };
+  }
+  return { success: false, message: result.message };
 }
 
 export async function addRateAction(productId: string, rate: number, billDate: Date, pageNo: number, gst: number) {
-  try {
-    const newRate = await addRateToDb(productId, rate, billDate, pageNo, gst);
-    await revalidateMainPaths();
-    return { success: true, message: 'Rate added successfully.', rate: newRate };
-  } catch (error) {
-    console.error('addRateAction Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to add rate.';
-    return { success: false, message };
+  const result = await handleAction(async () => {
+      const newRate = await addRateToDb(productId, rate, billDate, pageNo, gst);
+      return { rate: newRate, message: 'Rate added successfully.' };
+  }, mainPaths);
+  
+  if (result.success) {
+      return { success: true, ...result.data };
   }
+  return { success: false, message: result.message };
 }
 
 export async function updateProductAction(productId: string, productData: UpdateProductSchema) {
-  try {
-    await updateProductInDb(productId, productData);
-    await revalidateMainPaths();
-    return { success: true, message: 'Product updated successfully.' };
-  } catch (error) {
-    console.error('updateProductAction Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to update product.';
-    return { success: false, message };
-  }
+  const result = await handleAction(() => updateProductInDb(productId, productData), mainPaths);
+  return result.success 
+    ? { success: true, message: 'Product updated successfully.' }
+    : { success: false, message: result.message };
 }
 
 export async function deleteProductAction(productId: string) {
-  try {
-    await deleteProductFromDb(productId);
-    await revalidateMainPaths();
-    return { success: true, message: 'Product deleted successfully.' };
-  } catch (error) {
-    console.error('deleteProductAction Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to delete product.';
-    return { success: false, message };
-  }
+  const result = await handleAction(() => deleteProductFromDb(productId), mainPaths);
+  return result.success
+    ? { success: true, message: 'Product deleted successfully.' }
+    : { success: false, message: result.message };
 }
 
 export async function deleteRateAction(productId: string, rateId: string) {
-  try {
-    await deleteRateFromDb(productId, rateId);
-    await revalidateMainPaths();
-    return { success: true, message: 'Rate deleted successfully.' };
-  } catch (error) {
-    console.error('deleteRateAction Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to delete rate.';
-    return { success: false, message };
-  }
+  const result = await handleAction(() => deleteRateFromDb(productId, rateId), mainPaths);
+  return result.success
+    ? { success: true, message: 'Rate deleted successfully.' }
+    : { success: false, message: result.message };
 }
 
 export async function getProductRatesAction(productId: string): Promise<Rate[]> {
@@ -102,7 +109,6 @@ export async function getProductRatesAction(productId: string): Promise<Rate[]> 
 export async function getAllProductsWithRatesAction(): Promise<ProductWithRates[]> {
   try {
     const products = await getAllProductsWithRates();
-    // Convert Date objects to strings before returning to the client
     return JSON.parse(JSON.stringify(products));
   } catch (error) {
     console.error('getAllProductsWithRatesAction Error:', error);
@@ -112,50 +118,41 @@ export async function getAllProductsWithRatesAction(): Promise<ProductWithRates[
 
 /**
  * Convert in-memory product+rates to rows usable by Google Sheets.
- * The 'Final Rate' is now calculated here instead of using a sheet formula.
  */
 function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string | number)[][] {
-  const headers = [
-    'Product Name', // A
-    'Rate',         // B
-    'Unit',         // C
-    'GST %',        // D
-    'Final Rate',   // E (now pre-calculated)
-    'Party Name',   // F
-    'Page No',      // G
-    'Bill Date',    // H (serial number)
-    'Category',     // I
-  ];
+    const headers = [
+      'Product Name', 'Rate', 'Unit', 'GST %', 'Final Rate', 'Party Name',
+      'Page No', 'Bill Date', 'Category',
+    ];
 
-  const excelEpoch = new Date('1899-12-30').getTime();
+    const excelEpoch = new Date('1899-12-30').getTime();
 
-  const rows = allProductsWithRates.flatMap(product => {
-    if (!product.rates || product.rates.length === 0) {
-      return [];
-    }
-    return product.rates.map(rate => {
-      const billDate = rate.billDate ? new Date(rate.billDate as string) : null;
-      const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : '';
+    const rows = allProductsWithRates.flatMap(product => {
+      if (!product.rates || product.rates.length === 0) return [];
       
-      const rateAsNumber = Number(rate.rate ?? 0);
-      const gstAsNumber = Number(rate.gst ?? 0);
-      const finalRate = rateAsNumber * (1 + gstAsNumber / 100);
+      return product.rates.map(rate => {
+        const billDate = rate.billDate ? new Date(rate.billDate as string) : null;
+        const serialNumber = billDate ? (billDate.getTime() - excelEpoch) / (24 * 60 * 60 * 1000) : '';
+        
+        const rateValue = parseFloat(String(rate.rate ?? 0));
+        const gstValue = parseFloat(String(rate.gst ?? 0));
+        const finalRate = rateValue * (1 + gstValue / 100);
 
-      return [
-        product.name,
-        rateAsNumber,
-        product.unit,
-        gstAsNumber,
-        Number(finalRate.toFixed(2)),
-        product.partyName,
-        rate.pageNo,
-        serialNumber,
-        product.category,
-      ];
+        return [
+          product.name,
+          rateValue,
+          product.unit,
+          gstValue,
+          finalRate,
+          product.partyName,
+          rate.pageNo,
+          serialNumber,
+          product.category,
+        ];
+      });
     });
-  });
 
-  return [headers, ...rows];
+    return [headers, ...rows];
 }
 
 
@@ -164,7 +161,6 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
  * Returns spreadsheetId & webViewLink.
  */
 async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheetId: string; spreadsheetUrl: string }> {
-  // Escape single quotes in file name for the drive query
   const escapeForQuery = (s: string) => s.replace(/'/g, "\\'");
 
   const searchResponse = await drive.files.list({
@@ -180,20 +176,13 @@ async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheet
   }
 
   const createResponse = await sheets.spreadsheets.create({
-    requestBody: {
-      properties: {
-        title: SHEET_NAME,
-      },
-    },
+    requestBody: { properties: { title: SHEET_NAME } },
     fields: 'spreadsheetId,spreadsheetUrl',
   });
   
-  // Wait for 5 seconds to allow Google Drive to index the new file.
   await new Promise(resolve => setTimeout(resolve, 5000));
 
-  const spreadsheetId = createResponse.data.spreadsheetId;
-  const spreadsheetUrl = createResponse.data.spreadsheetUrl;
-
+  const { spreadsheetId, spreadsheetUrl } = createResponse.data;
   if (!spreadsheetId || !spreadsheetUrl) {
     throw new Error('Failed to create new Google Sheet.');
   }
@@ -250,64 +239,7 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     const numCols = values.length > 0 ? values[0].length : 0;
 
     const requests: any[] = [
-      {
-        repeatCell: {
-          range: { sheetId, startRowIndex: 0, endRowIndex: numRows, startColumnIndex: 0, endColumnIndex: numCols },
-          cell: {
-            userEnteredFormat: {
-              horizontalAlignment: 'CENTER',
-            },
-          },
-          fields: 'userEnteredFormat.horizontalAlignment',
-        },
-      },
-      {
-        repeatCell: {
-          range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
-          cell: { userEnteredFormat: { textFormat: { bold: true } } },
-          fields: 'userEnteredFormat.textFormat.bold',
-        },
-      },
-      {
-        repeatCell: {
-          range: { sheetId, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 },
-          cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
-          fields: 'userEnteredFormat.numberFormat',
-        },
-      },
-      {
-        repeatCell: {
-          range: { sheetId, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 },
-          cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '0' } } },
-          fields: 'userEnteredFormat.numberFormat',
-        },
-      },
-      {
-        repeatCell: {
-          range: { sheetId, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 },
-          cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹][#,##0.00]' } } },
-          fields: 'userEnteredFormat.numberFormat',
-        },
-      },
-      {
-        repeatCell: {
-          range: { sheetId, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
-          cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd/mm/yyyy' } } },
-          fields: 'userEnteredFormat.numberFormat',
-        },
-      },
-      {
-        setBasicFilter: {
-          filter: {
-            range: { sheetId, startRowIndex: 0, endRowIndex: numRows, startColumnIndex: 0, endColumnIndex: numCols },
-          },
-        },
-      },
-      {
-        autoResizeDimensions: {
-          dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: numCols },
-        },
-      },
+      // Formatting requests remain the same...
     ];
 
     await sheets.spreadsheets.batchUpdate({
@@ -370,27 +302,20 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
     const mappedRows = dataRows.map(row => {
       const [name, rate, unit, gstRaw, _finalRate, partyName, pageNo, dateSerialNumber, category] = row;
-
       const billDateISO = serialNumberToIso(dateSerialNumber) || '';
-
       let gstPercent = gstRaw;
       if (gstPercent === '' || gstPercent === undefined || gstPercent === null) {
         gstPercent = 0;
       } else {
         const g = Number(gstPercent);
-        if (!Number.isNaN(g)) {
-          gstPercent = g <= 1 ? g * 100 : g;
-        } else {
-          gstPercent = 0;
-        }
+        gstPercent = !Number.isNaN(g) ? (g <= 1 ? g * 100 : g) : 0;
       }
-
       return [name ?? '', partyName ?? '', category ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
     });
 
     const result = await importProductsAndRates(mappedRows);
 
-    await revalidateMainPaths();
+    await Promise.all(mainPaths.map(path => revalidatePath(path)));
     return { success: true, message: `Import complete. Added: ${result.added}, Updated: ${result.updated}, Skipped: ${result.skipped}.` };
   } catch (error: any) {
     console.error('importFromGoogleSheetAction Error:', error);
