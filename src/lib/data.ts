@@ -190,6 +190,9 @@ export async function importProductsAndRates(rows: any[][]) {
 
   const batch = writeBatch(db);
 
+  const validCategoriesLower = categories.map(c => c.toLowerCase());
+  const validUnitsLower = units.map(u => u.toLowerCase());
+
   for (const row of rows) {
     const [name, partyName, category, unit, billDateISO, pageNoStr, rateStr, gstStr] = row;
     
@@ -209,7 +212,8 @@ export async function importProductsAndRates(rows: any[][]) {
     if (
       !name || !partyName || !category || !unit ||
       isNaN(rate) || isNaN(pageNo) || isNaN(gst) || isNaN(billDate.getTime()) ||
-      !categories.includes(category as any) || !units.includes(unit as any)
+      !validCategoriesLower.includes(String(category).toLowerCase()) || 
+      !validUnitsLower.includes(String(unit).toLowerCase())
     ) {
       skipped++;
       continue; // Skip invalid row
@@ -231,7 +235,7 @@ export async function importProductsAndRates(rows: any[][]) {
                existingBillDate.getDate() === billDate.getDate();
       });
 
-      const areDetailsDifferent = existingProduct.category !== category || existingProduct.unit !== unit;
+      const areDetailsDifferent = existingProduct.category.toLowerCase() !== String(category).toLowerCase() || existingProduct.unit.toLowerCase() !== String(unit).toLowerCase();
 
       if (!rateAlreadyExists) {
         const newRateRef = doc(collection(db, PRODUCTS_COLLECTION, existingProduct.id, RATES_SUBCOLLECTION));
@@ -269,3 +273,4 @@ export async function importProductsAndRates(rows: any[][]) {
 
   return { added, updated, skipped };
 }
+

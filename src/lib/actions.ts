@@ -141,7 +141,7 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
           product.name,
           rateValue,
           product.unit,
-          gstValue, 
+          gstValue / 100, 
           null, 
           product.partyName,
           rate.pageNo,
@@ -219,10 +219,9 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     const allProductsWithRates = await getAllProductsWithRates();
     const values = convertDataForSheet(allProductsWithRates);
     
-    // Add formulas for the Final Rate column
     for (let i = 1; i < values.length; i++) { // Start from 1 to skip header
         const rowNum = i + 1;
-        values[i][4] = `=B${rowNum} * (1 + D${rowNum}/100)`;
+        values[i][4] = `=B${rowNum} * (1 + D${rowNum})`;
     }
 
 
@@ -238,66 +237,15 @@ export async function syncToGoogleSheetAction(accessToken: string) {
       requestBody: { values },
     });
     
-    // --- Add Formatting ---
     const requests = [
-        // 1. Bold Header
-        {
-            repeatCell: {
-                range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
-                cell: { userEnteredFormat: { textFormat: { bold: true } } },
-                fields: 'userEnteredFormat.textFormat.bold',
-            },
-        },
-        // 2. Freeze Header Row
-        {
-            updateSheetProperties: {
-                properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
-                fields: 'gridProperties.frozenRowCount',
-            },
-        },
-        // 3. Auto-resize all columns
-        {
-            autoResizeDimensions: {
-                dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 9 },
-            },
-        },
-        // 4. Format columns B and E as INR currency
-        {
-            repeatCell: {
-                range: { sheetId, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 },
-                cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } },
-                fields: 'userEnteredFormat.numberFormat',
-            },
-        },
-        {
-            repeatCell: {
-                range: { sheetId, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 },
-                cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } },
-                fields: 'userEnteredFormat.numberFormat',
-            },
-        },
-        // 5. Format column D as Percentage
-        {
-            repeatCell: {
-                range: { sheetId, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 },
-                cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } },
-                fields: 'userEnteredFormat.numberFormat',
-            },
-        },
-        // 6. Format column H as Date
-        {
-            repeatCell: {
-                range: { sheetId, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 },
-                cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd/mm/yyyy' } } },
-                fields: 'userEnteredFormat.numberFormat',
-            },
-        },
-        // 7. Add filter views
-        {
-            setBasicFilter: {
-                filter: { range: { sheetId } },
-            },
-        },
+        { repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: 'userEnteredFormat.textFormat.bold' } },
+        { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } },
+        { autoResizeDimensions: { dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 9 } } },
+        { repeatCell: { range: { sheetId, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } }, fields: 'userEnteredFormat.numberFormat' } },
+        { repeatCell: { range: { sheetId, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } }, fields: 'userEnteredFormat.numberFormat' } },
+        { repeatCell: { range: { sheetId, startColumnIndex: 3, endColumnIndex: 4, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } }, fields: 'userEnteredFormat.numberFormat' } },
+        { repeatCell: { range: { sheetId, startColumnIndex: 7, endColumnIndex: 8, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'dd/mm/yyyy' } } }, fields: 'userEnteredFormat.numberFormat' } },
+        { setBasicFilter: { filter: { range: { sheetId } } } },
     ];
 
     if (requests.length > 0) {
@@ -368,19 +316,26 @@ export async function importFromGoogleSheetAction(accessToken: string) {
       if (gstRaw !== '' && gstRaw !== undefined && gstRaw !== null) {
         const g = Number(gstRaw);
         if (!Number.isNaN(g)) {
-          gstPercent = g;
+           // This handles both decimal (0.05) and whole number (5) inputs from the sheet
+          gstPercent = g < 1 ? g * 100 : g;
         }
       }
-      // The order for importProductsAndRates is: name, partyName, category, unit, billDate, pageNo, rate, gst
-      return [name ?? '', partyName ?? '', category ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
+      return [name, partyName, category, unit, billDateISO, pageNo, rate, gstPercent];
     });
 
     const result = await importProductsAndRates(mappedRows);
 
     mainPaths.forEach(path => revalidatePath(path));
-    return { success: true, message: `Import complete. Added: ${result.added}, Updated: ${result.updated}, Skipped: ${result.skipped}.` };
+    
+    let message = `Import complete. Added: ${result.added}, Updated: ${result.updated}, Skipped: ${result.skipped}.`;
+    if (result.skipped > 0) {
+      message += " Skipped rows may have invalid data (e.g., category, unit) or may already exist."
+    }
+
+    return { success: true, message };
   } catch (error: any) {
     console.error('importFromGoogleSheetAction Error:', error);
     return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
   }
 }
+
