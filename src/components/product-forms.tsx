@@ -14,7 +14,7 @@ import {
   addRateAction,
   deleteRateAction,
 } from '@/lib/actions';
-import { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates, productSchema, units, updateProductSchema } from '@/lib/types';
+import { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates, productSchema, updateProductSchema } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -58,7 +58,7 @@ import { safeToDate } from '@/lib/utils';
 const getInitialAddFormValues = () => {
     return {
         name: '',
-        unit: 'piece' as const,
+        unit: 'piece',
         partyName: '',
         rate: '' as any,
         gst: '' as any,
@@ -168,16 +168,12 @@ export function ProductFormDialog({
                 <FormItem><FormLabel>Party Name</FormLabel><FormControl><Input placeholder="e.g. Global Foods Inc." {...field} /></FormControl><FormMessage /></FormItem>
               )}
             />
-            <FormField control={form.control} name="unit" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Unit</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select a unit" /></SelectTrigger></FormControl>
-                    <SelectContent>{units.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <FormMessage />
-                </FormItem>
-                )}
+            <FormField
+              control={form.control}
+              name="unit"
+              render={({ field }) => (
+                <FormItem><FormLabel>Unit</FormLabel><FormControl><Input placeholder="e.g. kg, piece, bottle" {...field} /></FormControl><FormMessage /></FormItem>
+              )}
             />
             {!isEditing && (
                 <>

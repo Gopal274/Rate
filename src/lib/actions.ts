@@ -13,7 +13,7 @@ import {
   importProductsAndRates,
 } from './data';
 import type { Rate, UpdateProductSchema, ProductWithRates } from './types';
-import { productSchema, units } from './types';
+import { productSchema } from './types';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
@@ -246,10 +246,12 @@ export async function syncToGoogleSheetAction(accessToken: string) {
         { setBasicFilter: { filter: { range: { sheetId } } } },
     ];
 
-    await sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
-        requestBody: { requests },
-    });
+    if (requests.length > 0) {
+      await sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: { requests },
+      });
+    }
     
 
     return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
@@ -328,7 +330,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     
     let message = `Import complete. Added: ${result.added}, Updated: ${result.updated}, Skipped: ${result.skipped}.`;
     if (result.skipped > 0) {
-      message += " Skipped rows may have invalid data (e.g., unit) or may already exist."
+      message += " Skipped rows may have invalid data or may already exist."
     }
 
     return { success: true, message };

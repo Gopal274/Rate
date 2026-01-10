@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-export const units = ['kg', 'piece', 'liter', 'meter', 'dozen'] as const;
-
 const billDateSchema = z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "A valid bill date is required.",
 });
@@ -9,7 +7,7 @@ const billDateSchema = z.string().refine((val) => !isNaN(Date.parse(val)), {
 // This schema is used for the form and includes the initial rate
 export const productSchema = z.object({
   name: z.string().min(3, { message: "Product name must be at least 3 characters." }),
-  unit: z.enum(units),
+  unit: z.string().min(1, { message: "Unit is required." }),
   partyName: z.string().min(3, { message: "Party name must be at least 3 characters." }),
   // The initial rate details are required when creating a new product
   rate: z.coerce.number().min(0.01, { message: "Rate must be a positive number." }),
@@ -24,7 +22,7 @@ export type ProductSchema = z.infer<typeof productSchema>;
 // This schema is used for updating a product's core details 
 export const updateProductSchema = z.object({
   name: z.string().min(3, { message: "Product name must be at least 3 characters." }),
-  unit: z.enum(units),
+  unit: z.string().min(1, { message: "Unit is required." }),
   partyName: z.string().min(3, { message: "Party name must be at least 3 characters." }),
 });
 
@@ -35,7 +33,7 @@ export type UpdateProductSchema = z.infer<typeof updateProductSchema>;
 export type Product = {
   id: string;
   name: string;
-  unit: typeof units[number];
+  unit: string;
   partyName: string;
 };
 

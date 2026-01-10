@@ -21,7 +21,6 @@ import {
 // IMPORTANT: Use the server-side initialization
 import { getSdks } from '@/firebase/server';
 import type { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates } from './types';
-import { units } from './types';
 
 
 // Helper to initialize Firebase Admin
@@ -190,8 +189,6 @@ export async function importProductsAndRates(rows: any[][]) {
 
   const batch = writeBatch(db);
 
-  const validUnitsLower = units.map(u => u.toLowerCase());
-
   for (const row of rows) {
     const [name, partyName, unit, billDateISO, pageNoStr, rateStr, gstStr] = row;
     
@@ -210,8 +207,7 @@ export async function importProductsAndRates(rows: any[][]) {
 
     if (
       !name || !partyName || !unit ||
-      isNaN(rate) || isNaN(pageNo) || isNaN(gst) || isNaN(billDate.getTime()) ||
-      !validUnitsLower.includes(String(unit).toLowerCase())
+      isNaN(rate) || isNaN(pageNo) || isNaN(gst) || isNaN(billDate.getTime())
     ) {
       skipped++;
       continue; // Skip invalid row
