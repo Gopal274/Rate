@@ -37,9 +37,9 @@ async function handleAction<T>(
   try {
     const data = await action();
     if (revalidatePaths.length > 0) {
-      await Promise.all(revalidatePaths.map(path => revalidatePath(path)));
+      revalidatePaths.forEach(path => revalidatePath(path));
     }
-    return { success: true, data: data };
+    return { success: true, data };
   } catch (error) {
     console.error('Action Error:', error);
     const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
@@ -217,7 +217,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     }
 
     const sheetProps = meta.data.sheets[0].properties!;
-    const sheetId = sheetProps.sheetId!;
     const sheetTitle = sheetProps.title || 'Sheet1';
 
     const allProductsWithRates = await getAllProductsWithRates();
@@ -233,18 +232,6 @@ export async function syncToGoogleSheetAction(accessToken: string) {
       range: `${sheetTitle}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values },
-    });
-
-    const numRows = values.length;
-    const numCols = values.length > 0 ? values[0].length : 0;
-
-    const requests: any[] = [
-      // Formatting requests remain the same...
-    ];
-
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: { requests },
     });
 
     return { success: true, message: `Data synced with Google Sheet!`, link: spreadsheetUrl };
@@ -315,7 +302,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
     const result = await importProductsAndRates(mappedRows);
 
-    await Promise.all(mainPaths.map(path => revalidatePath(path)));
+    mainPaths.forEach(path => revalidatePath(path));
     return { success: true, message: `Import complete. Added: ${result.added}, Updated: ${result.updated}, Skipped: ${result.skipped}.` };
   } catch (error: any) {
     console.error('importFromGoogleSheetAction Error:', error);
