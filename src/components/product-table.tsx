@@ -115,9 +115,9 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters', []);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v2', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
-  const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort', 'newest');
+  const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
 
   const [isAddProductOpen, setIsAddProductOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
@@ -215,7 +215,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
 
     switch (activeSort) {
       case 'oldest':
-        return dataToSort.sort((a, b) => new Date(a.rates[0].billDate).getTime() - new Date(b.rates[0].billDate).getTime());
+        return dataToSort.sort((a, b) => new Date(a.rates[0].billDate as string).getTime() - new Date(b.rates[0].billDate as string).getTime());
       case 'asc':
         return dataToSort.sort((a, b) => a.name.localeCompare(b.name));
       case 'desc':
@@ -696,5 +696,3 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
-
-    
