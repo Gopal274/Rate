@@ -6,6 +6,7 @@ import type { ProductWithRates } from '@/lib/types';
 import GroupedProductView from '@/components/dashboard';
 import { PartyDistributionChart } from '@/components/party-distribution-chart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { SummaryCards } from './summary-cards';
 
 export default function ClientDashboard({ productsWithRates }: { productsWithRates: ProductWithRates[] }) {
   const [openPartyAccordion, setOpenPartyAccordion] = useState<string | null>(null);
@@ -16,6 +17,7 @@ export default function ClientDashboard({ productsWithRates }: { productsWithRat
 
   return (
     <div className="space-y-6">
+      <SummaryCards productsWithRates={productsWithRates} />
       <Card>
         <CardHeader>
             <CardTitle>Party Distribution</CardTitle>
