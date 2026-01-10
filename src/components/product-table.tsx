@@ -32,7 +32,6 @@ import { format, isValid } from 'date-fns';
 
 import {
   syncToGoogleSheetAction,
-  importFromGoogleSheetAction,
 } from '@/lib/actions';
 import type { Product, Rate, ProductWithRates } from '@/lib/types';
 
@@ -115,7 +114,7 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v2', []);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v3', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
 
@@ -136,7 +135,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     }
   }, []);
 
-  const handleGoogleApiAction = async (action: 'sync' | 'import') => {
+  const handleGoogleApiAction = async (action: 'sync') => {
     if (!auth.currentUser) {
         toast({ title: 'Error', description: 'You must be signed in to perform this action.', variant: 'destructive'});
         return;
@@ -159,9 +158,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         if (action === 'sync') {
             toast({ title: 'Syncing Data...', description: 'Pushing all local data to your Google Sheet.' });
             actionResult = await syncToGoogleSheetAction(accessToken);
-        } else {
-            toast({ title: 'Importing Data...', description: 'Reading your Google Sheet and updating local data.' });
-            actionResult = await importFromGoogleSheetAction(accessToken);
         }
         
         if (actionResult.success) {
@@ -541,10 +537,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
               <Button onClick={handlePrint} variant="outline" size="icon">
                   <Printer className="h-4 w-4" />
                   <span className="sr-only">Print</span>
-              </Button>
-               <Button onClick={() => handleGoogleApiAction('import')} variant="outline">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import from Sheet
               </Button>
               <Button onClick={() => handleGoogleApiAction('sync')} variant="outline">
                   <Save className="mr-2 h-4 w-4" />
