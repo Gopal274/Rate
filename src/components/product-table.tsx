@@ -123,7 +123,7 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v7', []);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v8', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
 
@@ -636,7 +636,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
           </div>
         </CardHeader>
         <CardContent>
-          <div ref={tableContainerRef} className="rounded-md border relative overflow-auto" style={{ height: '60vh' }}>
+          <div ref={tableContainerRef} className="rounded-md relative overflow-auto" style={{ height: '60vh' }}>
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 {table.getHeaderGroups().map((headerGroup) => (
@@ -672,13 +672,16 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                         <TableRow
                           key={`main-${row.original.id}`}
                           data-state={row.getIsSelected() && 'selected'}
-                          className={cn(hasHistory && "cursor-pointer")}
+                          className={cn(
+                            "transition-shadow duration-200 shadow-sm hover:shadow-md bg-card/50",
+                            hasHistory && "cursor-pointer"
+                          )}
                           onClick={() => hasHistory && table.options.meta?.toggleCollapsible(row.original.id)}
                           data-index={virtualRow.index}
                           ref={node => rowVirtualizer.measureElement(node)}
                         >
                           {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id} className={cn('whitespace-nowrap', cell.column.id === 'actions' ? 'no-print' : '')}>
+                            <TableCell key={cell.id} className={cn('whitespace-nowrap bg-transparent', cell.column.id === 'actions' ? 'no-print' : '')}>
                               {flexRender(
                                 cell.column.columnDef.cell,
                                 cell.getContext()
@@ -689,7 +692,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                         {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
                           const finalRate = (rate.rate as number) * (1 + (rate.gst as number) / 100);
                           return (
-                            <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/50 hover:bg-muted/70">
+                            <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/30 hover:bg-muted/60">
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
@@ -771,5 +774,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    
 
     
