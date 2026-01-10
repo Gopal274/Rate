@@ -14,7 +14,7 @@ import {
   addRateAction,
   deleteRateAction,
 } from '@/lib/actions';
-import { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates, categories, productSchema, units, updateProductSchema } from '@/lib/types';
+import { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates, productSchema, units, updateProductSchema } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,7 +60,6 @@ const getInitialAddFormValues = () => {
         name: '',
         unit: 'piece' as const,
         partyName: '',
-        category: 'Other' as const,
         rate: '' as any,
         gst: '' as any,
         pageNo: '' as any,
@@ -73,7 +72,6 @@ const getInitialEditFormValues = (product: Product) => {
         name: product.name,
         unit: product.unit,
         partyName: product.partyName,
-        category: product.category,
     };
 };
 
@@ -170,30 +168,17 @@ export function ProductFormDialog({
                 <FormItem><FormLabel>Party Name</FormLabel><FormControl><Input placeholder="e.g. Global Foods Inc." {...field} /></FormControl><FormMessage /></FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
-               <FormField control={form.control} name="unit" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Unit</FormLabel>
-                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select a unit" /></SelectTrigger></FormControl>
-                        <SelectContent>{units.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField control={form.control} name="category" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger></FormControl>
-                        <SelectContent>{categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-            </div>
+            <FormField control={form.control} name="unit" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Unit</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a unit" /></SelectTrigger></FormControl>
+                    <SelectContent>{units.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
             {!isEditing && (
                 <>
                     <FormField

@@ -21,7 +21,7 @@ import {
 // IMPORTANT: Use the server-side initialization
 import { getSdks } from '@/firebase/server';
 import type { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates } from './types';
-import { categories, units } from './types';
+import { units } from './types';
 
 
 // Helper to initialize Firebase Admin
@@ -39,9 +39,9 @@ type ProductCreationData = Omit<ProductSchema, 'rate' | 'gst' | 'pageNo' | 'bill
 
 export const addProduct = async (formData: ProductSchema): Promise<{product: Product, rate: Rate}> => {
   const db = await getDb();
-  const { name, unit, partyName, category, rate, gst, pageNo, billDate } = formData;
+  const { name, unit, partyName, rate, gst, pageNo, billDate } = formData;
   
-  const productData: ProductCreationData = { name, unit, partyName, category };
+  const productData: ProductCreationData = { name, unit, partyName };
 
   const rateData = {
     rate,
@@ -171,7 +171,7 @@ export const getAllProductsWithRates = async (options?: { onlyLatestRate: boolea
 
 // Type for the data structure we'll use to check for existing products
 type ProductCheckMap = {
-  [key: string]: { id: string; rates: Rate[], category: string, unit: string };
+  [key: string]: { id: string; rates: Rate[], unit: string };
 };
 
 export async function importProductsAndRates(rows: any[][]) {
@@ -184,17 +184,16 @@ export async function importProductsAndRates(rows: any[][]) {
   const existingProductsData = await getAllProductsWithRates({ onlyLatestRate: false });
   const productCheckMap: ProductCheckMap = existingProductsData.reduce((acc, p) => {
     const key = `${p.name.toLowerCase()}_${p.partyName.toLowerCase()}`;
-    acc[key] = { id: p.id, rates: p.rates, category: p.category, unit: p.unit };
+    acc[key] = { id: p.id, rates: p.rates, unit: p.unit };
     return acc;
   }, {} as ProductCheckMap);
 
   const batch = writeBatch(db);
 
-  const validCategoriesLower = categories.map(c => c.toLowerCase());
   const validUnitsLower = units.map(u => u.toLowerCase());
 
   for (const row of rows) {
-    const [name, partyName, category, unit, billDateISO, pageNoStr, rateStr, gstStr] = row;
+    const [name, partyName, unit, billDateISO, pageNoStr, rateStr, gstStr] = row;
     
     // 2. Data Validation & Conversion
     const rate = parseFloat(rateStr);
@@ -210,9 +209,8 @@ export async function importProductsAndRates(rows: any[][]) {
     }
 
     if (
-      !name || !partyName || !category || !unit ||
+      !name || !partyName || !unit ||
       isNaN(rate) || isNaN(pageNo) || isNaN(gst) || isNaN(billDate.getTime()) ||
-      !validCategoriesLower.includes(String(category).toLowerCase()) || 
       !validUnitsLower.includes(String(unit).toLowerCase())
     ) {
       skipped++;
@@ -235,7 +233,7 @@ export async function importProductsAndRates(rows: any[][]) {
                existingBillDate.getDate() === billDate.getDate();
       });
 
-      const areDetailsDifferent = existingProduct.category.toLowerCase() !== String(category).toLowerCase() || existingProduct.unit.toLowerCase() !== String(unit).toLowerCase();
+      const areDetailsDifferent = existingProduct.unit.toLowerCase() !== String(unit).toLowerCase();
 
       if (!rateAlreadyExists) {
         const newRateRef = doc(collection(db, PRODUCTS_COLLECTION, existingProduct.id, RATES_SUBCOLLECTION));
@@ -245,7 +243,7 @@ export async function importProductsAndRates(rows: any[][]) {
       
       if (areDetailsDifferent) {
         const productRef = doc(db, PRODUCTS_COLLECTION, existingProduct.id);
-        batch.update(productRef, { category, unit });
+        batch.update(productRef, { unit });
         if (rateAlreadyExists) updated++; // Count as update if only details changed
       }
 
@@ -256,13 +254,13 @@ export async function importProductsAndRates(rows: any[][]) {
     } else {
       // 4. New product: Add product and its first rate
       const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
-      batch.set(newProductRef, { name, partyName, category, unit });
+      batch.set(newProductRef, { name, partyName, unit });
 
       const newRateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
       batch.set(newRateRef, { rate, gst, pageNo, billDate, createdAt: serverTimestamp() });
       
       // Add to our map so we don't re-add it if it appears again in the same sheet
-      productCheckMap[productKey] = { id: newProductRef.id, rates: [{ rate, billDate } as Rate], category, unit };
+      productCheckMap[productKey] = { id: newProductRef.id, rates: [{ rate, billDate } as Rate], unit };
       
       added++;
     }
@@ -273,4 +271,3 @@ export async function importProductsAndRates(rows: any[][]) {
 
   return { added, updated, skipped };
 }
-

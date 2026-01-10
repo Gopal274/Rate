@@ -13,7 +13,7 @@ import {
   importProductsAndRates,
 } from './data';
 import type { Rate, UpdateProductSchema, ProductWithRates } from './types';
-import { productSchema, categories, units } from './types';
+import { productSchema, units } from './types';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
@@ -122,7 +122,7 @@ export async function getAllProductsWithRatesAction(): Promise<ProductWithRates[
 function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string | number | null)[][] {
     const headers = [
       'Product Name', 'Rate', 'Unit', 'GST %', 'Final Rate', 'Party Name',
-      'Page No', 'Bill Date', 'Category',
+      'Page No', 'Bill Date',
     ];
 
     // The Final Rate header will be replaced by an ArrayFormula
@@ -150,7 +150,6 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
           product.partyName,
           rate.pageNo,
           serialNumber,
-          product.category,
         ];
       });
     });
@@ -238,7 +237,7 @@ export async function syncToGoogleSheetAction(accessToken: string) {
     const requests = [
         { repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: 'userEnteredFormat.textFormat.bold' } },
         { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } },
-        { autoResizeDimensions: { dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 9 } } },
+        { autoResizeDimensions: { dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 8 } } },
         // Apply formatting to entire columns
         { repeatCell: { range: { sheetId, startColumnIndex: 1, endColumnIndex: 2, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } }, fields: 'userEnteredFormat.numberFormat' } },
         { repeatCell: { range: { sheetId, startColumnIndex: 4, endColumnIndex: 5, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } }, fields: 'userEnteredFormat.numberFormat' } },
@@ -294,7 +293,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
 
     const sheetDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Sheet1!A:I',
+      range: 'Sheet1!A:H',
       valueRenderOption: 'UNFORMATTED_VALUE',
       dateTimeRenderOption: 'SERIAL_NUMBER',
     });
@@ -307,8 +306,8 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     const dataRows = rows.slice(1);
 
     const mappedRows = dataRows.map(row => {
-      // Correct order: 'Product Name', 'Rate', 'Unit', 'GST %', 'Final Rate', 'Party Name', 'Page No', 'Bill Date', 'Category'
-      const [name, rate, unit, gstRaw, _finalRate, partyName, pageNo, dateSerialNumber, category] = row;
+      // Correct order from sheet: 'Product Name', 'Rate', 'Unit', 'GST %', 'Final Rate', 'Party Name', 'Page No', 'Bill Date'
+      const [name, rate, unit, gstRaw, _finalRate, partyName, pageNo, dateSerialNumber] = row;
       const billDateISO = serialNumberToIso(dateSerialNumber) || '';
       
       let gstPercent = 0;
@@ -319,8 +318,8 @@ export async function importFromGoogleSheetAction(accessToken: string) {
           gstPercent = g < 1 ? g * 100 : g;
         }
       }
-      // Correct mapping for importProductsAndRates: [name, partyName, category, unit, billDate, pageNo, rate, gst]
-      return [name ?? '', partyName ?? '', category ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
+      // Correct mapping for importProductsAndRates: [name, partyName, unit, billDate, pageNo, rate, gst]
+      return [name ?? '', partyName ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
     });
 
     const result = await importProductsAndRates(mappedRows);
@@ -329,7 +328,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     
     let message = `Import complete. Added: ${result.added}, Updated: ${result.updated}, Skipped: ${result.skipped}.`;
     if (result.skipped > 0) {
-      message += " Skipped rows may have invalid data (e.g., category, unit) or may already exist."
+      message += " Skipped rows may have invalid data (e.g., unit) or may already exist."
     }
 
     return { success: true, message };

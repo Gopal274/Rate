@@ -70,7 +70,7 @@ import {
 } from './ui/card';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { ScrollArea } from './ui/scroll-area';
-import { GoogleAuthProvider, signInWithPopup, UserCredential, getRedirectResult, getAuth, signInWithRedirect } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import {
     ProductFormDialog,
     AddRateDialog,
@@ -200,12 +200,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     const partyNames = new Set(allProductsWithRates.map(p => p.partyName));
     return Array.from(partyNames).sort();
   }, [allProductsWithRates]);
-
-  const uniqueCategories = React.useMemo(() => {
-    const categoryNames = new Set(allProductsWithRates.map(p => p.category));
-    return Array.from(categoryNames).sort();
-  }, [allProductsWithRates]);
-
 
   const sortedData = React.useMemo(() => {
     let dataToSort = [...allProductsWithRates].filter(p => p.rates.length > 0); 
@@ -418,63 +412,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       enableSorting: false,
     },
     {
-      accessorKey: 'category',
-      header: ({ column }) => {
-        const selectedCategories = (column?.getFilterValue() as string[] | undefined) ?? [];
-        
-        return (
-          <div className="flex items-center gap-2">
-            Category
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
-                  <Filter className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={selectedCategories.length === uniqueCategories.length}
-                  onCheckedChange={(checked) => column?.setFilterValue(checked ? uniqueCategories : [])}
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  Select All
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuSeparator />
-                <ScrollArea className="h-48">
-                {uniqueCategories.map(category => (
-                    <DropdownMenuCheckboxItem
-                        key={category}
-                        checked={selectedCategories.includes(category)}
-                        onCheckedChange={(checked) => {
-                            const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
-                            if (checked) {
-                                column?.setFilterValue([...currentSelection, category]);
-                            } else {
-                                column?.setFilterValue(currentSelection.filter(c => c !== category));
-                            }
-                        }}
-                        onSelect={(e) => e.preventDefault()}
-                    >
-                        {category}
-                    </DropdownMenuCheckboxItem>
-                ))}
-                </ScrollArea>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => column?.setFilterValue([])}>
-                    <RotateCcw className="mr-2 h-4 w-4" /> Clear Filter
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )
-      },
-      cell: ({ row }) => row.original.category,
-      enableSorting: false,
-      filterFn: multiSelectFilterFn,
-    },
-    {
       id: 'actions',
       header: () => <div className="text-center no-print">Actions</div>,
       cell: ({ row }) => {
@@ -539,7 +476,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       },
       enableSorting: false,
     },
-  ], [openCollapsibles, uniquePartyNames, uniqueCategories, setActiveSort]);
+  ], [openCollapsibles, uniquePartyNames, setActiveSort]);
 
   const table = useReactTable({
     data: sortedData,
@@ -690,7 +627,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                               <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
                               <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
                               <TableCell className='whitespace-nowrap'>{format(safeToDate(rate.billDate), 'dd/MM/yy')}</TableCell>
-                              <TableCell className='whitespace-nowrap'>{row.original.category}</TableCell>
                               <TableCell className="no-print whitespace-nowrap">
                                 <TooltipProvider>
                                   <div className="flex items-center justify-center">

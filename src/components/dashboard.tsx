@@ -87,7 +87,6 @@ const GroupedProductView: React.FC<GroupedProductViewProps> = ({ allProducts, op
                         <TableHeader>
                         <TableRow>
                             <TableHead>Product Name</TableHead>
-                            <TableHead>Category</TableHead>
                             <TableHead className="text-right">Latest Rate</TableHead>
                             <TableHead className="text-right">GST %</TableHead>
                             <TableHead className="text-right">Final Rate</TableHead>
@@ -101,7 +100,6 @@ const GroupedProductView: React.FC<GroupedProductViewProps> = ({ allProducts, op
                             return (
                             <TableRow key={product.id}>
                                 <TableCell className="font-medium">{product.name}</TableCell>
-                                <TableCell>{product.category}</TableCell>
                                 <TableCell className="text-right">
                                     {latestRate ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(latestRate.rate) : '-'}
                                 </TableCell>
