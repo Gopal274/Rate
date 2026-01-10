@@ -365,12 +365,14 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     const mappedRows = dataRows.map(row => {
       const [name, rate, unit, gstRaw, _finalRate, partyName, pageNo, dateSerialNumber, category] = row;
       const billDateISO = serialNumberToIso(dateSerialNumber) || '';
-      let gstPercent = gstRaw;
-      if (gstPercent === '' || gstPercent === undefined || gstPercent === null) {
-        gstPercent = 0;
-      } else {
-        const g = Number(gstPercent);
-        gstPercent = !Number.isNaN(g) ? (g <= 1 ? g * 100 : g) : 0;
+      
+      let gstPercent = 0;
+      if (gstRaw !== '' && gstRaw !== undefined && gstRaw !== null) {
+        const g = Number(gstRaw);
+        if (!Number.isNaN(g)) {
+           // If the value is a decimal like 0.05, convert to 5. Otherwise, use as is.
+          gstPercent = g < 1 ? g * 100 : g;
+        }
       }
       return [name ?? '', partyName ?? '', category ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
     });

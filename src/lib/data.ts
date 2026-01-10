@@ -191,20 +191,16 @@ export async function importProductsAndRates(rows: any[][]) {
   const batch = writeBatch(db);
 
   for (const row of rows) {
-    const [name, partyName, category, unit, dateSerialNumber, pageNoStr, rateStr, gstStr] = row;
+    const [name, partyName, category, unit, billDateISO, pageNoStr, rateStr, gstStr] = row;
     
     // 2. Data Validation & Conversion
     const rate = parseFloat(rateStr);
     const pageNo = parseInt(pageNoStr, 10);
-    const gstValue = parseFloat(gstStr);
-    const gst = isNaN(gstValue) ? 0 : gstValue;
+    const gst = parseFloat(gstStr); // GST is already a percentage number here
 
-    // Convert bill date from sheet. It might be a number (serial) or a string.
     let billDate: Date;
-    if (typeof dateSerialNumber === 'number') {
-        billDate = new Date(Date.UTC(1899, 11, 30 + dateSerialNumber));
-    } else if (typeof dateSerialNumber === 'string' && !isNaN(Date.parse(dateSerialNumber))) {
-        billDate = new Date(dateSerialNumber);
+    if (billDateISO && typeof billDateISO === 'string' && !isNaN(Date.parse(billDateISO))) {
+        billDate = new Date(billDateISO);
     } else {
         skipped++;
         continue; // Skip if date is invalid
@@ -212,7 +208,7 @@ export async function importProductsAndRates(rows: any[][]) {
 
     if (
       !name || !partyName || !category || !unit ||
-      isNaN(rate) || isNaN(pageNo) || isNaN(billDate.getTime()) ||
+      isNaN(rate) || isNaN(pageNo) || isNaN(gst) || isNaN(billDate.getTime()) ||
       !categories.includes(category as any) || !units.includes(unit as any)
     ) {
       skipped++;
