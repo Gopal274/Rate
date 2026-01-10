@@ -320,7 +320,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
           gstPercent = g < 1 ? g * 100 : g;
         }
       }
-      // Correct mapping for importProductsAndRates: [name, partyName, unit, billDate, pageNo, rate, gst]
+      
       return [name ?? '', partyName ?? '', unit ?? '', billDateISO, pageNo ?? '', rate ?? '', gstPercent];
     });
 
