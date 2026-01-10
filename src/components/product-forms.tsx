@@ -53,6 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { safeToDate } from '@/lib/utils';
 
 const getInitialAddFormValues = () => {
     return {
@@ -438,7 +439,7 @@ export function DeleteRateDialog({
             <AlertDialogHeader>
             <AlertDialogTitle>Delete This Rate?</AlertDialogTitle>
             <AlertDialogDescription>
-                Are you sure you want to delete the rate of <span className="font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rateInfo.rate.rate as number)}</span> from <span className="font-semibold text-foreground">{format(new Date(rateInfo.rate.createdAt as string), 'dd/MM/yy')}</span>? This action cannot be undone.
+                Are you sure you want to delete the rate of <span className="font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rateInfo.rate.rate as number)}</span> from <span className="font-semibold text-foreground">{format(safeToDate(rateInfo.rate.createdAt), 'dd/MM/yy')}</span>? This action cannot be undone.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
