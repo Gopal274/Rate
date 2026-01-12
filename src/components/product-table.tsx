@@ -27,8 +27,6 @@ import {
   RotateCcw,
   Download,
   Upload,
-  MoreVertical,
-  Building,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -79,9 +77,8 @@ import {
     DeleteProductDialog,
     DeleteRateDialog
 } from './product-forms';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 
-type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc' | 'final-rate-asc' | 'final-rate-desc';
+type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc';
 
 const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
     if (!filterValue || (Array.isArray(filterValue) && filterValue.length === 0)) {
@@ -128,92 +125,6 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
-};
-
-// Mobile Card component
-const ProductCard = ({ 
-    product,
-    onAddRate,
-    onEdit,
-    onDeleteRate,
-    onDeleteProduct,
-}: { 
-    product: ProductWithRates, 
-    onAddRate: () => void,
-    onEdit: () => void,
-    onDeleteRate: () => void,
-    onDeleteProduct: () => void,
-}) => {
-    const latestRate = product.rates[0];
-    const finalRate = latestRate ? (latestRate.rate as number) * (1 + (latestRate.gst as number) / 100) : 0;
-    const hasHistory = product.rates.length > 1;
-    const canDeleteRate = product.rates.length > 1;
-
-    return (
-        <Card className="w-full">
-            <CardHeader className="p-4">
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                        <CardTitle className="text-base capitalize">{product.name}</CardTitle>
-                        <CardDescription className="capitalize">{product.partyName}</CardDescription>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-lg font-bold">{formatCurrency(finalRate)}</p>
-                        {latestRate && <p className="text-xs text-muted-foreground">{format(safeToDate(latestRate.billDate), 'dd MMM yyyy')}</p>}
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="p-0">
-                <Accordion type="single" collapsible>
-                    <AccordionItem value="details" className="border-b-0">
-                         <AccordionTrigger className="p-4 text-sm font-medium text-muted-foreground">More details</AccordionTrigger>
-                         <AccordionContent className="p-4 pt-0 space-y-4">
-                            {latestRate && (
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                        <p className="font-medium text-muted-foreground">Base Rate</p>
-                                        <p>{formatCurrency(latestRate.rate as number)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-muted-foreground">GST</p>
-                                        <p>{latestRate.gst}%</p>
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-muted-foreground">Unit</p>
-                                        <p className="capitalize">{product.unit}</p>
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-muted-foreground">Page No.</p>
-                                        <p>{latestRate.pageNo}</p>
-                                    </div>
-                                </div>
-                            )}
-
-                             {hasHistory && (
-                                <div className="space-y-2">
-                                    <h4 className="text-sm font-semibold">Rate History</h4>
-                                    <ScrollArea className="h-32 rounded-md border p-2">
-                                        {product.rates.slice(1).map(rate => (
-                                            <div key={rate.id} className="flex justify-between items-center text-xs p-1 rounded-sm hover:bg-muted">
-                                                <span>{format(safeToDate(rate.billDate), 'dd/MM/yy')}: {formatCurrency(rate.rate as number)}</span>
-                                            </div>
-                                        ))}
-                                    </ScrollArea>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-2 border-t pt-4">
-                                <Button variant="ghost" size="sm" onClick={onAddRate}><PlusCircle className="mr-2 h-4 w-4" /> Add Rate</Button>
-                                <Button variant="ghost" size="sm" onClick={onEdit}><Edit className="mr-2 h-4 w-4" /> Edit</Button>
-                                {canDeleteRate && <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700" onClick={onDeleteRate}><Trash2 className="mr-2 h-4 w-4" />Del. Rate</Button>}
-                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDeleteProduct}><XCircle className="mr-2 h-4 w-4" /> Del. Product</Button>
-                            </div>
-                         </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-            </CardContent>
-        </Card>
-    );
 };
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
@@ -310,16 +221,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
 
   const sortedData = React.useMemo(() => {
     let dataToSort = [...allProductsWithRates].filter(p => p.rates.length > 0); 
-    
-    const getFinalRate = (p: ProductWithRates) => {
-        const latestRateInfo = p.rates[0];
-        if (!latestRateInfo) return 0;
-        const rate = latestRateInfo.rate;
-        const gst = latestRateInfo.gst;
-        if (typeof rate !== 'number' || typeof gst !== 'number') return 0;
-        return rate * (1 + gst / 100);
-    };
-
     switch (activeSort) {
       case 'oldest':
         return dataToSort.sort((a, b) => new Date(a.rates[0].billDate as string).getTime() - new Date(b.rates[0].billDate as string).getTime());
@@ -327,14 +228,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         return dataToSort.sort((a, b) => a.name.localeCompare(b.name));
       case 'desc':
         return dataToSort.sort((a, b) => b.name.localeCompare(a.name));
-      case 'party-asc':
-        return dataToSort.sort((a, b) => a.partyName.localeCompare(b.partyName));
-      case 'party-desc':
-        return dataToSort.sort((a, b) => b.partyName.localeCompare(a.partyName));
-       case 'final-rate-asc':
-        return dataToSort.sort((a, b) => getFinalRate(a) - getFinalRate(b));
-      case 'final-rate-desc':
-        return dataToSort.sort((a, b) => getFinalRate(b) - getFinalRate(a));
       case 'newest':
       default:
         return dataToSort.sort((a, b) => safeToDate(b.rates[0].createdAt).getTime() - safeToDate(a.rates[0].createdAt).getTime());
@@ -377,7 +270,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             <div onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
                     <ArrowUpDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -392,15 +285,11 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             <div onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
-                      {alphabetFilterValue.length === 1 ? (
-                          <span className="font-bold">{alphabetFilterValue[0]}</span>
-                      ) : (
-                          <Filter className="h-4 w-4" />
-                      )}
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <Filter className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuContent align="start">
                   <DropdownMenuLabel>Filter by First Letter</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuCheckboxItem
@@ -419,7 +308,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                           onCheckedChange={(checked) => {
                               const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
                               if (checked) {
-                                  column?.setFilterValue([letter]); // Only allow one letter to be selected at a time
+                                  column?.setFilterValue([...currentSelection, letter]);
                               } else {
                                   column?.setFilterValue(currentSelection.filter(l => l !== letter));
                               }
@@ -440,7 +329,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
           </div>
         )
       },
-      cell: ({ row }) => <span className="capitalize">{row.original.name}</span>,
+      cell: ({ row }) => row.original.name,
       filterFn: startsWithFilterFn,
     },
     {
@@ -459,7 +348,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     {
       accessorKey: 'unit',
       header: 'Unit',
-      cell: ({ row }) => <span className="capitalize">{row.original.unit}</span>,
       enableSorting: false,
     },
     {
@@ -470,16 +358,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     },
     {
       id: 'finalRate',
-      header: () => {
-        return (
-            <div className="flex items-center justify-end gap-2">
-                Final Rate
-                <Button variant="ghost" size="icon" className="h-7 w-7 no-print" onClick={() => setActiveSort(prev => prev === 'final-rate-desc' ? 'final-rate-asc' : 'final-rate-desc')}>
-                    <ArrowUpDown className="h-4 w-4" />
-                </Button>
-            </div>
-        );
-      },
+      header: () => <div className="text-right">Final Rate</div>,
       cell: ({ row }) => {
         const latestRateInfo = row.original.rates[0];
         if (!latestRateInfo) return null;
@@ -498,46 +377,29 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       accessorKey: 'partyName',
       header: ({ column }) => {
         const selectedParties = (column?.getFilterValue() as string[] | undefined) ?? [];
-        const [searchTerm, setSearchTerm] = React.useState('');
-
-        const filteredParties = React.useMemo(() => {
-            return uniquePartyNames.filter(party => party.toLowerCase().includes(searchTerm.toLowerCase()));
-        }, [uniquePartyNames, searchTerm]);
-
 
         return (
           <div className="flex items-center gap-2">
-            <Building className="h-4 w-4 text-muted-foreground" />
-            Category
+            <span>Party Name</span>
              <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
+                <Button variant="ghost" size="icon" className="h-7 w-7">
                   <Filter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <div className="p-2">
-                    <Input
-                        placeholder="Search categories..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full"
-                        autoFocus
-                    />
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
+              <DropdownMenuContent align="start">
+                <DropdownMenuLabel>Filter by Party</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
-                  checked={selectedParties.length === filteredParties.length}
-                  onCheckedChange={(checked) => column?.setFilterValue(checked ? filteredParties : [])}
+                  checked={selectedParties.length === uniquePartyNames.length}
+                  onCheckedChange={(checked) => column?.setFilterValue(checked ? uniquePartyNames : [])}
                   onSelect={(e) => e.preventDefault()}
                 >
                   Select All
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuSeparator />
                 <ScrollArea className="h-48">
-                {filteredParties.map(party => (
+                {uniquePartyNames.map(party => (
                     <DropdownMenuCheckboxItem
                         key={party}
                         checked={selectedParties.includes(party)}
@@ -556,9 +418,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 ))}
                 </ScrollArea>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setActiveSort('party-asc')}>Sort A-Z</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveSort('party-desc')}>Sort Z-A</DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => column?.setFilterValue([])}>
                     <RotateCcw className="mr-2 h-4 w-4" /> Clear Filter
                 </DropdownMenuItem>
@@ -567,7 +426,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
           </div>
         )
       },
-      cell: ({ row }) => <span className="capitalize">{row.original.partyName}</span>,
       enableSorting: false,
       filterFn: multiSelectFilterFn,
     },
@@ -705,8 +563,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
               <CardTitle>Products</CardTitle>
               <CardDescription>Manage your products and their rates.</CardDescription>
             </div>
-             <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap no-print">
-               <Input
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+              <Input
                 placeholder="Filter products..."
                 value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
                 onChange={(event) =>
@@ -714,29 +572,18 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 }
                 className="max-w-xs"
               />
-               <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-10 w-10">
-                          <MoreVertical className="h-4 w-4" />
-                          <span className="sr-only">More actions</span>
-                      </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleGoogleApiAction('import')}>
-                          <Download className="mr-2 h-4 w-4" />
-                          Import from Sheet
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleGoogleApiAction('export')}>
-                          <Upload className="mr-2 h-4 w-4" />
-                          Export to Sheet
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handlePrint}>
-                          <Printer className="mr-2 h-4 w-4" />
-                          Print
-                      </DropdownMenuItem>
-                  </DropdownMenuContent>
-              </DropdownMenu>
+               <Button variant="outline" size="sm" onClick={() => handleGoogleApiAction('import')}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Import
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleGoogleApiAction('export')}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Export
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePrint} className="no-print">
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+              </Button>
               { user && 
                   <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
                       <Button onClick={() => setIsAddProductOpen(true)} className="w-full sm:w-auto">
@@ -748,39 +595,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
           </div>
         </CardHeader>
         <CardContent>
-        {/* Mobile View: Card List */}
-        <div className="md:hidden space-y-4 no-print">
-            {rows.length > 0 ? (
-                rows.map(row => (
-                    <ProductCard 
-                        key={row.original.id} 
-                        product={row.original}
-                        onAddRate={() => setAddingRateToProduct(row.original)}
-                        onEdit={() => setEditingProduct(row.original)}
-                        onDeleteRate={() => {
-                            if(row.original.rates[0]) {
-                                setDeletingRateInfo({ product: row.original, rate: row.original.rates[0] as Rate })
-                            }
-                        }}
-                        onDeleteProduct={() => setDeletingProduct(row.original)}
-                    />
-                ))
-            ) : (
-                <div className="h-24 text-center flex items-center justify-center">
-                    <p>No products found.</p>
-                </div>
-            )}
-        </div>
-
-        {/* Desktop View: Table */}
-        <div ref={tableContainerRef} className="rounded-md relative overflow-auto print-table-view" style={{ height: '60vh' }}>
+          <div ref={tableContainerRef} className="rounded-md border relative overflow-auto print-table-view" style={{ height: '60vh' }}>
             <Table>
-              <TableHeader className="sticky top-0 bg-background z-10 border-b-2 border-border">
+              <TableHeader className="sticky top-0 bg-background z-10">
                 {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id} className='bg-transparent shadow-none hover:bg-transparent'>
+                  <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
                       return (
-                        <TableHead key={header.id} className={cn('whitespace-nowrap text-foreground font-semibold text-base bg-background', header.id === 'actions' ? 'no-print' : '')} style={{ width: header.getSize() }}>
+                        <TableHead key={header.id} style={{ width: header.getSize() }}>
                           {header.isPlaceholder
                             ? null
                             : flexRender(
@@ -810,15 +632,15 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                           key={`main-${row.original.id}`}
                           data-state={row.getIsSelected() && 'selected'}
                           className={cn(
-                            "transition-colors duration-200 bg-card/50 hover:bg-card",
-                            hasHistory && "cursor-pointer"
+                            "transition-colors duration-200",
+                            hasHistory && "cursor-pointer hover:bg-muted/50"
                           )}
                           onClick={() => hasHistory && table.options.meta?.toggleCollapsible(row.original.id)}
                           data-index={virtualRow.index}
                           ref={node => rowVirtualizer.measureElement(node)}
                         >
                           {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id} className={cn('whitespace-nowrap bg-transparent capitalize', cell.column.id === 'actions' ? 'no-print' : '')}>
+                            <TableCell key={cell.id} className='whitespace-nowrap'>
                               {flexRender(
                                 cell.column.columnDef.cell,
                                 cell.getContext()
@@ -832,14 +654,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                             <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/30 hover:bg-muted/60">
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
-                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground normal-case">
+                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                                 {format(safeToDate(rate.createdAt), 'dd/MM/yy, h:mm a')}
                               </TableCell>
                               <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(rate.rate as number)}</TableCell>
-                              <TableCell className='whitespace-nowrap capitalize'>{row.original.unit}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
                               <TableCell className='text-center whitespace-nowrap'>{rate.gst}%</TableCell>
                               <TableCell className="text-right font-bold whitespace-nowrap">{formatCurrency(finalRate)}</TableCell>
-                              <TableCell className='whitespace-nowrap capitalize'>{row.original.partyName}</TableCell>
+                              <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
                               <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
                               <TableCell className='whitespace-nowrap'>{format(safeToDate(rate.billDate), 'dd/MM/yy')}</TableCell>
                               <TableCell className="no-print whitespace-nowrap">
@@ -911,7 +733,5 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
-
-    
 
     
