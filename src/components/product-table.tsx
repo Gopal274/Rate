@@ -202,12 +202,11 @@ const ProductCard = ({
                                 </div>
                             )}
 
-                            <div className="flex justify-end gap-2 border-t pt-4">
+                            <div className="grid grid-cols-2 gap-2 border-t pt-4">
                                 <Button variant="ghost" size="sm" onClick={onAddRate}><PlusCircle className="mr-2 h-4 w-4" /> Add Rate</Button>
                                 <Button variant="ghost" size="sm" onClick={onEdit}><Edit className="mr-2 h-4 w-4" /> Edit</Button>
-                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={canDeleteRate ? onDeleteRate : onDeleteProduct}>
-                                    <Trash2 className="mr-2 h-4 w-4" /> {canDeleteRate ? 'Delete Rate' : 'Delete'}
-                                </Button>
+                                {canDeleteRate && <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700" onClick={onDeleteRate}><Trash2 className="mr-2 h-4 w-4" />Del. Rate</Button>}
+                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDeleteProduct}><XCircle className="mr-2 h-4 w-4" /> Del. Product</Button>
                             </div>
                          </AccordionContent>
                     </AccordionItem>
@@ -622,20 +621,19 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
+                      disabled={!canDeleteRate}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (canDeleteRate && latestRate) {
                             setDeletingRateInfo({ product, rate: latestRate as Rate });
-                        } else {
-                            setDeletingProduct(product);
                         }
                       }}
                     >
-                      <Trash2 className="h-4 w-4 text-orange-600" />
+                      <Trash2 className={cn("h-4 w-4", canDeleteRate ? "text-orange-600" : "text-muted-foreground/50")} />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {canDeleteRate ? 'Delete Latest Rate' : 'Delete Product'}
+                    {canDeleteRate ? 'Delete Latest Rate' : 'Cannot delete the only rate'}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -751,7 +749,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         </CardHeader>
         <CardContent>
         {/* Mobile View: Card List */}
-        <div className="md:hidden space-y-4">
+        <div className="md:hidden space-y-4 no-print">
             {rows.length > 0 ? (
                 rows.map(row => (
                     <ProductCard 
@@ -759,7 +757,11 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                         product={row.original}
                         onAddRate={() => setAddingRateToProduct(row.original)}
                         onEdit={() => setEditingProduct(row.original)}
-                        onDeleteRate={() => setDeletingRateInfo({ product: row.original, rate: row.original.rates[0] as Rate })}
+                        onDeleteRate={() => {
+                            if(row.original.rates[0]) {
+                                setDeletingRateInfo({ product: row.original, rate: row.original.rates[0] as Rate })
+                            }
+                        }}
                         onDeleteProduct={() => setDeletingProduct(row.original)}
                     />
                 ))
@@ -771,7 +773,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         </div>
 
         {/* Desktop View: Table */}
-        <div ref={tableContainerRef} className="rounded-md relative overflow-auto hidden md:block" style={{ height: '60vh' }}>
+        <div ref={tableContainerRef} className="rounded-md relative overflow-auto print-table-view" style={{ height: '60vh' }}>
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10 border-b-2 border-border">
                 {table.getHeaderGroups().map((headerGroup) => (
@@ -909,5 +911,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    
 
     

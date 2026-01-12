@@ -1,3 +1,4 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 
 function AppFooter() {
   return (
-    <footer className="border-t bg-card/50">
+    <footer className="border-t bg-card/50 no-print">
       <div className="container mx-auto flex h-16 items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-6 text-sm text-muted-foreground">
           <Link href="/terms" className="transition-colors hover:text-foreground">
@@ -42,20 +43,13 @@ export default function RootLayout({
         <style>
           {`
             @media print {
-              body * {
-                visibility: hidden;
-              }
-              main, main * {
-                visibility: visible;
-              }
-              main {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-              }
               .no-print {
                 display: none !important;
+              }
+              .print-table-view {
+                display: block !important;
+                height: auto !important;
+                overflow: visible !important;
               }
             }
           `}
@@ -80,3 +74,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    
