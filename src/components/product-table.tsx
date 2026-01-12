@@ -27,6 +27,8 @@ import {
   RotateCcw,
   Download,
   Upload,
+  MoreVertical,
+  Building,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -77,6 +79,7 @@ import {
     DeleteProductDialog,
     DeleteRateDialog
 } from './product-forms';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 
 type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc' | 'party-asc' | 'party-desc' | 'final-rate-asc' | 'final-rate-desc';
 
@@ -123,6 +126,96 @@ const usePersistentState = <T,>(key: string, defaultValue: T): [T, React.Dispatc
     return [state, setState];
 };
 
+const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
+};
+
+// Mobile Card component
+const ProductCard = ({ 
+    product,
+    onAddRate,
+    onEdit,
+    onDeleteRate,
+    onDeleteProduct,
+}: { 
+    product: ProductWithRates, 
+    onAddRate: () => void,
+    onEdit: () => void,
+    onDeleteRate: () => void,
+    onDeleteProduct: () => void,
+}) => {
+    const latestRate = product.rates[0];
+    const finalRate = latestRate ? (latestRate.rate as number) * (1 + (latestRate.gst as number) / 100) : 0;
+    const hasHistory = product.rates.length > 1;
+    const canDeleteRate = product.rates.length > 1;
+
+    return (
+        <Card className="w-full">
+            <CardHeader className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                        <CardTitle className="text-base capitalize">{product.name}</CardTitle>
+                        <CardDescription className="capitalize">{product.partyName}</CardDescription>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-lg font-bold">{formatCurrency(finalRate)}</p>
+                        {latestRate && <p className="text-xs text-muted-foreground">{format(safeToDate(latestRate.billDate), 'dd MMM yyyy')}</p>}
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                <Accordion type="single" collapsible>
+                    <AccordionItem value="details" className="border-b-0">
+                         <AccordionTrigger className="p-4 text-sm font-medium text-muted-foreground">More details</AccordionTrigger>
+                         <AccordionContent className="p-4 pt-0 space-y-4">
+                            {latestRate && (
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="font-medium text-muted-foreground">Base Rate</p>
+                                        <p>{formatCurrency(latestRate.rate as number)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-muted-foreground">GST</p>
+                                        <p>{latestRate.gst}%</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-muted-foreground">Unit</p>
+                                        <p className="capitalize">{product.unit}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-muted-foreground">Page No.</p>
+                                        <p>{latestRate.pageNo}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                             {hasHistory && (
+                                <div className="space-y-2">
+                                    <h4 className="text-sm font-semibold">Rate History</h4>
+                                    <ScrollArea className="h-32 rounded-md border p-2">
+                                        {product.rates.slice(1).map(rate => (
+                                            <div key={rate.id} className="flex justify-between items-center text-xs p-1 rounded-sm hover:bg-muted">
+                                                <span>{format(safeToDate(rate.billDate), 'dd/MM/yy')}: {formatCurrency(rate.rate as number)}</span>
+                                            </div>
+                                        ))}
+                                    </ScrollArea>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-2 border-t pt-4">
+                                <Button variant="ghost" size="sm" onClick={onAddRate}><PlusCircle className="mr-2 h-4 w-4" /> Add Rate</Button>
+                                <Button variant="ghost" size="sm" onClick={onEdit}><Edit className="mr-2 h-4 w-4" /> Edit</Button>
+                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={canDeleteRate ? onDeleteRate : onDeleteProduct}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> {canDeleteRate ? 'Delete Rate' : 'Delete'}
+                                </Button>
+                            </div>
+                         </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            </CardContent>
+        </Card>
+    );
+};
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
   const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v8', []);
@@ -348,7 +441,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
           </div>
         )
       },
-      cell: ({ row }) => row.original.name,
+      cell: ({ row }) => <span className="capitalize">{row.original.name}</span>,
       filterFn: startsWithFilterFn,
     },
     {
@@ -358,7 +451,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         const latestRate = row.original.rates[0]?.rate ?? 0;
         return (
             <div className="text-right font-medium">
-            {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(latestRate as number)}
+            {formatCurrency(latestRate as number)}
             </div>
         )
       },
@@ -367,7 +460,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     {
       accessorKey: 'unit',
       header: 'Unit',
-      cell: ({ row }) => row.original.unit,
+      cell: ({ row }) => <span className="capitalize">{row.original.unit}</span>,
       enableSorting: false,
     },
     {
@@ -396,7 +489,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         const finalRate = rate * (1 + gst / 100);
         return (
           <div className="text-right font-bold">
-            {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}
+            {formatCurrency(finalRate)}
           </div>
         );
       },
@@ -415,7 +508,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
 
         return (
           <div className="flex items-center gap-2">
-            Party Name
+            <Building className="h-4 w-4 text-muted-foreground" />
+            Category
              <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7 no-print">
@@ -425,7 +519,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
               <DropdownMenuContent align="start" className="w-64">
                 <div className="p-2">
                     <Input
-                        placeholder="Search parties..."
+                        placeholder="Search categories..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full"
@@ -433,7 +527,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     />
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Filter by Party</DropdownMenuLabel>
+                <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
                   checked={selectedParties.length === filteredParties.length}
@@ -474,7 +568,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
           </div>
         )
       },
-      cell: ({ row }) => row.original.partyName,
+      cell: ({ row }) => <span className="capitalize">{row.original.partyName}</span>,
       enableSorting: false,
       filterFn: multiSelectFilterFn,
     },
@@ -622,21 +716,32 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 }
                 className="max-w-xs"
               />
-              <Button onClick={handlePrint} variant="outline" size="icon">
-                  <Printer className="h-4 w-4" />
-                  <span className="sr-only">Print</span>
-              </Button>
-              <Button onClick={() => handleGoogleApiAction('import')} variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Import from Sheet
-              </Button>
-              <Button onClick={() => handleGoogleApiAction('export')} variant="outline">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Export to Sheet
-              </Button>
+               <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-10 w-10">
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">More actions</span>
+                      </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleGoogleApiAction('import')}>
+                          <Download className="mr-2 h-4 w-4" />
+                          Import from Sheet
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleGoogleApiAction('export')}>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Export to Sheet
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handlePrint}>
+                          <Printer className="mr-2 h-4 w-4" />
+                          Print
+                      </DropdownMenuItem>
+                  </DropdownMenuContent>
+              </DropdownMenu>
               { user && 
                   <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
-                      <Button onClick={() => setIsAddProductOpen(true)}>
+                      <Button onClick={() => setIsAddProductOpen(true)} className="w-full sm:w-auto">
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Product
                       </Button>
                   </ProductFormDialog> 
@@ -645,7 +750,28 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
           </div>
         </CardHeader>
         <CardContent>
-          <div ref={tableContainerRef} className="rounded-md relative overflow-auto" style={{ height: '60vh' }}>
+        {/* Mobile View: Card List */}
+        <div className="md:hidden space-y-4">
+            {rows.length > 0 ? (
+                rows.map(row => (
+                    <ProductCard 
+                        key={row.original.id} 
+                        product={row.original}
+                        onAddRate={() => setAddingRateToProduct(row.original)}
+                        onEdit={() => setEditingProduct(row.original)}
+                        onDeleteRate={() => setDeletingRateInfo({ product: row.original, rate: row.original.rates[0] as Rate })}
+                        onDeleteProduct={() => setDeletingProduct(row.original)}
+                    />
+                ))
+            ) : (
+                <div className="h-24 text-center flex items-center justify-center">
+                    <p>No products found.</p>
+                </div>
+            )}
+        </div>
+
+        {/* Desktop View: Table */}
+        <div ref={tableContainerRef} className="rounded-md relative overflow-auto hidden md:block" style={{ height: '60vh' }}>
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10 border-b-2 border-border">
                 {table.getHeaderGroups().map((headerGroup) => (
@@ -690,7 +816,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                           ref={node => rowVirtualizer.measureElement(node)}
                         >
                           {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id} className={cn('whitespace-nowrap bg-transparent', cell.column.id === 'actions' ? 'no-print' : '')}>
+                            <TableCell key={cell.id} className={cn('whitespace-nowrap bg-transparent capitalize', cell.column.id === 'actions' ? 'no-print' : '')}>
                               {flexRender(
                                 cell.column.columnDef.cell,
                                 cell.getContext()
@@ -704,14 +830,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                             <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/30 hover:bg-muted/60">
                               <TableCell className='whitespace-nowrap'></TableCell>
                               <TableCell className='whitespace-nowrap'></TableCell>
-                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                              <TableCell className="whitespace-nowrap text-xs text-muted-foreground normal-case">
                                 {format(safeToDate(rate.createdAt), 'dd/MM/yy, h:mm a')}
                               </TableCell>
-                              <TableCell className="text-right font-medium whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(rate.rate as number)}</TableCell>
-                              <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
+                              <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(rate.rate as number)}</TableCell>
+                              <TableCell className='whitespace-nowrap capitalize'>{row.original.unit}</TableCell>
                               <TableCell className='text-center whitespace-nowrap'>{rate.gst}%</TableCell>
-                              <TableCell className="text-right font-bold whitespace-nowrap">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(finalRate)}</TableCell>
-                              <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
+                              <TableCell className="text-right font-bold whitespace-nowrap">{formatCurrency(finalRate)}</TableCell>
+                              <TableCell className='whitespace-nowrap capitalize'>{row.original.partyName}</TableCell>
                               <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
                               <TableCell className='whitespace-nowrap'>{format(safeToDate(rate.billDate), 'dd/MM/yy')}</TableCell>
                               <TableCell className="no-print whitespace-nowrap">
@@ -783,3 +909,5 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    
