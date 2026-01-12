@@ -491,19 +491,20 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      disabled={!canDeleteRate}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (canDeleteRate && latestRate) {
-                            setDeletingRateInfo({ product, rate: latestRate as Rate });
+                          setDeletingRateInfo({ product, rate: latestRate as Rate });
+                        } else {
+                          setDeletingProduct(product);
                         }
                       }}
                     >
-                      <Trash2 className={cn("h-4 w-4", canDeleteRate ? "text-orange-600" : "text-muted-foreground/50")} />
+                      <Trash2 className="h-4 w-4 text-orange-600" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {canDeleteRate ? 'Delete Latest Rate' : 'Cannot delete the only rate'}
+                    {canDeleteRate ? 'Delete Latest Rate' : 'Delete Product & All History'}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -572,6 +573,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
           {`
               @media print {
                   .no-print { display: none !important; }
+                  .print-table-view {
+                    overflow: visible !important;
+                    height: auto !important;
+                  }
+                  body {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                  }
               }
           `}
       </style>
