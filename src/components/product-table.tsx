@@ -86,10 +86,7 @@ import {
     DeleteProductDialog,
     DeleteRateDialog
 } from './product-forms';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from './ui/separator';
-import { Badge } from './ui/badge';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collapsible';
 
 
 type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc';
@@ -141,94 +138,8 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
 };
 
-const FilterPanel = ({ table, uniquePartyNames, uniqueFirstLetters }: { table: ReactTable<ProductWithRates>, uniquePartyNames: string[], uniqueFirstLetters: string[] }) => {
-    const nameColumn = table.getColumn('name');
-    const partyColumn = table.getColumn('partyName');
-    
-    const alphabetFilterValue = (nameColumn?.getFilterValue() as string[] | undefined) ?? [];
-    const selectedParties = (partyColumn?.getFilterValue() as string[] | undefined) ?? [];
-
-    const clearFilters = () => {
-        nameColumn?.setFilterValue([]);
-        partyColumn?.setFilterValue([]);
-    };
-
-    return (
-        <div className="p-4 space-y-6">
-             <div>
-                <h3 className="text-lg font-semibold mb-2">Filter by Product Letter</h3>
-                <ScrollArea className="h-48 border rounded-md">
-                     <div className="p-4">
-                        <DropdownMenuCheckboxItem
-                            checked={alphabetFilterValue.length === 0 || alphabetFilterValue.length === uniqueFirstLetters.length}
-                            onCheckedChange={(checked) => nameColumn?.setFilterValue(checked ? uniqueFirstLetters : [])}
-                            onSelect={(e) => e.preventDefault()}
-                        >
-                            Select All
-                        </DropdownMenuCheckboxItem>
-                        <Separator className="my-2" />
-                        {uniqueFirstLetters.map(letter => (
-                            <DropdownMenuCheckboxItem
-                                key={letter}
-                                checked={alphabetFilterValue.includes(letter)}
-                                onCheckedChange={(checked) => {
-                                    const currentSelection = (nameColumn?.getFilterValue() as string[] | undefined) ?? [];
-                                    if (checked) {
-                                        nameColumn?.setFilterValue([...currentSelection, letter]);
-                                    } else {
-                                        nameColumn?.setFilterValue(currentSelection.filter(l => l !== letter));
-                                    }
-                                }}
-                                onSelect={(e) => e.preventDefault()}
-                            >
-                                {letter}
-                            </DropdownMenuCheckboxItem>
-                        ))}
-                    </div>
-                </ScrollArea>
-            </div>
-            <div>
-                <h3 className="text-lg font-semibold mb-2">Filter by Party</h3>
-                <ScrollArea className="h-48 border rounded-md">
-                   <div className="p-4">
-                     <DropdownMenuCheckboxItem
-                        checked={selectedParties.length === uniquePartyNames.length}
-                        onCheckedChange={(checked) => partyColumn?.setFilterValue(checked ? uniquePartyNames : [])}
-                        onSelect={(e) => e.preventDefault()}
-                        >
-                        Select All
-                        </DropdownMenuCheckboxItem>
-                        <Separator className="my-2" />
-                        {uniquePartyNames.map(party => (
-                            <DropdownMenuCheckboxItem
-                                key={party}
-                                checked={selectedParties.includes(party)}
-                                onCheckedChange={(checked) => {
-                                    const currentSelection = (partyColumn?.getFilterValue() as string[] | undefined) ?? [];
-                                    if (checked) {
-                                        partyColumn?.setFilterValue([...currentSelection, party]);
-                                    } else {
-                                        partyColumn?.setFilterValue(currentSelection.filter(p => p !== party));
-                                    }
-                                }}
-                                onSelect={(e) => e.preventDefault()}
-                            >
-                                {party}
-                            </DropdownMenuCheckboxItem>
-                        ))}
-                   </div>
-                </ScrollArea>
-            </div>
-            <Button variant="outline" onClick={clearFilters} className="w-full">
-                <RotateCcw className="mr-2 h-4 w-4" /> Clear All Filters
-            </Button>
-        </div>
-    );
-};
-
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const isMobile = useIsMobile();
   const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v8', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
@@ -655,147 +566,16 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const paddingBottom = virtualRows.length > 0 ? totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0) : 0;
   
 
-  if (isMobile) {
-    return (
-        <>
-            <style>
-                {`
-                    @media print {
-                        .mobile-view { display: none !important; }
-                        .desktop-view { display: block !important; }
-                    }
-                `}
-            </style>
-             <div className="mobile-view md:hidden">
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <CardTitle>Products</CardTitle>
-                                <CardDescription>Manage your products.</CardDescription>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Sheet>
-                                    <SheetTrigger asChild>
-                                        <Button variant="outline" size="icon">
-                                            <Filter className="h-4 w-4" />
-                                        </Button>
-                                    </SheetTrigger>
-                                    <SheetContent>
-                                        <SheetHeader>
-                                            <SheetTitle>Filter Products</SheetTitle>
-                                        </SheetHeader>
-                                        <FilterPanel table={table} uniqueFirstLetters={uniqueFirstLetters} uniquePartyNames={uniquePartyNames} />
-                                    </SheetContent>
-                                </Sheet>
-                                { user && 
-                                    <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
-                                        <Button size="icon" onClick={() => setIsAddProductOpen(true)}>
-                                            <PlusCircle className="h-4 w-4" />
-                                        </Button>
-                                    </ProductFormDialog> 
-                                }
-                            </div>
-                        </div>
-                         <Input
-                            placeholder="Filter products..."
-                            value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
-                            onChange={(event) =>
-                                table.getColumn('name')?.setFilterValue(event.target.value)
-                            }
-                            className="mt-4"
-                        />
-                    </CardHeader>
-                    <CardContent className="p-0">
-                         {rows.length > 0 ? (
-                            <div className="divide-y">
-                                {rows.map(row => {
-                                    const product = row.original;
-                                    const latestRate = product.rates[0];
-                                    const finalRate = latestRate ? latestRate.rate * (1 + latestRate.gst / 100) : 0;
-                                    const hasHistory = product.rates.length > 1;
-                                    const canDeleteRate = product.rates.length > 1;
-
-                                    return (
-                                        <Collapsible key={product.id} className="px-4">
-                                            <div className="flex items-center py-4">
-                                                <div className="flex-1 space-y-1">
-                                                    <p className="font-semibold">{product.name}</p>
-                                                    <p className="text-muted-foreground text-sm">{product.partyName}</p>
-                                                    <p className="text-xl font-bold">{formatCurrency(finalRate)}</p>
-                                                </div>
-                                                {hasHistory && (
-                                                    <CollapsibleTrigger asChild>
-                                                        <Button variant="ghost" size="icon">
-                                                            <ChevronDown className="h-5 w-5 transition-transform ui-open:rotate-180" />
-                                                        </Button>
-                                                    </CollapsibleTrigger>
-                                                )}
-                                            </div>
-                                            <CollapsibleContent>
-                                                <div className="pb-4 space-y-4">
-                                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                                        <p className="text-muted-foreground">Base Rate</p><p className="font-medium text-right">{formatCurrency(latestRate.rate)}</p>
-                                                        <p className="text-muted-foreground">GST</p><p className="font-medium text-right">{latestRate.gst}%</p>
-                                                        <p className="text-muted-foreground">Unit</p><p className="font-medium text-right">{product.unit}</p>
-                                                        <p className="text-muted-foreground">Page No.</p><p className="font-medium text-right">{latestRate.pageNo}</p>
-                                                        <p className="text-muted-foreground">Bill Date</p><p className="font-medium text-right">{format(safeToDate(latestRate.billDate), 'dd MMM yyyy')}</p>
-                                                    </div>
-                                                    
-                                                    <Separator />
-
-                                                    <div className="flex flex-col gap-2">
-                                                        <Button variant="outline" size="sm" onClick={() => setAddingRateToProduct(product)}><PlusCircle /> Add New Rate</Button>
-                                                        <Button variant="outline" size="sm" onClick={() => setEditingProduct(product)}><Edit /> Edit Product Details</Button>
-                                                        <Button variant="outline" size="sm" disabled={!canDeleteRate} onClick={() => latestRate && setDeletingRateInfo({ product, rate: latestRate })}><Trash2 /> Delete Latest Rate</Button>
-                                                        <Button variant="destructive" size="sm" onClick={() => setDeletingProduct(product)}><XCircle /> Delete Product & History</Button>
-                                                    </div>
-
-                                                    {hasHistory && product.rates.slice(1).map(rate => (
-                                                        <div key={rate.id} className="p-3 rounded-md bg-muted/50 space-y-2">
-                                                            <div className="flex justify-between items-center">
-                                                                <p className="text-sm font-semibold">{formatCurrency(rate.rate * (1 + rate.gst / 100))}</p>
-                                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeletingRateInfo({ product, rate })}>
-                                                                    <Trash2 className="h-4 w-4 text-destructive"/>
-                                                                </Button>
-                                                            </div>
-                                                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
-                                                                <p className="text-muted-foreground">Date</p><p className="text-right">{format(safeToDate(rate.billDate), 'dd/MM/yy')}</p>
-                                                                <p className="text-muted-foreground">Rate</p><p className="text-right">{formatCurrency(rate.rate)}</p>
-                                                                <p className="text-muted-foreground">GST</p><p className="text-right">{rate.gst}%</p>
-                                                                <p className="text-muted-foreground">Page</p><p className="text-right">{rate.pageNo}</p>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </CollapsibleContent>
-                                        </Collapsible>
-                                    )
-                                })}
-                            </div>
-                        ) : (
-                            <p className="p-8 text-center text-muted-foreground">No products found.</p>
-                        )}
-                    </CardContent>
-                </Card>
-             </div>
-        </>
-    )
-  }
-
-
   return (
     <>
       <style>
           {`
               @media print {
-                  .mobile-view { display: none !important; }
-                  .desktop-view { display: block !important; }
                   .no-print { display: none !important; }
               }
           `}
       </style>
-      <div className="desktop-view hidden md:block">
+      <div>
         <Card>
             <CardHeader>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -983,5 +763,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
 
     
