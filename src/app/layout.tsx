@@ -4,11 +4,29 @@ import { Toaster } from "@/components/ui/toaster"
 import { FirebaseClientProvider } from '@/firebase';
 import React from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Rate Record',
   description: 'A web app to record product rates over time.',
 };
+
+function AppFooter() {
+  return (
+    <footer className="border-t bg-card/50">
+      <div className="container mx-auto flex h-16 items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-6 text-sm text-muted-foreground">
+          <Link href="/terms" className="transition-colors hover:text-foreground">
+            Terms of Service
+          </Link>
+          <Link href="/privacy" className="transition-colors hover:text-foreground">
+            Privacy Policy
+          </Link>
+        </div>
+      </div>
+    </footer>
+  );
+}
 
 export default function RootLayout({
   children,
@@ -43,7 +61,7 @@ export default function RootLayout({
           `}
         </style>
       </head>
-      <body className="font-body antialiased">
+      <body className="font-body antialiased flex flex-col min-h-screen">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -51,7 +69,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <FirebaseClientProvider>
-              {children}
+              <div className="flex-grow">
+                {children}
+              </div>
+              <AppFooter />
               <Toaster />
           </FirebaseClientProvider>
         </ThemeProvider>
