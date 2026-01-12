@@ -32,6 +32,7 @@ import {
   MoreVertical,
   LayoutGrid,
   List,
+  Check,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -614,6 +615,26 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     table.resetColumnFilters();
   };
 
+  const SheetCheckboxItem = ({
+    checked,
+    onCheckedChange,
+    children
+  }: {
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+    children: React.ReactNode;
+  }) => (
+      <div
+          className="relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+          onClick={() => onCheckedChange(!checked)}
+      >
+          <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+              {checked && <Check className="h-4 w-4" />}
+          </span>
+          {children}
+      </div>
+  );
+
   const MobileFilterSheet = () => (
     <Sheet>
         <SheetTrigger asChild>
@@ -631,15 +652,15 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     <h4 className="font-semibold mb-2">By Party</h4>
                     <ScrollArea className="h-48 border rounded-md">
                         <div className="p-2">
-                        <DropdownMenuCheckboxItem
+                        <SheetCheckboxItem
                           checked={partyFilterValue.length === uniquePartyNames.length}
                           onCheckedChange={(checked) => setPartyFilter(checked ? uniquePartyNames : [])}
                         >
                           Select All
-                        </DropdownMenuCheckboxItem>
+                        </SheetCheckboxItem>
                         <Separator className="my-1" />
                         {uniquePartyNames.map(party => (
-                            <DropdownMenuCheckboxItem
+                            <SheetCheckboxItem
                                 key={party}
                                 checked={partyFilterValue.includes(party)}
                                 onCheckedChange={(checked) => {
@@ -649,7 +670,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                                 }}
                             >
                                 {party}
-                            </DropdownMenuCheckboxItem>
+                            </SheetCheckboxItem>
                         ))}
                         </div>
                     </ScrollArea>
@@ -658,15 +679,15 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     <h4 className="font-semibold mb-2">By First Letter</h4>
                      <ScrollArea className="h-48 border rounded-md">
                         <div className="p-2">
-                        <DropdownMenuCheckboxItem
+                        <SheetCheckboxItem
                             checked={alphabetFilterValue.length === uniqueFirstLetters.length}
                             onCheckedChange={(checked) => setAlphabetFilter(checked ? uniqueFirstLetters : [])}
                         >
                             Select All
-                        </DropdownMenuCheckboxItem>
+                        </SheetCheckboxItem>
                         <Separator className="my-1"/>
                         {uniqueFirstLetters.map(letter => (
-                            <DropdownMenuCheckboxItem
+                            <SheetCheckboxItem
                                 key={letter}
                                 checked={alphabetFilterValue.includes(letter)}
                                 onCheckedChange={(checked) => {
@@ -676,7 +697,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                                 }}
                             >
                                 {letter}
-                            </DropdownMenuCheckboxItem>
+                            </SheetCheckboxItem>
                         ))}
                         </div>
                     </ScrollArea>
@@ -1059,4 +1080,3 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   );
 }
 
-    
