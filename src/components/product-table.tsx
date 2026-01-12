@@ -167,7 +167,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const [viewMode, setViewMode] = usePersistentState<ViewMode>('product-table-view-mode', 'table');
 
   const [isAddProductOpen, setIsAddProductOpen] = React.useState(false);
-  const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
   const [addingRateToProduct, setAddingRateToProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingRateInfo, setDeletingRateInfo] = React.useState<{ product: Product; rate: Rate } | null>(null);
@@ -505,7 +505,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                         <Edit className="h-4 w-4 text-blue-600" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Edit Product Details</TooltipContent>
+                    <TooltipContent>Edit Product & Latest Rate</TooltipContent>
                   </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1082,4 +1082,3 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
-

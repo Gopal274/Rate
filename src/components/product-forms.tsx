@@ -54,6 +54,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { safeToDate } from '@/lib/utils';
+import { Separator } from './ui/separator';
 
 const getInitialAddFormValues = () => {
     return {
@@ -67,11 +68,16 @@ const getInitialAddFormValues = () => {
     };
 };
 
-const getInitialEditFormValues = (product: Product) => {
+const getInitialEditFormValues = (product: ProductWithRates) => {
+    const latestRate = product.rates[0];
     return {
         name: product.name,
         unit: product.unit,
         partyName: product.partyName,
+        rate: latestRate?.rate ?? ('' as any),
+        gst: latestRate?.gst ?? ('' as any),
+        pageNo: latestRate?.pageNo ?? ('' as any),
+        billDate: latestRate ? format(safeToDate(latestRate.billDate), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
     };
 };
 
@@ -81,7 +87,7 @@ export function ProductFormDialog({
   setIsOpen,
   children,
 }: {
-  product?: Product;
+  product?: ProductWithRates; // Expect ProductWithRates for editing
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
   children?: React.ReactNode;
@@ -120,7 +126,9 @@ export function ProductFormDialog({
     setIsSubmitting(true);
     
     if (isEditing) {
-      const result = await updateProductAction(product.id, values as UpdateProductSchema);
+      // The product should have a latest rate to be editable, so we can assert non-null
+      const latestRateId = product!.rates[0]!.id;
+      const result = await updateProductAction(product.id, latestRateId, values as UpdateProductSchema);
       if (result.success) {
         toast({ title: 'Success', description: result.message });
       } else {
@@ -148,7 +156,7 @@ export function ProductFormDialog({
           <DialogTitle>{product ? 'Edit Product' : 'Add Product'}</DialogTitle>
           <DialogDescription>
             {product
-              ? "Update this product's core details."
+              ? "Update this product's core details and its latest rate."
               : 'Add a new product and its initial rate to your records.'}
           </DialogDescription>
         </DialogHeader>
@@ -175,40 +183,40 @@ export function ProductFormDialog({
                 <FormItem><FormLabel>Unit</FormLabel><FormControl><Input placeholder="e.g. kg, piece, bottle" {...field} /></FormControl><FormMessage /></FormItem>
               )}
             />
-            {!isEditing && (
-                <>
-                    <FormField
-                        control={form.control}
-                        name="rate"
-                        render={({ field }) => (
-                            <FormItem><FormLabel>Initial Rate</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
-                        )}
-                    />
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="gst" render={({ field }) => (
-                            <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
-                        )}
-                        />
-                        <FormField control={form.control} name="pageNo" render={({ field }) => (
-                            <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
-                        )}
-                        />
-                    </div>
-                     <FormField
-                        control={form.control}
-                        name="billDate"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                            <FormLabel>Bill Date</FormLabel>
-                            <FormControl>
-                                    <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </>
-            )}
+
+            <Separator className="my-2" />
+            
+            <FormField
+                control={form.control}
+                name="rate"
+                render={({ field }) => (
+                    <FormItem><FormLabel>{isEditing ? 'Latest Rate' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="gst" render={({ field }) => (
+                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                )}
+                />
+                <FormField control={form.control} name="pageNo" render={({ field }) => (
+                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                )}
+                />
+            </div>
+              <FormField
+                control={form.control}
+                name="billDate"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                    <FormLabel>Bill Date</FormLabel>
+                    <FormControl>
+                            <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
+            
             <DialogFooter>
               <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
               <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (product ? 'Save Changes' : 'Add Product')}</Button>

@@ -71,10 +71,21 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
 };
 
 
-export const updateProduct = async (productId: string, updateData: Partial<UpdateProductSchema>): Promise<void> => {
+export const updateProduct = async (productId: string, latestRateId: string, updateData: UpdateProductSchema): Promise<void> => {
   const db = await getDb();
-  const productDoc = doc(db, PRODUCTS_COLLECTION, productId);
-  await updateDoc(productDoc, updateData);
+  const productDocRef = doc(db, PRODUCTS_COLLECTION, productId);
+  const rateDocRef = doc(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION, latestRateId);
+  
+  const { name, unit, partyName, rate, gst, pageNo, billDate } = updateData;
+
+  const productUpdates = { name, unit, partyName };
+  const rateUpdates = { rate, gst, pageNo, billDate: new Date(billDate) };
+
+  const batch = writeBatch(db);
+  batch.update(productDocRef, productUpdates);
+  batch.update(rateDocRef, rateUpdates);
+  
+  await batch.commit();
 };
 
 export const deleteProduct = async (productId: string): Promise<void> => {
@@ -256,5 +267,3 @@ export async function importProductsAndRates(rows: any[][]) {
 
   return { added, updated, skipped };
 }
-
-    

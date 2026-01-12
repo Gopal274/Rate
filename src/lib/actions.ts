@@ -76,10 +76,10 @@ export async function addRateAction(productId: string, rate: number, billDate: D
   return { success: false, message: result.message };
 }
 
-export async function updateProductAction(productId: string, productData: UpdateProductSchema) {
-  const result = await handleAction(() => updateProductInDb(productId, productData), mainPaths);
+export async function updateProductAction(productId: string, latestRateId: string, productData: UpdateProductSchema) {
+  const result = await handleAction(() => updateProductInDb(productId, latestRateId, productData), mainPaths);
   return result.success 
-    ? { success: true, message: 'Product updated successfully.' }
+    ? { success: true, message: 'Product and rate updated successfully.' }
     : { success: false, message: result.message };
 }
 
