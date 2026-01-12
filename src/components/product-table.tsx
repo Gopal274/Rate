@@ -99,13 +99,27 @@ const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
     return Array.isArray(filterValue) && filterValue.includes(value);
 };
 
-const startsWithFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
-    if (!filterValue || (Array.isArray(filterValue) && filterValue.length === 0)) {
-        return true;
-    }
+const nameFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
+    const { globalFilter, alphabetFilter } = filterValue;
+
     const value = row.getValue(columnId) as string;
-    const firstLetter = value.charAt(0).toUpperCase();
-    return Array.isArray(filterValue) && filterValue.includes(firstLetter);
+
+    // Global text search
+    if (globalFilter) {
+        if (!value.toLowerCase().includes(globalFilter.toLowerCase())) {
+            return false;
+        }
+    }
+    
+    // Alphabetical filter
+    if (alphabetFilter && alphabetFilter.length > 0) {
+        const firstLetter = value.charAt(0).toUpperCase();
+        if (!alphabetFilter.includes(firstLetter)) {
+            return false;
+        }
+    }
+
+    return true;
 };
 
 
@@ -140,7 +154,7 @@ const formatCurrency = (value: number) => {
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v8', []);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v9', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
 
@@ -239,7 +253,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       case 'asc':
         return dataToSort.sort((a, b) => a.name.localeCompare(b.name));
       case 'desc':
-        return dataToSort.sort((a, b) => b.name.localeCompare(a.name));
+        return dataToSort.sort((a, b) => b.name.localeCompare(b.name));
       case 'newest':
       default:
         return dataToSort.sort((a, b) => safeToDate(b.rates[0].createdAt).getTime() - safeToDate(a.rates[0].createdAt).getTime());
@@ -252,7 +266,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       id: 'sno',
       header: () => <div className="text-center">S.No</div>,
       cell: ({ row, table }) => {
-        const sortedRows = table.getCoreRowModel().rows;
+        const sortedRows = table.getFilteredRowModel().rows;
         const rowIndex = sortedRows.findIndex(sortedRow => sortedRow.id === row.id);
         return <div className="text-center">{rowIndex + 1}</div>;
       },
@@ -274,7 +288,13 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     {
       accessorKey: 'name',
       header: ({ column }) => {
-        const alphabetFilterValue = (column.getFilterValue() as string[] | undefined) ?? [];
+        const filterValue = column.getFilterValue() as {globalFilter: string, alphabetFilter: string[]} | undefined;
+        const alphabetFilterValue = filterValue?.alphabetFilter ?? [];
+
+        const setAlphabetFilter = (updater: React.SetStateAction<string[]>) => {
+            const newAlphabetFilter = typeof updater === 'function' ? updater(alphabetFilterValue) : updater;
+            column.setFilterValue((old: any) => ({ ...(old || {}), alphabetFilter: newAlphabetFilter }));
+        }
 
         return (
           <div className="flex items-center gap-2">
@@ -306,7 +326,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   <DropdownMenuSeparator />
                   <DropdownMenuCheckboxItem
                     checked={alphabetFilterValue.length === 0 || alphabetFilterValue.length === uniqueFirstLetters.length}
-                    onCheckedChange={(checked) => column?.setFilterValue(checked ? uniqueFirstLetters : [])}
+                    onCheckedChange={(checked) => setAlphabetFilter(checked ? uniqueFirstLetters : [])}
                     onSelect={(e) => e.preventDefault()}
                   >
                     Select All
@@ -318,12 +338,9 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                           key={letter}
                           checked={alphabetFilterValue.includes(letter)}
                           onCheckedChange={(checked) => {
-                              const currentSelection = (column?.getFilterValue() as string[] | undefined) ?? [];
-                              if (checked) {
-                                  column?.setFilterValue([...currentSelection, letter]);
-                              } else {
-                                  column?.setFilterValue(currentSelection.filter(l => l !== letter));
-                              }
+                              setAlphabetFilter(current => 
+                                  checked ? [...current, letter] : current.filter(l => l !== letter)
+                              );
                           }}
                           onSelect={(e) => e.preventDefault()}
                       >
@@ -332,7 +349,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   ))}
                   </ScrollArea>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => column?.setFilterValue([])}>
+                  <DropdownMenuItem onClick={() => setAlphabetFilter([])}>
                       <RotateCcw className="mr-2 h-4 w-4" /> Clear Filter
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -342,7 +359,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         )
       },
       cell: ({ row }) => row.original.name,
-      filterFn: startsWithFilterFn,
+      filterFn: nameFilterFn,
     },
     {
       id: 'rate',
@@ -464,8 +481,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       cell: ({ row }) => {
         const product = row.original;
         const latestRate = product.rates[0];
-        const canDeleteRate = product.rates.length > 1;
-
+        
         return (
           <TooltipProvider>
             <div className="flex items-center justify-center gap-1 no-print">
@@ -493,7 +509,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                       className="h-8 w-8"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (canDeleteRate && latestRate) {
+                        if (product.rates.length > 1 && latestRate) {
                           setDeletingRateInfo({ product, rate: latestRate as Rate });
                         } else {
                           setDeletingProduct(product);
@@ -504,7 +520,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {canDeleteRate ? 'Delete Latest Rate' : 'Delete Product & All History'}
+                    {product.rates.length > 1 ? 'Delete Latest Rate' : 'Delete Product & All History'}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -571,17 +587,22 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     <>
       <style>
           {`
-              @media print {
-                  .no-print { display: none !important; }
-                  .print-table-view {
-                    overflow: visible !important;
-                    height: auto !important;
-                  }
-                  body {
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                  }
+            @media (max-width: 768px) {
+              .print-table-view {
+                overflow-x: auto;
               }
+            }
+            @media print {
+                .no-print { display: none !important; }
+                .print-table-view {
+                  overflow: visible !important;
+                  height: auto !important;
+                }
+                body {
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+            }
           `}
       </style>
       <div>
@@ -595,10 +616,11 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap no-print">
                 <Input
                     placeholder="Filter products..."
-                    value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
-                    onChange={(event) =>
-                    table.getColumn('name')?.setFilterValue(event.target.value)
-                    }
+                    value={((table.getColumn('name')?.getFilterValue() as any)?.globalFilter) ?? ''}
+                    onChange={(event) => {
+                        const value = event.target.value;
+                        table.getColumn('name')?.setFilterValue((old: any) => ({ ...(old || {}), globalFilter: value }))
+                    }}
                     className="max-w-xs"
                 />
                 <DropdownMenu>
@@ -772,6 +794,3 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
-
-
-    
