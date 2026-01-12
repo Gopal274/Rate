@@ -1,13 +1,23 @@
+
+'use client';
+
+import { useState, useEffect } from 'react';
 import AppHeader from '@/components/app-header';
 
 export default function TermsOfServicePage() {
+  const [currentDate, setCurrentDate] = useState('');
+
+  useEffect(() => {
+    setCurrentDate(new Date().toLocaleDateString());
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <AppHeader />
       <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold mb-4">Terms of Service</h1>
-            <p className="text-muted-foreground mb-6">Last updated: {new Date().toLocaleDateString()}</p>
+            <p className="text-muted-foreground mb-6">Last updated: {currentDate}</p>
             
             <div className="space-y-4 text-card-foreground">
                 <p>Please read these terms and conditions carefully before using Our Service.</p>
