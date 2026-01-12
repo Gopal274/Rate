@@ -747,9 +747,9 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     onChange={(event) => setGlobalFilter(event.target.value)}
                     className="max-w-xs"
                 />
-                <div className="sm:hidden">
-                    <MobileFilterSheet />
-                </div>
+                
+                {viewMode === 'card' && <MobileFilterSheet />}
+
                  <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
