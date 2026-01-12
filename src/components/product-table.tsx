@@ -13,6 +13,7 @@ import {
   useReactTable,
   FilterFn,
   Table as ReactTable,
+  Row,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -29,6 +30,8 @@ import {
   Download,
   Upload,
   MoreVertical,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -66,6 +69,7 @@ import {
     SheetHeader,
     SheetTitle,
     SheetTrigger,
+    SheetClose,
 } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 
@@ -87,9 +91,11 @@ import {
     DeleteRateDialog
 } from './product-forms';
 import { Separator } from './ui/separator';
+import { Badge } from './ui/badge';
 
 
 type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc';
+type ViewMode = 'table' | 'card';
 
 const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
     if (!filterValue || (Array.isArray(filterValue) && filterValue.length === 0)) {
@@ -100,7 +106,7 @@ const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
 };
 
 const nameFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
-    const { globalFilter, alphabetFilter } = filterValue;
+    const { globalFilter, alphabetFilter } = filterValue || {};
 
     const value = row.getValue(columnId) as string;
 
@@ -154,9 +160,10 @@ const formatCurrency = (value: number) => {
 
 
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
-  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v9', []);
+  const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v10', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
+  const [viewMode, setViewMode] = usePersistentState<ViewMode>('product-table-view-mode', 'table');
 
   const [isAddProductOpen, setIsAddProductOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
@@ -259,7 +266,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
         return dataToSort.sort((a, b) => safeToDate(b.rates[0].createdAt).getTime() - safeToDate(a.rates[0].createdAt).getTime());
     }
   }, [allProductsWithRates, activeSort]);
-
 
   const columns: ColumnDef<ProductWithRates>[] = React.useMemo(() => [
      {
@@ -480,7 +486,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       header: () => <div className="text-center no-print">Actions</div>,
       cell: ({ row }) => {
         const product = row.original;
-        const latestRate = product.rates[0];
         
         return (
           <TooltipProvider>
@@ -509,8 +514,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                       className="h-8 w-8"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (product.rates.length > 1 && latestRate) {
-                          setDeletingRateInfo({ product, rate: latestRate as Rate });
+                        if (product.rates.length > 1) {
+                          setDeletingRateInfo({ product, rate: product.rates[0] as Rate });
                         } else {
                           setDeletingProduct(product);
                         }
@@ -520,7 +525,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {product.rates.length > 1 ? 'Delete Latest Rate' : 'Delete Product & All History'}
+                    {product.rates.length > 1 ? 'Delete Latest Rate' : 'Delete Product'}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -583,18 +588,119 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const paddingBottom = virtualRows.length > 0 ? totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0) : 0;
   
 
+  const globalFilterValue = (table.getColumn('name')?.getFilterValue() as any)?.globalFilter ?? '';
+  const alphabetFilterValue = (table.getColumn('name')?.getFilterValue() as any)?.alphabetFilter ?? [];
+  const partyFilterValue = (table.getColumn('partyName')?.getFilterValue() as string[] | undefined) ?? [];
+
+  const setGlobalFilter = (value: string) => {
+    table.getColumn('name')?.setFilterValue((old: any) => ({ ...(old || {}), globalFilter: value }))
+  }
+  const setAlphabetFilter = (updater: React.SetStateAction<string[]>) => {
+    const filter = table.getColumn('name');
+    const old = filter?.getFilterValue() as any;
+    const newAlphabetFilter = typeof updater === 'function' ? updater(old?.alphabetFilter ?? []) : updater;
+    filter?.setFilterValue({ ...old, alphabetFilter: newAlphabetFilter });
+  };
+  const setPartyFilter = (updater: React.SetStateAction<string[]>) => {
+      const filter = table.getColumn('partyName');
+      const old = (filter?.getFilterValue() as string[] | undefined) ?? [];
+      const newPartyFilter = typeof updater === 'function' ? updater(old) : updater;
+      filter?.setFilterValue(newPartyFilter);
+  };
+  
+  const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+
+  const resetFilters = () => {
+    table.resetColumnFilters();
+  };
+
+  const MobileFilterSheet = () => (
+    <Sheet>
+        <SheetTrigger asChild>
+            <Button variant="outline" size="sm">
+                <Filter className="mr-2" />
+                Filter
+            </Button>
+        </SheetTrigger>
+        <SheetContent>
+            <SheetHeader>
+                <SheetTitle>Filter Products</SheetTitle>
+            </SheetHeader>
+            <div className="py-4 space-y-6">
+                <div>
+                    <h4 className="font-semibold mb-2">By Party</h4>
+                    <ScrollArea className="h-48 border rounded-md">
+                        <div className="p-2">
+                        <DropdownMenuCheckboxItem
+                          checked={partyFilterValue.length === uniquePartyNames.length}
+                          onCheckedChange={(checked) => setPartyFilter(checked ? uniquePartyNames : [])}
+                        >
+                          Select All
+                        </DropdownMenuCheckboxItem>
+                        <Separator className="my-1" />
+                        {uniquePartyNames.map(party => (
+                            <DropdownMenuCheckboxItem
+                                key={party}
+                                checked={partyFilterValue.includes(party)}
+                                onCheckedChange={(checked) => {
+                                    setPartyFilter(current => 
+                                        checked ? [...current, party] : current.filter(p => p !== party)
+                                    );
+                                }}
+                            >
+                                {party}
+                            </DropdownMenuCheckboxItem>
+                        ))}
+                        </div>
+                    </ScrollArea>
+                </div>
+                <div>
+                    <h4 className="font-semibold mb-2">By First Letter</h4>
+                     <ScrollArea className="h-48 border rounded-md">
+                        <div className="p-2">
+                        <DropdownMenuCheckboxItem
+                            checked={alphabetFilterValue.length === uniqueFirstLetters.length}
+                            onCheckedChange={(checked) => setAlphabetFilter(checked ? uniqueFirstLetters : [])}
+                        >
+                            Select All
+                        </DropdownMenuCheckboxItem>
+                        <Separator className="my-1"/>
+                        {uniqueFirstLetters.map(letter => (
+                            <DropdownMenuCheckboxItem
+                                key={letter}
+                                checked={alphabetFilterValue.includes(letter)}
+                                onCheckedChange={(checked) => {
+                                    setAlphabetFilter(current => 
+                                        checked ? [...current, letter] : current.filter(l => l !== letter)
+                                    );
+                                }}
+                            >
+                                {letter}
+                            </DropdownMenuCheckboxItem>
+                        ))}
+                        </div>
+                    </ScrollArea>
+                </div>
+                 <Button variant="ghost" onClick={resetFilters} className="w-full">
+                    <RotateCcw className="mr-2 h-4 w-4" /> Clear All Filters
+                </Button>
+            </div>
+             <SheetClose asChild>
+                <Button className="w-full">Done</Button>
+            </SheetClose>
+        </SheetContent>
+    </Sheet>
+  );
+
   return (
     <>
       <style>
           {`
-            @media (max-width: 768px) {
-              .print-table-view {
-                overflow-x: auto;
-              }
-            }
+            .print-table-view { display: none !important; }
             @media print {
                 .no-print { display: none !important; }
                 .print-table-view {
+                  display: block !important;
                   overflow: visible !important;
                   height: auto !important;
                 }
@@ -616,13 +722,26 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap no-print">
                 <Input
                     placeholder="Filter products..."
-                    value={((table.getColumn('name')?.getFilterValue() as any)?.globalFilter) ?? ''}
-                    onChange={(event) => {
-                        const value = event.target.value;
-                        table.getColumn('name')?.setFilterValue((old: any) => ({ ...(old || {}), globalFilter: value }))
-                    }}
+                    value={globalFilterValue}
+                    onChange={(event) => setGlobalFilter(event.target.value)}
                     className="max-w-xs"
                 />
+                <div className="sm:hidden">
+                    <MobileFilterSheet />
+                </div>
+                 <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setViewMode(viewMode === 'table' ? 'card' : 'table')}>
+                                {viewMode === 'table' ? <LayoutGrid className="h-5 w-5" /> : <List className="h-5 w-5" />}
+                             </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Switch to {viewMode === 'table' ? 'Card' : 'Table'} View</p>
+                        </TooltipContent>
+                    </Tooltip>
+                 </TooltipProvider>
+
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -654,116 +773,261 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             </div>
             </CardHeader>
             <CardContent>
-            <div ref={tableContainerRef} className="rounded-md border relative overflow-auto print-table-view" style={{ height: '60vh' }}>
-                <Table>
-                <TableHeader className="sticky top-0 bg-background z-10">
-                    {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => {
-                        return (
-                            <TableHead key={header.id} style={{ width: header.getSize() }}>
-                            {header.isPlaceholder
-                                ? null
-                                : flexRender(
-                                    header.column.columnDef.header,
-                                    header.getContext()
-                                )}
-                            </TableHead>
-                        );
-                        })}
-                    </TableRow>
-                    ))}
-                </TableHeader>
-                <TableBody>
-                    {paddingTop > 0 && (
-                        <tr>
-                        <td style={{ height: `${paddingTop}px` }} />
-                        </tr>
-                    )}
-                    {virtualRows.length > 0 ? (
-                    virtualRows.map((virtualRow) => {
-                        const row = rows[virtualRow.index];
-                        const isOpen = openCollapsibles.has(row.original.id);
-                        const hasHistory = row.original.rates.length > 1;
-                        return (
-                        <React.Fragment key={`product-${row.original.id}`}>
-                            <TableRow
-                            key={`main-${row.original.id}`}
-                            data-state={row.getIsSelected() && 'selected'}
-                            className={cn(
-                                "transition-colors duration-200",
-                                hasHistory && "cursor-pointer hover:bg-muted/50"
+
+             {viewMode === 'card' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredData.length > 0 ? filteredData.map(product => {
+                    const isOpen = openCollapsibles.has(product.id);
+                    const latestRate = product.rates[0];
+                    const finalRate = latestRate ? latestRate.rate * (1 + latestRate.gst / 100) : 0;
+
+                    return (
+                      <Card key={product.id} className="flex flex-col">
+                        <CardHeader className="pb-4">
+                          <CardTitle className="text-lg">{product.name}</CardTitle>
+                          <CardDescription>{product.partyName}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow space-y-4">
+                            <div className="flex justify-between items-baseline">
+                                <span className="text-sm text-muted-foreground">Final Rate</span>
+                                <span className="text-2xl font-bold">{formatCurrency(finalRate)}</span>
+                            </div>
+                             <div className="text-sm text-muted-foreground space-y-1">
+                                <div className="flex justify-between">
+                                    <span>Base Rate: {formatCurrency(latestRate.rate)}</span>
+                                    <span>GST: {latestRate.gst}%</span>
+                                </div>
+                                 <div className="flex justify-between">
+                                    <span>Unit: {product.unit}</span>
+                                    <span>Bill: {format(safeToDate(latestRate.billDate), 'dd/MM/yy')}</span>
+                                </div>
+                             </div>
+                             
+                            {product.rates.length > 1 && (
+                                <>
+                                <Separator />
+                                <div className='space-y-2'>
+                                    <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => table.options.meta?.toggleCollapsible(product.id)}>
+                                        <ChevronDown className={cn("mr-2 h-4 w-4 transition-transform", isOpen && "rotate-180" )}/>
+                                        View Rate History ({product.rates.length -1})
+                                    </Button>
+                                    {isOpen && (
+                                        <div className='space-y-2 text-xs'>
+                                            {product.rates.slice(1).map(rate => (
+                                                <div key={rate.id} className="flex justify-between items-center p-2 rounded-md bg-muted/50">
+                                                    <div>
+                                                        <p className="font-semibold">{formatCurrency(rate.rate * (1 + rate.gst/100))}</p>
+                                                        <p className="text-muted-foreground">{format(safeToDate(rate.billDate), 'dd MMM yyyy')}</p>
+                                                    </div>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeletingRateInfo({product, rate})}>
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Delete this rate</TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                </>
                             )}
-                            onClick={() => hasHistory && table.options.meta?.toggleCollapsible(row.original.id)}
-                            data-index={virtualRow.index}
-                            ref={node => rowVirtualizer.measureElement(node)}
-                            >
-                            {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id} className='whitespace-nowrap'>
-                                {flexRender(
-                                    cell.column.columnDef.cell,
-                                    cell.getContext()
-                                )}
-                                </TableCell>
-                            ))}
-                            </TableRow>
-                            {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
-                            const finalRate = (rate.rate as number) * (1 + (rate.gst as number) / 100);
+                        </CardContent>
+                        <div className="p-4 pt-0 mt-auto no-print">
+                            <Separator className="mb-4" />
+                            <div className="flex justify-center gap-1">
+                                <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddingRateToProduct(product)}>
+                                    <PlusCircle className="mr-2" /> Rate
+                                </Button>
+                                <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditingProduct(product)}>
+                                    <Edit className="mr-2" /> Edit
+                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button variant="destructive" size="sm" className="flex-1"><Trash2 className="mr-2" /> Delete</Button></DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                         <DropdownMenuItem className="text-orange-600 focus:text-orange-600" onClick={() => {
+                                            if (product.rates.length > 1) {
+                                                setDeletingRateInfo({ product, rate: product.rates[0] as Rate });
+                                            } else {
+                                                setDeletingProduct(product);
+                                            }
+                                         }}>
+                                            <Trash2 className="mr-2" /> {product.rates.length > 1 ? 'Delete Latest Rate' : 'Delete Product'}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => setDeletingProduct(product)}>
+                                            <XCircle className="mr-2" /> Delete Product & History
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        </div>
+                      </Card>
+                    )
+                  }) : (
+                     <div className="col-span-full h-24 text-center flex items-center justify-center">
+                        No products found. Adjust your filters or add a product to get started.
+                    </div>
+                  )}
+                </div>
+            ) : (
+                <div ref={tableContainerRef} className="rounded-md border relative overflow-auto" style={{ height: '60vh' }}>
+                    <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10">
+                        {table.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                            {headerGroup.headers.map((header) => {
                             return (
-                                <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/30 hover:bg-muted/60">
-                                <TableCell className='whitespace-nowrap'></TableCell>
-                                <TableCell className='whitespace-nowrap'></TableCell>
-                                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                    {format(safeToDate(rate.createdAt), 'dd/MM/yy, h:mm a')}
-                                </TableCell>
-                                <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(rate.rate as number)}</TableCell>
-                                <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
-                                <TableCell className='text-center whitespace-nowrap'>{rate.gst}%</TableCell>
-                                <TableCell className="text-right font-bold whitespace-nowrap">{formatCurrency(finalRate)}</TableCell>
-                                <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
-                                <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
-                                <TableCell className='whitespace-nowrap'>{format(safeToDate(rate.billDate), 'dd/MM/yy')}</TableCell>
-                                <TableCell className="no-print whitespace-nowrap">
-                                    <TooltipProvider>
-                                    <div className="flex items-center justify-center">
-                                        <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate: rate as Rate }); }}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Delete This Rate Entry</TooltipContent>
-                                        </Tooltip>
-                                    </div>
-                                    </TooltipProvider>
-                                </TableCell>
-                                </TableRow>
+                                <TableHead key={header.id} style={{ width: header.getSize() }}>
+                                {header.isPlaceholder
+                                    ? null
+                                    : flexRender(
+                                        header.column.columnDef.header,
+                                        header.getContext()
+                                    )}
+                                </TableHead>
                             );
                             })}
-                        </React.Fragment>
-                        );
-                    })
-                    ) : (
-                    <TableRow>
-                        <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center"
-                        >
-                        No products found. Adjust your filters or add a product to get started.
-                        </TableCell>
-                    </TableRow>
-                    )}
-                    {paddingBottom > 0 && (
-                        <tr>
-                        <td style={{ height: `${paddingBottom}px` }} />
-                        </tr>
-                    )}
-                </TableBody>
-                </Table>
-            </div>
+                        </TableRow>
+                        ))}
+                    </TableHeader>
+                    <TableBody>
+                        {paddingTop > 0 && (
+                            <tr>
+                            <td style={{ height: `${paddingTop}px` }} />
+                            </tr>
+                        )}
+                        {virtualRows.length > 0 ? (
+                        virtualRows.map((virtualRow) => {
+                            const row = rows[virtualRow.index];
+                            const isOpen = openCollapsibles.has(row.original.id);
+                            const hasHistory = row.original.rates.length > 1;
+                            return (
+                            <React.Fragment key={`product-${row.original.id}`}>
+                                <TableRow
+                                key={`main-${row.original.id}`}
+                                data-state={row.getIsSelected() && 'selected'}
+                                className={cn(
+                                    "transition-colors duration-200",
+                                    hasHistory && "cursor-pointer hover:bg-muted/50"
+                                )}
+                                onClick={() => hasHistory && table.options.meta?.toggleCollapsible(row.original.id)}
+                                data-index={virtualRow.index}
+                                ref={node => rowVirtualizer.measureElement(node)}
+                                >
+                                {row.getVisibleCells().map((cell) => (
+                                    <TableCell key={cell.id} className='whitespace-nowrap'>
+                                    {flexRender(
+                                        cell.column.columnDef.cell,
+                                        cell.getContext()
+                                    )}
+                                    </TableCell>
+                                ))}
+                                </TableRow>
+                                {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
+                                const finalRate = (rate.rate as number) * (1 + (rate.gst as number) / 100);
+                                return (
+                                    <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/30 hover:bg-muted/60">
+                                    <TableCell className='whitespace-nowrap'></TableCell>
+                                    <TableCell className='whitespace-nowrap'></TableCell>
+                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                        {format(safeToDate(rate.createdAt), 'dd/MM/yy, h:mm a')}
+                                    </TableCell>
+                                    <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(rate.rate as number)}</TableCell>
+                                    <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
+                                    <TableCell className='text-center whitespace-nowrap'>{rate.gst}%</TableCell>
+                                    <TableCell className="text-right font-bold whitespace-nowrap">{formatCurrency(finalRate)}</TableCell>
+                                    <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
+                                    <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
+                                    <TableCell className='whitespace-nowrap'>{format(safeToDate(rate.billDate), 'dd/MM/yy')}</TableCell>
+                                    <TableCell className="no-print whitespace-nowrap">
+                                        <TooltipProvider>
+                                        <div className="flex items-center justify-center">
+                                            <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate: rate as Rate }); }}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                        </TooltipProvider>
+                                    </TableCell>
+                                    </TableRow>
+                                );
+                                })}
+                            </React.Fragment>
+                            );
+                        })
+                        ) : (
+                        <TableRow>
+                            <TableCell
+                            colSpan={columns.length}
+                            className="h-24 text-center"
+                            >
+                            No products found. Adjust your filters or add a product to get started.
+                            </TableCell>
+                        </TableRow>
+                        )}
+                        {paddingBottom > 0 && (
+                            <tr>
+                            <td style={{ height: `${paddingBottom}px` }} />
+                            </tr>
+                        )}
+                    </TableBody>
+                    </Table>
+                </div>
+            )}
+
             </CardContent>
       </Card>
     </div>
+    
+    {/* This is the table that will be used for printing */}
+    <div className="print-table-view">
+        <h1 className="text-2xl font-bold mb-4">Rate Record - All Products</h1>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>S.No</TableHead>
+                    <TableHead>Product Name</TableHead>
+                    <TableHead>Party Name</TableHead>
+                    <TableHead>Unit</TableHead>
+                    <TableHead className="text-right">Rate</TableHead>
+                    <TableHead className="text-center">GST %</TableHead>
+                    <TableHead className="text-right">Final Rate</TableHead>
+                    <TableHead>Page No</TableHead>
+                    <TableHead>Bill Date</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {table.getRowModel().rows.map((row, index) => {
+                    const latestRate = row.original.rates[0];
+                    if(!latestRate) return null;
+                    const finalRate = latestRate.rate * (1 + latestRate.gst / 100);
+                    return (
+                        <TableRow key={`print-${row.original.id}`}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>{row.original.name}</TableCell>
+                            <TableCell>{row.original.partyName}</TableCell>
+                            <TableCell>{row.original.unit}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(latestRate.rate)}</TableCell>
+                            <TableCell className="text-center">{latestRate.gst}%</TableCell>
+                            <TableCell className="text-right">{formatCurrency(finalRate)}</TableCell>
+                            <TableCell>{latestRate.pageNo}</TableCell>
+                            <TableCell>{format(safeToDate(latestRate.billDate), 'dd/MM/yyyy')}</TableCell>
+                        </TableRow>
+                    )
+                })}
+            </TableBody>
+        </Table>
+    </div>
+
 
         {editingProduct && (
           <ProductFormDialog
@@ -794,3 +1058,5 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    
