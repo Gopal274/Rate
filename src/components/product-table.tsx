@@ -835,15 +835,18 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                                     {isOpen && (
                                         <div className='space-y-2 text-xs'>
                                             {product.rates.slice(1).map(rate => (
-                                                <div key={rate.id} className="flex justify-between items-center p-2 rounded-md bg-muted/50">
-                                                    <div>
+                                                <div key={rate.id} className="flex justify-between items-start p-2 rounded-md bg-muted/50">
+                                                    <div className="flex-grow">
                                                         <p className="font-semibold">{formatCurrency(rate.rate * (1 + rate.gst/100))}</p>
-                                                        <p className="text-muted-foreground">{format(safeToDate(rate.billDate), 'dd MMM yyyy')}</p>
+                                                        <div className="text-muted-foreground">
+                                                            <p>Base: {formatCurrency(rate.rate)} | GST: {rate.gst}%</p>
+                                                            <p>{format(safeToDate(rate.billDate), 'dd MMM yyyy')}</p>
+                                                        </div>
                                                     </div>
                                                     <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeletingRateInfo({product, rate})}>
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => setDeletingRateInfo({product, rate})}>
                                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                                 </Button>
                                                             </TooltipTrigger>
