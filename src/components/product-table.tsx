@@ -788,7 +788,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   {filteredData.length > 0 ? filteredData.map(product => {
                     const isOpen = openCollapsibles.has(product.id);
                     const latestRate = product.rates[0];
-                    const finalRate = latestRate ? latestRate.rate * (1 + latestRate.gst / 100) : 0;
+                    if (!latestRate) return null; // Don't render card if no rates exist
+                    const finalRate = latestRate.rate * (1 + latestRate.gst / 100);
 
                     return (
                       <Card key={product.id} className="flex flex-col">
@@ -887,7 +888,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   )}
                 </div>
             ) : (
-                <div className="rounded-md border relative h-[60vh] overflow-auto">
+                <div className="rounded-md border relative h-[60vh] overflow-y-auto">
                     <Table>
                     <TableHeader className="sticky top-0 bg-background z-10">
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -1021,3 +1022,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   );
 }
 
+
+
+    
