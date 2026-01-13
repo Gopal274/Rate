@@ -15,7 +15,6 @@ import {
   Table as ReactTable,
   Row,
 } from '@tanstack/react-table';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Edit,
   PlusCircle,
@@ -592,23 +591,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     }
   });
 
-  const tableContainerRef = React.useRef<HTMLDivElement>(null);
   const { rows } = table.getRowModel();
-
-  const rowVirtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => 57, // Approximate height of a row
-    overscan: 5,
-  });
-
-  const virtualRows = rowVirtualizer.getVirtualItems();
-  const totalSize = rowVirtualizer.getTotalSize();
-
-  const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
-  const paddingBottom = virtualRows.length > 0 ? totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0) : 0;
   
-
   const globalFilterValue = (table.getColumn('name')?.getFilterValue() as any)?.globalFilter ?? '';
   const alphabetFilterValue = (table.getColumn('name')?.getFilterValue() as any)?.alphabetFilter ?? [];
   const partyFilterValue = (table.getColumn('partyName')?.getFilterValue() as string[] | undefined) ?? [];
@@ -791,7 +775,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 
                 { user && 
                     <Button onClick={() => setIsBatchAddOpen(true)}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Products
+                        <Plus className="mr-2 h-4 w-4" /> Add Products
                     </Button>
                 }
                 </div>
@@ -903,7 +887,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   )}
                 </div>
             ) : (
-                <div ref={tableContainerRef} className="rounded-md border relative overflow-auto" style={{ height: '60vh' }}>
+                <div className="rounded-md border relative h-[60vh] overflow-auto">
                     <Table>
                     <TableHeader className="sticky top-0 bg-background z-10">
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -924,14 +908,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                         ))}
                     </TableHeader>
                     <TableBody>
-                        {paddingTop > 0 && (
-                            <tr>
-                            <td style={{ height: `${paddingTop}px` }} />
-                            </tr>
-                        )}
-                        {virtualRows.length > 0 ? (
-                        virtualRows.map((virtualRow) => {
-                            const row = rows[virtualRow.index];
+                        {rows.length > 0 ? (
+                        rows.map((row) => {
                             const isOpen = openCollapsibles.has(row.original.id);
                             const hasHistory = row.original.rates.length > 1;
                             return (
@@ -944,8 +922,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                                     hasHistory && "cursor-pointer hover:bg-muted/50"
                                 )}
                                 onClick={() => hasHistory && table.options.meta?.toggleCollapsible(row.original.id)}
-                                data-index={virtualRow.index}
-                                ref={node => rowVirtualizer.measureElement(node)}
                                 >
                                 {row.getVisibleCells().map((cell) => (
                                     <TableCell key={cell.id} className='whitespace-nowrap'>
@@ -1002,11 +978,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                             </TableCell>
                         </TableRow>
                         )}
-                        {paddingBottom > 0 && (
-                            <tr>
-                            <td style={{ height: `${paddingBottom}px` }} />
-                            </tr>
-                        )}
                     </TableBody>
                     </Table>
                 </div>
@@ -1050,4 +1021,3 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   );
 }
 
-    
