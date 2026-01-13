@@ -582,7 +582,7 @@ export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; 
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Batch Add Products</DialogTitle>
+                    <DialogTitle>Add Products</DialogTitle>
                     <DialogDescription>
                         Add multiple products from a single bill quickly. Common details are shared across all products.
                     </DialogDescription>
@@ -633,13 +633,13 @@ export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; 
                                 onClick={() => append({ name: '', unit: 'piece', rate: undefined, gst: undefined, finalRate: undefined })}
                             >
                                 <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Another Product
+                                Add Product
                             </Button>
                         </div>
                         
                         <DialogFooter>
                             <DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Cancel</Button></DialogClose>
-                            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save All Products'}</Button>
+                            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save Products'}</Button>
                         </DialogFooter>
                     </form>
                 </Form>

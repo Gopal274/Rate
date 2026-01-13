@@ -170,7 +170,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
   const [viewMode, setViewMode] = usePersistentState<ViewMode>('product-table-view-mode', 'table');
 
-  const [isAddProductOpen, setIsAddProductOpen] = React.useState(false);
   const [isBatchAddOpen, setIsBatchAddOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
@@ -739,9 +738,9 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     className="max-w-xs"
                 />
                 
-                {viewMode === 'card' ? (
+                {viewMode === 'card' && (
                    <MobileFilterSheet />
-                ) : null}
+                )}
 
 
                  <TooltipProvider>
@@ -778,16 +777,9 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 </DropdownMenu>
                 
                 { user && 
-                    <div className='flex gap-2'>
-                        <Button onClick={() => setIsBatchAddOpen(true)} variant="outline">
-                            <Plus className="mr-2 h-4 w-4" /> Batch Add
-                        </Button>
-                        <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
-                            <Button onClick={() => setIsAddProductOpen(true)}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add Product
-                            </Button>
-                        </ProductFormDialog> 
-                    </div>
+                    <Button onClick={() => setIsBatchAddOpen(true)}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Products
+                    </Button>
                 }
                 </div>
             </div>
@@ -1044,5 +1036,3 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
-
-    
