@@ -715,26 +715,9 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
 
   return (
     <>
-      <style>
-          {`
-            .print-table-view { display: none !important; }
-            @media print {
-                .no-print { display: none !important; }
-                .print-table-view {
-                  display: block !important;
-                  overflow: visible !important;
-                  height: auto !important;
-                }
-                body {
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                }
-            }
-          `}
-      </style>
-      <div>
+      <div className="printable-area">
         <Card>
-            <CardHeader>
+            <CardHeader className='no-print'>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                 <CardTitle>Products</CardTitle>
@@ -748,7 +731,12 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                     className="max-w-xs"
                 />
                 
-                {viewMode === 'card' && <MobileFilterSheet />}
+                {viewMode === 'card' ? (
+                   <MobileFilterSheet />
+                ) : (
+                    viewMode !== 'table' && <MobileFilterSheet />
+                )}
+
 
                  <TooltipProvider>
                     <Tooltip>
@@ -1012,47 +1000,6 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       </Card>
     </div>
     
-    {/* This is the table that will be used for printing */}
-    <div className="print-table-view">
-        <h1 className="text-2xl font-bold mb-4">Rate Record - All Products</h1>
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>S.No</TableHead>
-                    <TableHead>Product Name</TableHead>
-                    <TableHead>Party Name</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead className="text-right">Rate</TableHead>
-                    <TableHead className="text-center">GST %</TableHead>
-                    <TableHead className="text-right">Final Rate</TableHead>
-                    <TableHead>Page No</TableHead>
-                    <TableHead>Bill Date</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {table.getRowModel().rows.map((row, index) => {
-                    const latestRate = row.original.rates[0];
-                    if(!latestRate) return null;
-                    const finalRate = latestRate.rate * (1 + latestRate.gst / 100);
-                    return (
-                        <TableRow key={`print-${row.original.id}`}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell>{row.original.name}</TableCell>
-                            <TableCell>{row.original.partyName}</TableCell>
-                            <TableCell>{row.original.unit}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(latestRate.rate)}</TableCell>
-                            <TableCell className="text-center">{latestRate.gst}%</TableCell>
-                            <TableCell className="text-right">{formatCurrency(finalRate)}</TableCell>
-                            <TableCell>{latestRate.pageNo}</TableCell>
-                            <TableCell>{format(safeToDate(latestRate.billDate), 'dd/MM/yyyy')}</TableCell>
-                        </TableRow>
-                    )
-                })}
-            </TableBody>
-        </Table>
-    </div>
-
-
         {editingProduct && (
           <ProductFormDialog
             product={editingProduct}

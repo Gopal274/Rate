@@ -43,13 +43,20 @@ export default function RootLayout({
         <style>
           {`
             @media print {
+              body * {
+                visibility: hidden;
+              }
+              .printable-area, .printable-area * {
+                visibility: visible;
+              }
+              .printable-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+              }
               .no-print {
                 display: none !important;
-              }
-              .print-table-view {
-                display: block !important;
-                height: auto !important;
-                overflow: visible !important;
               }
             }
           `}
@@ -74,5 +81,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-    
