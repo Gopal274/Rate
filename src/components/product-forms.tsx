@@ -248,30 +248,29 @@ export function AddRateDialog({
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }) {
-    const latestRate = product?.rates[0];
-    const form = useForm<AddRateSchema>({
-        resolver: zodResolver(addRateSchema),
-        defaultValues: {
-        rate: '' as any,
-        billDate: format(new Date(), 'yyyy-MM-dd'),
-        pageNo: latestRate?.pageNo as number ?? 1,
-        gst: latestRate?.gst as number ?? 0,
-        },
-    });
+  const getInitialValues = (p: ProductWithRates | null) => {
+    const latestRate = p?.rates[0];
+    return {
+      rate: '' as any,
+      billDate: format(new Date(), 'yyyy-MM-dd'),
+      pageNo: latestRate?.pageNo,
+      gst: latestRate?.gst,
+    };
+  };
+
+  const form = useForm<AddRateSchema>({
+    resolver: zodResolver(addRateSchema),
+    defaultValues: getInitialValues(product),
+  });
+
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   React.useEffect(() => {
-    if(product) {
-        const latestRateInfo = product.rates[0];
-        form.reset({
-            rate: '' as any,
-            billDate: format(new Date(), 'yyyy-MM-dd'),
-            pageNo: latestRateInfo?.pageNo as number | undefined,
-            gst: latestRateInfo?.gst as number | undefined,
-        })
+    if (isOpen) {
+      form.reset(getInitialValues(product));
     }
-  }, [product, form]);
+  }, [isOpen, product, form]);
 
   async function onSubmit(values: AddRateSchema) {
     if (!product) return;
@@ -441,3 +440,5 @@ export function DeleteRateDialog({
         </AlertDialog>
     );
 }
+
+    
