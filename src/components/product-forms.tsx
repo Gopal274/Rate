@@ -446,6 +446,39 @@ export function DeleteRateDialog({
 
 // --- Batch Add Product Form ---
 
+const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter') {
+        const form = e.currentTarget;
+        const formElements = Array.from(form.elements).filter(
+            (el): el is HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement =>
+                el instanceof HTMLInputElement ||
+                el instanceof HTMLButtonElement ||
+                el instanceof HTMLTextAreaElement
+        ) as (HTMLInputElement | HTMLButtonElement | HTMLTextAreaElement)[];
+
+        const currentElement = document.activeElement as HTMLElement;
+        const currentIndex = formElements.findIndex(el => el === currentElement);
+
+        if (currentIndex > -1 && currentIndex < formElements.length - 1) {
+            // Find the next non-disabled, visible input
+            let nextIndex = currentIndex + 1;
+            while(nextIndex < formElements.length) {
+                const nextElement = formElements[nextIndex];
+                if (nextElement && !nextElement.disabled && nextElement.offsetParent !== null) {
+                    e.preventDefault();
+                    nextElement.focus();
+                    // If it's a text input, select its content
+                    if (nextElement instanceof HTMLInputElement && nextElement.type === 'text' || nextElement.type === 'number') {
+                        nextElement.select();
+                    }
+                    break;
+                }
+                nextIndex++;
+            }
+        }
+    }
+};
+
 function ProductSubForm({ index, remove }: { index: number; remove: (index: number) => void; }) {
   const { control, setValue, getValues } = useFormContext<BatchProductSchema>();
   
@@ -497,7 +530,7 @@ function ProductSubForm({ index, remove }: { index: number; remove: (index: numb
                 control={control}
                 name={`products.${index}.name`}
                 render={({ field }) => (
-                    <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input placeholder="e.g. Basmati Rice" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input autoComplete="off" placeholder="e.g. Basmati Rice" {...field} /></FormControl><FormMessage /></FormItem>
                 )}
             />
         </div>
@@ -505,21 +538,21 @@ function ProductSubForm({ index, remove }: { index: number; remove: (index: numb
             control={control}
             name={`products.${index}.rate`}
             render={({ field }) => (
-                <FormItem><FormLabel>Base Rate</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'rate')} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Base Rate</FormLabel><FormControl><Input autoComplete="off" type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'rate')} /></FormControl><FormMessage /></FormItem>
             )}
         />
         <FormField
             control={control}
             name={`products.${index}.gst`}
             render={({ field }) => (
-                <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input autoComplete="off" type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
             )}
         />
         <FormField
             control={control}
             name={`products.${index}.finalRate`}
             render={({ field }) => (
-                <FormItem><FormLabel>Final Rate</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'finalRate')} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Final Rate</FormLabel><FormControl><Input autoComplete="off" type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'finalRate')} /></FormControl><FormMessage /></FormItem>
             )}
         />
         <div className="md:col-span-3">
@@ -527,7 +560,7 @@ function ProductSubForm({ index, remove }: { index: number; remove: (index: numb
                 control={control}
                 name={`products.${index}.unit`}
                 render={({ field }) => (
-                    <FormItem><FormLabel>Unit</FormLabel><FormControl><Input placeholder="e.g. kg, piece" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Unit</FormLabel><FormControl><Input autoComplete="off" placeholder="e.g. kg, piece" {...field} /></FormControl><FormMessage /></FormItem>
                 )}
             />
         </div>
@@ -588,7 +621,7 @@ export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; 
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
                         <div className="p-4 border rounded-lg space-y-4">
                            <h3 className="font-semibold text-lg text-foreground">Common Bill Details</h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -596,21 +629,21 @@ export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; 
                                     control={form.control}
                                     name="partyName"
                                     render={({ field }) => (
-                                        <FormItem><FormLabel>Party Name</FormLabel><FormControl><Input placeholder="e.g. Global Foods Inc." {...field} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Party Name</FormLabel><FormControl><Input autoComplete="off" placeholder="e.g. Global Foods Inc." {...field} /></FormControl><FormMessage /></FormItem>
                                     )}
                                 />
                                 <FormField
                                     control={form.control}
                                     name="pageNo"
                                     render={({ field }) => (
-                                        <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input autoComplete="off" type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                                     )}
                                 />
                                 <FormField
                                     control={form.control}
                                     name="billDate"
                                     render={({ field }) => (
-                                        <FormItem><FormLabel>Bill Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Bill Date</FormLabel><FormControl><Input autoComplete="off" type="date" {...field} /></FormControl><FormMessage /></FormItem>
                                     )}
                                 />
                             </div>
