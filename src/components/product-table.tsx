@@ -420,6 +420,11 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       accessorKey: 'partyName',
       header: ({ column }) => {
         const selectedParties = (column?.getFilterValue() as string[] | undefined) ?? [];
+        const [partySearch, setPartySearch] = React.useState('');
+
+        const filteredPartyNames = uniquePartyNames.filter(party => 
+            party.toLowerCase().includes(partySearch.toLowerCase())
+        );
 
         return (
           <div className="flex items-center gap-2">
@@ -430,11 +435,19 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   <Filter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuLabel>Filter by Party</DropdownMenuLabel>
+              <DropdownMenuContent align="start" className="w-56">
+                <div className="p-2">
+                    <Input
+                        placeholder="Search parties..."
+                        value={partySearch}
+                        onChange={(e) => setPartySearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full h-8"
+                    />
+                </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem
-                  checked={selectedParties.length === uniquePartyNames.length}
+                  checked={selectedParties.length === uniquePartyNames.length && partySearch === ''}
                   onCheckedChange={(checked) => column?.setFilterValue(checked ? uniquePartyNames : [])}
                   onSelect={(e) => e.preventDefault()}
                 >
@@ -442,7 +455,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuSeparator />
                 <ScrollArea className="h-48">
-                {uniquePartyNames.map(party => (
+                {filteredPartyNames.map(party => (
                     <DropdownMenuCheckboxItem
                         key={party}
                         checked={selectedParties.includes(party)}
@@ -1036,3 +1049,5 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    
