@@ -35,6 +35,7 @@ import {
   Check,
   ArrowUp,
   ArrowDown,
+  Plus,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -91,7 +92,8 @@ import {
     ProductFormDialog,
     AddRateDialog,
     DeleteProductDialog,
-    DeleteRateDialog
+    DeleteRateDialog,
+    BatchAddProductDialog,
 } from './product-forms';
 import { Separator } from './ui/separator';
 import { Badge } from './ui/badge';
@@ -169,6 +171,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const [viewMode, setViewMode] = usePersistentState<ViewMode>('product-table-view-mode', 'table');
 
   const [isAddProductOpen, setIsAddProductOpen] = React.useState(false);
+  const [isBatchAddOpen, setIsBatchAddOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
   const [addingRateToProduct, setAddingRateToProduct] = React.useState<ProductWithRates | null>(null);
@@ -614,7 +617,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       filter?.setFilterValue(newPartyFilter);
   };
   
-  const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+  const filteredData = table.getFilteredRowModel().rows.map(row => row.original).filter(p => p.rates && p.rates.length > 0);
 
   const resetFilters = () => {
     table.resetColumnFilters();
@@ -644,7 +647,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     <Sheet>
         <SheetTrigger asChild>
             <Button variant="outline" size="sm">
-                <Filter className="mr-2" />
+                <Filter className="mr-2 h-4 w-4" />
                 Filter
             </Button>
         </SheetTrigger>
@@ -775,11 +778,16 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 </DropdownMenu>
                 
                 { user && 
-                    <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
-                        <Button onClick={() => setIsAddProductOpen(true)} className="w-full sm:w-auto">
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Product
+                    <div className='flex gap-2'>
+                        <Button onClick={() => setIsBatchAddOpen(true)} variant="outline">
+                            <Plus className="mr-2 h-4 w-4" /> Batch Add
                         </Button>
-                    </ProductFormDialog> 
+                        <ProductFormDialog isOpen={isAddProductOpen} setIsOpen={setIsAddProductOpen}>
+                            <Button onClick={() => setIsAddProductOpen(true)}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add Product
+                            </Button>
+                        </ProductFormDialog> 
+                    </div>
                 }
                 </div>
             </div>
@@ -856,13 +864,13 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                             <Separator className="mb-4" />
                             <div className="flex justify-center gap-1">
                                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddingRateToProduct(product)}>
-                                    <PlusCircle className="mr-2" /> Rate
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Rate
                                 </Button>
                                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditingProduct(product)}>
-                                    <Edit className="mr-2" /> Edit
+                                    <Edit className="mr-2 h-4 w-4" /> Edit
                                 </Button>
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="destructive" size="sm" className="flex-1"><Trash2 className="mr-2" /> Delete</Button></DropdownMenuTrigger>
+                                    <DropdownMenuTrigger asChild><Button variant="destructive" size="sm" className="flex-1"><Trash2 className="mr-2 h-4 w-4" /> Delete</Button></DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                          <DropdownMenuItem className="text-orange-600 focus:text-orange-600" onClick={() => {
                                             if (product.rates.length > 1) {
@@ -871,11 +879,11 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                                                 setDeletingProduct(product);
                                             }
                                          }}>
-                                            <Trash2 className="mr-2" /> {product.rates.length > 1 ? 'Delete Latest Rate' : 'Delete Product'}
+                                            <Trash2 className="mr-2 h-4 w-4" /> {product.rates.length > 1 ? 'Delete Latest Rate' : 'Delete Product'}
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => setDeletingProduct(product)}>
-                                            <XCircle className="mr-2" /> Delete Product & History
+                                            <XCircle className="mr-2 h-4 w-4" /> Delete Product & History
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -1010,6 +1018,10 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             setIsOpen={(isOpen) => !isOpen && setEditingProduct(null)}
           />
         )}
+        <BatchAddProductDialog 
+            isOpen={isBatchAddOpen}
+            setIsOpen={setIsBatchAddOpen}
+        />
 
         {addingRateToProduct && (
           <AddRateDialog
@@ -1032,3 +1044,5 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
+    

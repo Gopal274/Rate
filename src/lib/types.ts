@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 const billDateSchema = z.string().refine((val) => !isNaN(Date.parse(val)), {
@@ -33,6 +34,25 @@ export const updateProductSchema = z.object({
 
 export type UpdateProductSchema = z.infer<typeof updateProductSchema>;
 
+// Schema for a single product within the batch form
+const batchProductEntrySchema = z.object({
+    name: z.string().min(3, "Name must be at least 3 characters."),
+    unit: z.string().min(1, "Unit is required."),
+    rate: z.coerce.number().min(0.01, "Base rate is required."),
+    gst: z.coerce.number().min(0, "GST is required."),
+    finalRate: z.coerce.number().min(0.01, "Final rate is required."),
+});
+
+// Schema for the entire batch product form
+export const batchProductSchema = z.object({
+    partyName: z.string().min(3, "Party name is required."),
+    billDate: z.string().refine(val => !isNaN(Date.parse(val)), { message: "A valid bill date is required." }),
+    pageNo: z.coerce.number().int().min(1, "Page number is required."),
+    products: z.array(batchProductEntrySchema).min(1, "At least one product must be added."),
+});
+
+export type BatchProductSchema = z.infer<typeof batchProductSchema>;
+
 
 // This is the shape of the data in the database
 export type Product = {
@@ -52,3 +72,5 @@ export type Rate = {
 };
 
 export type ProductWithRates = Product & { rates: Rate[] };
+
+    

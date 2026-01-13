@@ -3,18 +3,19 @@
 
 import * as React from 'react';
 import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 
 import {
   addProductAction,
+  batchAddProductsAction,
   deleteProductAction,
   updateProductAction,
   addRateAction,
   deleteRateAction,
 } from '@/lib/actions';
-import { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates, productSchema, updateProductSchema } from '@/lib/types';
+import { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates, productSchema, updateProductSchema, batchProductSchema, type BatchProductSchema } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,8 +54,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { safeToDate } from '@/lib/utils';
+import { safeToDate, cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
+import { PlusCircle, Trash2 } from 'lucide-react';
+import { ScrollArea } from './ui/scroll-area';
 
 const getInitialAddFormValues = () => {
     return {
@@ -439,6 +442,208 @@ export function DeleteRateDialog({
         </AlertDialogContent>
         </AlertDialog>
     );
+}
+
+// --- Batch Add Product Form ---
+
+function ProductSubForm({ index, remove }: { index: number; remove: (index: number) => void; }) {
+  const { control, setValue, getValues } = useFormContext<BatchProductSchema>();
+  
+  const rate = useWatch({ control, name: `products.${index}.rate` });
+  const gst = useWatch({ control, name: `products.${index}.gst` });
+  const finalRate = useWatch({ control, name: `products.${index}.finalRate` });
+
+  const handleRateChange = (newRate: number, field: 'rate' | 'finalRate') => {
+      const currentGst = getValues(`products.${index}.gst`) || 0;
+      
+      if (field === 'rate') {
+          setValue(`products.${index}.rate`, newRate, { shouldValidate: true });
+          if (currentGst >= 0) {
+              const newFinalRate = newRate * (1 + currentGst / 100);
+              setValue(`products.${index}.finalRate`, parseFloat(newFinalRate.toFixed(2)), { shouldValidate: true });
+          }
+      } else if (field === 'finalRate') {
+          setValue(`products.${index}.finalRate`, newRate, { shouldValidate: true });
+          if (currentGst >= 0) {
+              const newBaseRate = newRate / (1 + currentGst / 100);
+              setValue(`products.${index}.rate`, parseFloat(newBaseRate.toFixed(2)), { shouldValidate: true });
+          }
+      }
+  };
+  
+  const handleGstChange = (newGst: number) => {
+    setValue(`products.${index}.gst`, newGst, { shouldValidate: true });
+    const currentRate = getValues(`products.${index}.rate`);
+    if (currentRate && newGst >= 0) {
+        const newFinalRate = currentRate * (1 + newGst / 100);
+        setValue(`products.${index}.finalRate`, parseFloat(newFinalRate.toFixed(2)), { shouldValidate: true });
+    }
+  }
+
+  return (
+    <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-md bg-muted/50">
+        <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => remove(index)}
+        >
+            <Trash2 className="h-4 w-4" />
+        </Button>
+
+        <div className="md:col-span-3">
+             <FormField
+                control={control}
+                name={`products.${index}.name`}
+                render={({ field }) => (
+                    <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input placeholder="e.g. Basmati Rice" {...field} /></FormControl><FormMessage /></FormItem>
+                )}
+            />
+        </div>
+        <FormField
+            control={control}
+            name={`products.${index}.rate`}
+            render={({ field }) => (
+                <FormItem><FormLabel>Base Rate</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'rate')} /></FormControl><FormMessage /></FormItem>
+            )}
+        />
+        <FormField
+            control={control}
+            name={`products.${index}.gst`}
+            render={({ field }) => (
+                <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+            )}
+        />
+        <FormField
+            control={control}
+            name={`products.${index}.finalRate`}
+            render={({ field }) => (
+                <FormItem><FormLabel>Final Rate</FormLabel><FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'finalRate')} /></FormControl><FormMessage /></FormItem>
+            )}
+        />
+        <div className="md:col-span-3">
+            <FormField
+                control={control}
+                name={`products.${index}.unit`}
+                render={({ field }) => (
+                    <FormItem><FormLabel>Unit</FormLabel><FormControl><Input placeholder="e.g. kg, piece" {...field} /></FormControl><FormMessage /></FormItem>
+                )}
+            />
+        </div>
+    </div>
+  )
+}
+
+export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: boolean) => void;}) {
+    const { toast } = useToast();
+    const form = useForm<BatchProductSchema>({
+        resolver: zodResolver(batchProductSchema),
+        defaultValues: {
+            billDate: format(new Date(), 'yyyy-MM-dd'),
+            products: [{ name: '', unit: 'piece', rate: undefined, gst: undefined, finalRate: undefined }]
+        }
+    });
+
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: "products",
+    });
+    
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const onSubmit = async (data: BatchProductSchema) => {
+        setIsSubmitting(true);
+        const result = await batchAddProductsAction(data);
+        
+        if(result.success) {
+            toast({ title: "Success!", description: `Successfully added ${result.count} products.` });
+            setIsOpen(false);
+            form.reset({
+                partyName: '',
+                pageNo: undefined,
+                billDate: format(new Date(), 'yyyy-MM-dd'),
+                products: [{ name: '', unit: 'piece', rate: undefined, gst: undefined, finalRate: undefined }]
+            });
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+        setIsSubmitting(false);
+    }
+    
+    const handleOpenChange = (open: boolean) => {
+      if(isSubmitting) return;
+      setIsOpen(open);
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Batch Add Products</DialogTitle>
+                    <DialogDescription>
+                        Add multiple products from a single bill quickly. Common details are shared across all products.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <div className="p-4 border rounded-lg space-y-4">
+                           <h3 className="font-semibold text-lg text-foreground">Common Bill Details</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="partyName"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Party Name</FormLabel><FormControl><Input placeholder="e.g. Global Foods Inc." {...field} /></FormControl><FormMessage /></FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="pageNo"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="billDate"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Bill Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                                    )}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-lg text-foreground">Products</h3>
+                            <ScrollArea className="h-[40vh] pr-4">
+                                <div className="space-y-4">
+                                    {fields.map((field, index) => (
+                                        <ProductSubForm key={field.id} index={index} remove={remove} />
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                             <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="mt-2"
+                                onClick={() => append({ name: '', unit: 'piece', rate: undefined, gst: undefined, finalRate: undefined })}
+                            >
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Add Another Product
+                            </Button>
+                        </div>
+                        
+                        <DialogFooter>
+                            <DialogClose asChild><Button type="button" variant="secondary" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save All Products'}</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    )
 }
 
     

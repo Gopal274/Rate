@@ -20,7 +20,7 @@ import {
 
 // IMPORTANT: Use the server-side initialization
 import { getSdks } from '@/firebase/server';
-import type { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates } from './types';
+import type { Product, Rate, ProductSchema, UpdateProductSchema, ProductWithRates, BatchProductSchema } from './types';
 
 
 // Helper to initialize Firebase Admin
@@ -68,6 +68,34 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
         ...rateData,
     }
   };
+};
+
+export const batchAddProducts = async (formData: BatchProductSchema): Promise<number> => {
+    const db = await getDb();
+    const { partyName, billDate, pageNo, products } = formData;
+    const batch = writeBatch(db);
+    
+    for (const product of products) {
+        const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
+        
+        batch.set(newProductRef, {
+            name: product.name,
+            unit: product.unit,
+            partyName: partyName,
+        });
+
+        const newRateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
+        batch.set(newRateRef, {
+            rate: product.rate,
+            gst: product.gst,
+            pageNo: pageNo,
+            billDate: new Date(billDate),
+            createdAt: serverTimestamp(),
+        });
+    }
+
+    await batch.commit();
+    return products.length;
 };
 
 
@@ -267,3 +295,5 @@ export async function importProductsAndRates(rows: any[][]) {
 
   return { added, updated, skipped };
 }
+
+    

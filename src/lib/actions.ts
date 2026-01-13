@@ -4,6 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import {
   addProduct as addProductToDb,
+  batchAddProducts as batchAddProductsToDb,
   updateProduct as updateProductInDb,
   deleteProduct as deleteProductFromDb,
   addRate as addRateToDb,
@@ -12,7 +13,7 @@ import {
   getAllProductsWithRates,
   importProductsAndRates,
 } from './data';
-import type { Rate, UpdateProductSchema, ProductWithRates } from './types';
+import type { Rate, UpdateProductSchema, ProductWithRates, BatchProductSchema } from './types';
 import { productSchema } from './types';
 import { z } from 'zod';
 import { google } from 'googleapis';
@@ -63,6 +64,19 @@ export async function addProductAction(formData: ProductFormData) {
   }
   return { success: false, message: result.message };
 }
+
+export async function batchAddProductsAction(formData: BatchProductSchema) {
+    const result = await handleAction(async () => {
+        const count = await batchAddProductsToDb(formData);
+        return { count };
+    }, mainPaths);
+
+    if (result.success) {
+        return { success: true, count: result.data.count };
+    }
+    return { success: false, message: result.message };
+}
+
 
 export async function addRateAction(productId: string, rate: number, billDate: Date, pageNo: number, gst: number) {
   const result = await handleAction(async () => {
@@ -340,3 +354,5 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     return { success: false, message: error.message || 'An error occurred while importing from Google Sheets.' };
   }
 }
+
+    
