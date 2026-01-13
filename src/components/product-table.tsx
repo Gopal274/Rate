@@ -33,6 +33,8 @@ import {
   LayoutGrid,
   List,
   Check,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
@@ -244,12 +246,12 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
 
 
   const uniquePartyNames = React.useMemo(() => {
-    const partyNames = new Set(allProductsWithRates.map(p => p.partyName));
+    const partyNames = new Set(allProductsWithRates.filter(p => p.rates.length > 0).map(p => p.partyName));
     return Array.from(partyNames).sort((a, b) => a.localeCompare(b));
   }, [allProductsWithRates]);
 
     const uniqueFirstLetters = React.useMemo(() => {
-        const firstLetters = new Set(allProductsWithRates.map(p => p.name.charAt(0).toUpperCase()));
+        const firstLetters = new Set(allProductsWithRates.filter(p => p.rates.length > 0).map(p => p.name.charAt(0).toUpperCase()));
         return Array.from(firstLetters).sort();
     }, [allProductsWithRates]);
 
@@ -261,7 +263,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       case 'asc':
         return dataToSort.sort((a, b) => a.name.localeCompare(b.name));
       case 'desc':
-        return dataToSort.sort((a, b) => b.name.localeCompare(b.name));
+        return dataToSort.sort((a, b) => b.name.localeCompare(a.name));
       case 'newest':
       default:
         return dataToSort.sort((a, b) => safeToDate(b.rates[0].createdAt).getTime() - safeToDate(a.rates[0].createdAt).getTime());
@@ -303,6 +305,9 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             column.setFilterValue((old: any) => ({ ...(old || {}), alphabetFilter: newAlphabetFilter }));
         }
 
+        const SortIcon = activeSort === 'asc' ? ArrowUp : activeSort === 'desc' ? ArrowDown : ArrowUpDown;
+
+
         return (
           <div className="flex items-center gap-2">
             <span>Product Name</span>
@@ -310,7 +315,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <ArrowUpDown className="h-4 w-4" />
+                    <SortIcon className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
@@ -545,7 +550,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       },
       enableSorting: false,
     },
-  ], [openCollapsibles, uniquePartyNames, uniqueFirstLetters, setActiveSort]);
+  ], [openCollapsibles, uniquePartyNames, uniqueFirstLetters, activeSort]);
 
   const table = useReactTable({
     data: sortedData,
@@ -733,9 +738,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 
                 {viewMode === 'card' ? (
                    <MobileFilterSheet />
-                ) : (
-                    viewMode !== 'table' && <MobileFilterSheet />
-                )}
+                ) : null}
 
 
                  <TooltipProvider>
