@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { z } from 'zod';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 
@@ -540,6 +540,8 @@ export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; 
     const form = useForm<BatchProductSchema>({
         resolver: zodResolver(batchProductSchema),
         defaultValues: {
+            partyName: '',
+            pageNo: undefined,
             billDate: format(new Date(), 'yyyy-MM-dd'),
             products: [{ name: '', unit: 'piece', rate: undefined, gst: undefined, finalRate: undefined }]
         }
@@ -645,5 +647,3 @@ export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; 
         </Dialog>
     )
 }
-
-    
