@@ -142,7 +142,6 @@ const reconcileLedgersFlow = ai.defineFlow(
   },
   async (input) => {
     const response = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
       prompt: [
           {text: `You are an expert accountant. Your task is to reconcile two ledgers from Party A and Party B.
       
