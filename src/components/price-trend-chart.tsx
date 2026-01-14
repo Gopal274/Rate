@@ -2,7 +2,16 @@
 'use client';
 
 import * as React from 'react';
-import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  ComposedChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Brush,
+  Line,
+} from 'recharts';
 import {
   Card,
   CardContent,
@@ -17,8 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
-import type { ProductWithRates, Rate } from '@/lib/types';
+import { ChartContainer, ChartTooltipContent }from '@/components/ui/chart';
+import type { ProductWithRates } from '@/lib/types';
 import { safeToDate } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -26,24 +35,43 @@ interface PriceTrendChartProps {
   productsWithRates: ProductWithRates[];
 }
 
-const chartConfig = {
-  finalRate: {
-    label: 'Final Rate',
-    color: 'hsl(var(--chart-1))',
-  },
+interface CandlestickData {
+  date: number; // monthly timestamp
+  prices: [number, number, number, number]; // open, high, low, close
+}
+
+const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value);
 };
+
+const CustomCandle = (props: any) => {
+  const { x, y, width, height, low, high, open, close, fill } = props;
+  const isRising = close > open;
+  const color = isRising ? 'hsl(var(--chart-2))' : 'hsl(var(--chart-1))';
+
+  return (
+    <g stroke={color} fill="none" strokeWidth="1">
+      {/* High-Low line */}
+      <path d={`M ${x + width / 2},${y} L ${x + width / 2},${height}`} />
+      {/* Candle body */}
+      <path
+        d={`M ${x},${Math.min(open, close)} H ${x + width} V ${Math.max(open, close)} H ${x} Z`}
+        fill={color}
+      />
+    </g>
+  );
+};
+
 
 export function PriceTrendChart({ productsWithRates }: PriceTrendChartProps) {
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    // Select a product with a trend by default
     if (!selectedProductId && productsWithRates.length > 0) {
       const firstProductWithTrend = productsWithRates.find(p => p.rates && p.rates.length > 1);
       if (firstProductWithTrend) {
         setSelectedProductId(firstProductWithTrend.id);
       } else {
-        // Fallback to the first product with any rates
         const firstProductWithAnyRate = productsWithRates.find(p => p.rates && p.rates.length > 0);
         if (firstProductWithAnyRate) {
             setSelectedProductId(firstProductWithAnyRate.id);
@@ -56,15 +84,37 @@ export function PriceTrendChart({ productsWithRates }: PriceTrendChartProps) {
     return productsWithRates.find(p => p.id === selectedProductId);
   }, [selectedProductId, productsWithRates]);
 
-  const chartData = React.useMemo(() => {
-    if (!selectedProduct || !selectedProduct.rates) return [];
+  const chartData = React.useMemo((): CandlestickData[] => {
+    if (!selectedProduct || !selectedProduct.rates || selectedProduct.rates.length === 0) return [];
     
-    return selectedProduct.rates
+    const sortedRates = selectedProduct.rates
       .map(rate => ({
-        billDate: safeToDate(rate.billDate),
+        date: safeToDate(rate.billDate),
         finalRate: rate.rate * (1 + rate.gst / 100),
       }))
-      .sort((a, b) => a.billDate.getTime() - b.billDate.getTime()); // Sort by date ascending
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    const groupedByMonth: { [key: string]: { rates: number[] } } = {};
+
+    for (const rate of sortedRates) {
+        const monthKey = format(rate.date, 'yyyy-MM');
+        if (!groupedByMonth[monthKey]) {
+            groupedByMonth[monthKey] = { rates: [] };
+        }
+        groupedByMonth[monthKey].rates.push(rate.finalRate);
+    }
+    
+    return Object.entries(groupedByMonth).map(([monthKey, data]) => {
+      const open = data.rates[0];
+      const close = data.rates[data.rates.length - 1];
+      const high = Math.max(...data.rates);
+      const low = Math.min(...data.rates);
+      return {
+        date: new Date(monthKey).getTime(),
+        prices: [open, high, low, close]
+      }
+    });
+
   }, [selectedProduct]);
 
   return (
@@ -93,48 +143,59 @@ export function PriceTrendChart({ productsWithRates }: PriceTrendChartProps) {
 
             <div className="flex-grow w-full">
             {chartData.length > 1 ? (
-                <ChartContainer config={chartConfig} className="min-h-[150px] w-full h-full">
+                <ChartContainer config={{}} className="min-h-[250px] w-full h-full">
                     <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
+                    <ComposedChart
                         data={chartData}
-                        margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                        margin={{ top: 20, right: 20, left: 10, bottom: 20 }}
                     >
-                        <CartesianGrid vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis
-                            dataKey="billDate"
-                            tickFormatter={(tick) => format(tick, 'dd MMM')}
-                            tickLine={false}
-                            axisLine={false}
-                            tickMargin={8}
-                            interval="preserveStartEnd"
+                            dataKey="date"
+                            tickFormatter={(tick) => format(new Date(tick), 'MMM yy')}
+                            scale="time"
+                            type="number"
+                            domain={['dataMin', 'dataMax']}
                         />
                          <YAxis 
-                            tickFormatter={(tick) => `₹${tick.toFixed(0)}`}
-                            tickLine={false}
-                            axisLine={false}
-                            tickMargin={8}
-                            width={50}
+                            orientation="right"
+                            tickFormatter={(tick) => formatCurrency(tick)}
+                            domain={['dataMin - (dataMax - dataMin) * 0.1', 'dataMax + (dataMax - dataMin) * 0.1']}
+                            width={80}
                         />
                         <Tooltip
-                            content={<ChartTooltipContent
-                                indicator='dot'
-                                labelFormatter={(label, payload) => {
-                                    if(payload && payload.length > 0 && payload[0].payload) {
-                                        return format(payload[0].payload.billDate, 'PPP');
-                                    }
-                                    return '';
-                                }}
-                                formatter={(value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(value as number)}
-                            />}
+                            labelFormatter={(label) => format(new Date(label), 'MMMM yyyy')}
+                            content={({ payload }) => {
+                                if (!payload || payload.length === 0) return null;
+                                const data = payload[0].payload.prices;
+                                return (
+                                    <div className="bg-background border shadow-sm rounded-lg p-2 text-sm">
+                                        <p className="font-bold mb-1">{format(new Date(payload[0].payload.date), 'MMMM yyyy')}</p>
+                                        <p>Open: {formatCurrency(data[0])}</p>
+                                        <p>High: {formatCurrency(data[1])}</p>
+                                        <p>Low: {formatCurrency(data[2])}</p>
+                                        <p>Close: {formatCurrency(data[3])}</p>
+                                    </div>
+                                );
+                            }}
                         />
+                        
                         <Line
-                            dataKey="finalRate"
-                            type="monotone"
-                            stroke="var(--color-finalRate)"
-                            strokeWidth={2}
-                            dot={true}
+                            type="linear"
+                            dataKey="prices"
+                            stroke="none"
+                            isAnimationActive={false}
+                            shape={<CustomCandle />}
+                         />
+                         
+                         <Brush 
+                            dataKey="date" 
+                            height={30} 
+                            stroke="hsl(var(--primary))"
+                            tickFormatter={(tick) => format(new Date(tick), 'MMM yy')}
+                            travellerWidth={15}
                         />
-                    </LineChart>
+                    </ComposedChart>
                     </ResponsiveContainer>
                 </ChartContainer>
             ) : (
