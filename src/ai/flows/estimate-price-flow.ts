@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to estimate the future price of a product based on its history.
@@ -16,7 +17,7 @@ const HistoricalRateSchema = z.object({
   billDate: z.string().describe('The date of the price recording (ISO 8601 format).'),
 });
 
-export const EstimatePriceInputSchema = z.object({
+const EstimatePriceInputSchema = z.object({
   productName: z.string().describe('The name of the product being analyzed.'),
   historicalRates: z
     .array(HistoricalRateSchema)
@@ -24,7 +25,7 @@ export const EstimatePriceInputSchema = z.object({
 });
 export type EstimatePriceInput = z.infer<typeof EstimatePriceInputSchema>;
 
-export const EstimatePriceOutputSchema = z.object({
+const EstimatePriceOutputSchema = z.object({
   estimatedPrice: z.number().describe('The estimated next final price for the product, including GST.'),
   reasoning: z
     .string()
