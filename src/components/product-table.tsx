@@ -573,8 +573,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    enablePagination: false, // Ensure all rows are rendered
     initialState: {},
     meta: {
         toggleCollapsible: (productId: string) => {
@@ -888,7 +888,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   )}
                 </div>
             ) : (
-                <div className="rounded-md border relative h-[60vh] overflow-y-auto">
+                <div className="rounded-md border relative h-[60vh] overflow-auto">
                     <Table>
                     <TableHeader className="sticky top-0 bg-background z-10">
                         {table.getHeaderGroups().map((headerGroup) => (
