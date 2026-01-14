@@ -39,9 +39,9 @@ const writeReconciliationToSheet = ai.defineTool(
     }),
   },
   async (data, context) => {
-    const { accessToken } = context.auth as { accessToken: string };
+    const { accessToken } = (context?.auth as { accessToken: string }) || {};
     if (!accessToken) {
-      throw new Error('Google authentication is required.');
+      throw new Error('Google authentication is required. Access token was not provided to the tool.');
     }
     
     const oAuth2Client = new OAuth2Client();
@@ -157,13 +157,13 @@ Do not summarize the results in text. The only output should be the result of ca
         {media: {url: input.partyBLedgerPdf}},
       ],
       tools: [writeReconciliationToSheet],
-      // Pass the access token in the context for the tool to use.
-      context: { auth: { accessToken: input.accessToken } }
     });
 
     const toolResponse = response.toolRequests[0];
     if (toolResponse?.name === 'writeReconciliationToSheet') {
-        const toolOutput = await toolResponse.execute();
+        const toolOutput = await toolResponse.execute({
+          auth: { accessToken: input.accessToken }
+        });
         return { sheetUrl: toolOutput.sheetUrl };
     }
     
