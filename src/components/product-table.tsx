@@ -98,7 +98,7 @@ import { Separator } from './ui/separator';
 import { Badge } from './ui/badge';
 
 
-type SortDirection = 'newest' | 'oldest' | 'asc' | 'desc';
+type SortDirection = 'default' | 'newest' | 'oldest' | 'asc' | 'desc';
 type ViewMode = 'table' | 'card';
 
 const multiSelectFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
@@ -166,7 +166,7 @@ const formatCurrency = (value: number) => {
 export function ProductTable({ allProductsWithRates }: { allProductsWithRates: ProductWithRates[] }) {
   const [columnFilters, setColumnFilters] = usePersistentState<ColumnFiltersState>('product-table-filters-v10', []);
   const [openCollapsibles, setOpenCollapsibles] = React.useState<Set<string>>(new Set());
-  const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v2', 'newest');
+  const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v3', 'default');
   const [viewMode, setViewMode] = usePersistentState<ViewMode>('product-table-view-mode', 'table');
 
   const [isBatchAddOpen, setIsBatchAddOpen] = React.useState(false);
@@ -259,15 +259,25 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const sortedData = React.useMemo(() => {
     let dataToSort = [...allProductsWithRates].filter(p => p.rates.length > 0); 
     switch (activeSort) {
+      case 'newest':
+        return dataToSort.sort((a, b) => safeToDate(b.rates[0].createdAt).getTime() - safeToDate(a.rates[0].createdAt).getTime());
       case 'oldest':
-        return dataToSort.sort((a, b) => new Date(a.rates[0].billDate as string).getTime() - new Date(b.rates[0].billDate as string).getTime());
+        return dataToSort.sort((a, b) => safeToDate(a.rates[0].createdAt).getTime() - safeToDate(b.rates[0].createdAt).getTime());
       case 'asc':
         return dataToSort.sort((a, b) => a.name.localeCompare(b.name));
       case 'desc':
         return dataToSort.sort((a, b) => b.name.localeCompare(a.name));
-      case 'newest':
+      case 'default':
       default:
-        return dataToSort.sort((a, b) => safeToDate(b.rates[0].createdAt).getTime() - safeToDate(a.rates[0].createdAt).getTime());
+        return dataToSort.sort((a, b) => {
+          // First sort by party name
+          const partyCompare = a.partyName.localeCompare(b.partyName);
+          if (partyCompare !== 0) {
+            return partyCompare;
+          }
+          // If party names are the same, sort by product name
+          return a.name.localeCompare(b.name);
+        });
     }
   }, [allProductsWithRates, activeSort]);
 
@@ -320,10 +330,11 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => setActiveSort('default')}>Default</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setActiveSort('newest')}>Newest first</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setActiveSort('oldest')}>Oldest first</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setActiveSort('asc')}>A-Z</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setActiveSort('desc')}>Z-A</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSort('asc')}>A-Z by Product</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSort('desc')}>Z-A by Product</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -574,7 +585,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    enablePagination: false, // Ensure all rows are rendered
+    enablePagination: false, 
     initialState: {},
     meta: {
         toggleCollapsible: (productId: string) => {
