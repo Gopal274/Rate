@@ -71,11 +71,13 @@ export default function ClientReconciliationPage() {
             fileToDataURI(partyBPdf)
         ]);
 
-        const response = await reconcileLedgers({
-            partyALedgerPdf: partyADataUri,
-            partyBLedgerPdf: partyBDataUri,
-            accessToken,
-        });
+        const response = await reconcileLedgers(
+            {
+                partyALedgerPdf: partyADataUri,
+                partyBLedgerPdf: partyBDataUri,
+            },
+            accessToken // The access token is now passed as a separate argument.
+        );
 
         if (response.sheetUrl) {
             setResultUrl(response.sheetUrl);
@@ -164,4 +166,3 @@ export default function ClientReconciliationPage() {
     </div>
   );
 }
-

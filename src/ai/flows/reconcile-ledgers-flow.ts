@@ -120,10 +120,10 @@ const writeReconciliationToSheet = ai.defineTool(
 
 
 // Schema for the main flow
+// The accessToken is removed from here as it will be passed in the context.
 const ReconcileLedgersInputSchema = z.object({
   partyALedgerPdf: z.string().describe("A ledger PDF from Party A, as a data URI."),
   partyBLedgerPdf: z.string().describe("A ledger PDF from Party B, as a data URI."),
-  accessToken: z.string().describe("Google OAuth2 access token for API calls."),
 });
 export type ReconcileLedgersInput = z.infer<typeof ReconcileLedgersInputSchema>;
 
@@ -145,9 +145,7 @@ const reconcileLedgersFlow = ai.defineFlow(
       prompt: [
           {text: `You are an expert accountant. Your task is to reconcile two ledgers from Party A and Party B.
       
-Carefully analyze the transactions in both PDF documents provided. Identify which transactions match, and which are present in one ledger but not the other.
-
-A transaction is defined by its date, description/bill number, and amount. A match requires all three fields to be identical.
+Carefully analyze the transactions in both PDF documents provided. A transaction is defined by its date, description/bill number, and amount. A match requires all three fields to be identical.
 
 Once you have completed your analysis, you MUST use the "writeReconciliationToSheet" tool to output the results into a Google Sheet.
 
@@ -161,6 +159,8 @@ Do not summarize the results in text. The only output should be the result of ca
 
     const toolResponse = response.toolRequests[0];
     if (toolResponse?.name === 'writeReconciliationToSheet') {
+        // The auth context is automatically passed to execute() by the Genkit framework
+        // when the flow is called with the context.
         const toolOutput = await toolResponse.execute();
         return { sheetUrl: toolOutput.sheetUrl };
     }
@@ -169,8 +169,9 @@ Do not summarize the results in text. The only output should be the result of ca
   }
 );
 
-
-export async function reconcileLedgers(input: ReconcileLedgersInput): Promise<ReconcileLedgersOutput> {
-  // Correctly pass the accessToken in the `auth` property of the context object.
-  return reconcileLedgersFlow(input, { auth: { accessToken: input.accessToken } });
+// This wrapper is what the client calls. It now accepts an extra 'accessToken' parameter.
+export async function reconcileLedgers(input: ReconcileLedgersInput, accessToken: string): Promise<ReconcileLedgersOutput> {
+  // Pass the accessToken in the `auth` property of the context object.
+  // This is the correct way to provide auth context to flows and their tools.
+  return reconcileLedgersFlow(input, { auth: { accessToken } });
 }
