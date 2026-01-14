@@ -120,7 +120,6 @@ const writeReconciliationToSheet = ai.defineTool(
 
 
 // Schema for the main flow
-// The accessToken is removed from here as it will be passed in the context.
 const ReconcileLedgersInputSchema = z.object({
   partyALedgerPdf: z.string().describe("A ledger PDF from Party A, as a data URI."),
   partyBLedgerPdf: z.string().describe("A ledger PDF from Party B, as a data URI."),
@@ -159,8 +158,7 @@ Do not summarize the results in text. The only output should be the result of ca
 
     const toolResponse = response.toolRequests[0];
     if (toolResponse?.name === 'writeReconciliationToSheet') {
-        // The auth context is automatically passed to execute() by the Genkit framework
-        // when the flow is called with the context.
+        // The auth context from the parent flow is automatically passed to execute() by the Genkit framework.
         const toolOutput = await toolResponse.execute();
         return { sheetUrl: toolOutput.sheetUrl };
     }
