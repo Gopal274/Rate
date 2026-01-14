@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -17,10 +17,9 @@ import { useToast } from '@/hooks/use-toast';
 import { reconcileLedgers } from '@/ai/flows/reconcile-ledgers-flow';
 import type { ReconciliationData } from '@/lib/types';
 import { writeToSheetAction } from '@/lib/actions';
-import { Loader, Upload, FileText, CheckCircle, ExternalLink, Bot, Table, MessageSquare, ListChecks } from 'lucide-react';
+import { Loader, Upload, FileText, CheckCircle, ExternalLink, Bot, Table, ListChecks, MessageSquare } from 'lucide-react';
 import { useFirebase, useUser } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const fileToDataURI = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -41,12 +40,10 @@ export default function ClientReconciliationPage() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reconciliationData, setReconciliationData] = useState<ReconciliationData | null>(null);
-  const [progressMessages, setProgressMessages] = useState<string[]>([]);
   
   const { toast } = useToast();
   const { auth } = useFirebase();
   const { user } = useUser();
-
 
   const handleReset = () => {
     setPartyAPdf(null);
@@ -55,7 +52,6 @@ export default function ClientReconciliationPage() {
     setResultUrl(null);
     setErrorMessage(null);
     setReconciliationData(null);
-    setProgressMessages([]);
   }
 
   const handleAnalysis = async () => {
@@ -67,7 +63,6 @@ export default function ClientReconciliationPage() {
     setProcessingState('analyzing');
     setResultUrl(null);
     setErrorMessage(null);
-    setProgressMessages([]);
     setReconciliationData(null);
     
     try {
@@ -76,20 +71,17 @@ export default function ClientReconciliationPage() {
             fileToDataURI(partyBPdf)
         ]);
 
-        const stream = await reconcileLedgers({
+        const result = await reconcileLedgers({
             partyALedgerPdf: partyADataUri,
             partyBLedgerPdf: partyBDataUri,
         });
-        
-        for await (const chunk of stream) {
-            if (chunk.progress) {
-                setProgressMessages(prev => [...prev, chunk.progress]);
-            }
-            if (chunk.result) {
-                setReconciliationData(chunk.result);
-                // AI analysis is done, move to the next logical step
-                setProcessingState('writing_sheet'); 
-            }
+
+        if (result) {
+            setReconciliationData(result);
+            // AI analysis is done, move to the next logical step
+            setProcessingState('writing_sheet'); 
+        } else {
+             throw new Error("AI analysis returned no data.");
         }
 
     } catch (error: any) {
@@ -126,7 +118,10 @@ export default function ClientReconciliationPage() {
         } catch (authError: any) {
              if (authError.code === 'auth/popup-blocked') {
                 throw new Error("Popup blocked by browser. Please allow popups for this site and try again.");
-            } else {
+            } else if (authError.code === 'auth/cancelled-popup-request') {
+                return; // User cancelled, so we just stop.
+            }
+             else {
                 throw new Error("Google Authentication failed. Please try again.");
             }
         }
@@ -194,7 +189,7 @@ export default function ClientReconciliationPage() {
         <CardHeader>
           <CardTitle>AI Ledger Reconciliation</CardTitle>
           <CardDescription>
-            Upload two ledger PDFs. The AI will compare them, show its work, and generate a Google Sheet report.
+            Upload two ledger PDFs. The AI will compare them and generate a Google Sheet report.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -211,21 +206,10 @@ export default function ClientReconciliationPage() {
 
             {isAnalyzing && (
                 <div className="p-4 border rounded-lg bg-secondary/50 text-center">
-                    <div className="flex items-center text-primary font-semibold mb-3">
+                    <div className="flex items-center justify-center text-primary font-semibold mb-3">
                         <Loader className="mr-2 h-4 w-4 animate-spin" />
-                        AI Analyzing Documents...
+                        AI Analyzing Documents... Please wait.
                     </div>
-                     <ScrollArea className="h-40 text-left border bg-background rounded-md p-2">
-                        <div className="space-y-2 text-sm text-muted-foreground">
-                            {progressMessages.map((msg, index) => (
-                                <div key={index} className="flex items-start gap-2">
-                                    <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                    <span>{msg}</span>
-                                </div>
-                            ))}
-                            {progressMessages.length === 0 && <p>Starting analysis...</p>}
-                        </div>
-                    </ScrollArea>
                 </div>
             )}
            
@@ -276,5 +260,3 @@ export default function ClientReconciliationPage() {
     </div>
   );
 }
-
-    
