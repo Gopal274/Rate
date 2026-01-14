@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -21,6 +22,7 @@ import type { ProductWithRates } from '@/lib/types';
 import { estimatePrice, type EstimatePriceOutput } from '@/ai/flows/estimate-price-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
+import { safeToDate } from '@/lib/utils';
 
 interface PriceEstimatorProps {
   productsWithRates: ProductWithRates[];
@@ -53,10 +55,11 @@ export function PriceEstimator({ productsWithRates }: PriceEstimatorProps) {
     }
     
     // The flow needs rates sorted from most recent to oldest, which our hook already provides.
+    // Convert Date objects to ISO strings before sending to the server action.
     const historicalRatesForFlow = selectedProduct.rates.map(r => ({
         rate: r.rate,
         gst: r.gst,
-        billDate: r.billDate instanceof Date ? r.billDate.toISOString() : r.billDate
+        billDate: safeToDate(r.billDate).toISOString(),
     }));
 
     setIsEstimating(true);
