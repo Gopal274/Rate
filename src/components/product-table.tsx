@@ -96,6 +96,7 @@ import {
 } from './product-forms';
 import { Separator } from './ui/separator';
 import { Badge } from './ui/badge';
+import type { ComboboxOption } from './ui/combobox';
 
 
 type SortDirection = 'default' | 'newest' | 'oldest' | 'asc' | 'desc';
@@ -630,6 +631,17 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     table.resetColumnFilters();
   };
 
+    // --- Options for Comboboxes ---
+  const partyNameOptions: ComboboxOption[] = React.useMemo(() => 
+    uniquePartyNames.map(name => ({ value: name, label: name }))
+  , [uniquePartyNames]);
+
+  const unitOptions: ComboboxOption[] = React.useMemo(() => {
+    const units = new Set(allProductsWithRates.map(p => p.unit));
+    return Array.from(units).sort().map(unit => ({ value: unit, label: unit }));
+  }, [allProductsWithRates]);
+
+
   const SheetCheckboxItem = ({
     checked,
     onCheckedChange,
@@ -1004,11 +1016,15 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             product={editingProduct}
             isOpen={!!editingProduct}
             setIsOpen={(isOpen) => !isOpen && setEditingProduct(null)}
+            partyNameOptions={partyNameOptions}
+            unitOptions={unitOptions}
           />
         )}
         <BatchAddProductDialog 
             isOpen={isBatchAddOpen}
             setIsOpen={setIsBatchAddOpen}
+            partyNameOptions={partyNameOptions}
+            unitOptions={unitOptions}
         />
 
         {addingRateToProduct && (

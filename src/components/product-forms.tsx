@@ -58,6 +58,7 @@ import { safeToDate, cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
+import { Combobox, type ComboboxOption } from './ui/combobox';
 
 const getInitialAddFormValues = () => {
     return {
@@ -88,11 +89,15 @@ export function ProductFormDialog({
   product,
   isOpen,
   setIsOpen,
+  partyNameOptions,
+  unitOptions,
   children,
 }: {
   product?: ProductWithRates; // Expect ProductWithRates for editing
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
+  partyNameOptions: ComboboxOption[];
+  unitOptions: ComboboxOption[];
   children?: React.ReactNode;
 }) {
   const isEditing = !!product;
@@ -176,14 +181,36 @@ export function ProductFormDialog({
               control={form.control}
               name="partyName"
               render={({ field }) => (
-                <FormItem><FormLabel>Party Name</FormLabel><FormControl><Input placeholder="e.g. Global Foods Inc." {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem className="flex flex-col">
+                  <FormLabel>Party Name</FormLabel>
+                  <Combobox
+                    options={partyNameOptions}
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Select or type party..."
+                    searchPlaceholder="Search party..."
+                    emptyPlaceholder="No party found. Type to create new."
+                  />
+                  <FormMessage />
+                </FormItem>
               )}
             />
             <FormField
               control={form.control}
               name="unit"
               render={({ field }) => (
-                <FormItem><FormLabel>Unit</FormLabel><FormControl><Input placeholder="e.g. kg, piece, bottle" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem className="flex flex-col">
+                  <FormLabel>Unit</FormLabel>
+                  <Combobox
+                    options={unitOptions}
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Select or type unit..."
+                    searchPlaceholder="Search unit..."
+                    emptyPlaceholder="No unit found. Type to create new."
+                  />
+                  <FormMessage />
+                </FormItem>
               )}
             />
 
@@ -479,7 +506,7 @@ const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     }
 };
 
-function ProductSubForm({ index, remove }: { index: number; remove: (index: number) => void; }) {
+function ProductSubForm({ index, remove, unitOptions }: { index: number; remove: (index: number) => void; unitOptions: ComboboxOption[]; }) {
   const { control, setValue, getValues } = useFormContext<BatchProductSchema>();
   
   const rate = useWatch({ control, name: `products.${index}.rate` });
@@ -557,18 +584,29 @@ function ProductSubForm({ index, remove }: { index: number; remove: (index: numb
         />
         <div className="md:col-span-3">
             <FormField
-                control={control}
-                name={`products.${index}.unit`}
-                render={({ field }) => (
-                    <FormItem><FormLabel>Unit</FormLabel><FormControl><Input autoComplete="off" placeholder="e.g. kg, piece" {...field} /></FormControl><FormMessage /></FormItem>
-                )}
+              control={control}
+              name={`products.${index}.unit`}
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Unit</FormLabel>
+                   <Combobox
+                    options={unitOptions}
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Select or type unit..."
+                    searchPlaceholder="Search unit..."
+                    emptyPlaceholder="No unit found. Type to create new."
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
             />
         </div>
     </div>
   )
 }
 
-export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (open: boolean) => void;}) {
+export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, unitOptions }: { isOpen: boolean; setIsOpen: (open: boolean) => void; partyNameOptions: ComboboxOption[]; unitOptions: ComboboxOption[]; }) {
     const { toast } = useToast();
     const form = useForm<BatchProductSchema>({
         resolver: zodResolver(batchProductSchema),
@@ -629,7 +667,18 @@ export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; 
                                     control={form.control}
                                     name="partyName"
                                     render={({ field }) => (
-                                        <FormItem><FormLabel>Party Name</FormLabel><FormControl><Input autoComplete="off" placeholder="e.g. Global Foods Inc." {...field} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel>Party Name</FormLabel>
+                                            <Combobox
+                                                options={partyNameOptions}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                placeholder="Select or type party..."
+                                                searchPlaceholder="Search party..."
+                                                emptyPlaceholder="No party found. Type to create new."
+                                            />
+                                            <FormMessage />
+                                        </FormItem>
                                     )}
                                 />
                                 <FormField
@@ -654,7 +703,7 @@ export function BatchAddProductDialog({ isOpen, setIsOpen }: { isOpen: boolean; 
                             <ScrollArea className="h-[40vh] pr-4">
                                 <div className="space-y-4">
                                     {fields.map((field, index) => (
-                                        <ProductSubForm key={field.id} index={index} remove={remove} />
+                                        <ProductSubForm key={field.id} index={index} remove={remove} unitOptions={unitOptions} />
                                     ))}
                                 </div>
                             </ScrollArea>
