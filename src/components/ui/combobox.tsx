@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -8,8 +9,8 @@ import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
-  CommandInput,
   CommandGroup,
+  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
@@ -62,9 +63,14 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
+        <Command
+          filter={(searchValue, itemValue) => {
+            return itemValue.toLowerCase().includes(searchValue.toLowerCase())
+          }}
+        >
           <CommandInput
             placeholder={searchPlaceholder}
+            value={value}
             onValueChange={onChange}
           />
           <CommandList>
