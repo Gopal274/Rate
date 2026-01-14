@@ -13,13 +13,13 @@ import {
   getAllProductsWithRates,
   importProductsAndRates,
 } from './data';
-import type { Rate, UpdateProductSchema, ProductWithRates, BatchProductSchema } from './types';
-import { productSchema } from './types';
+import type { Rate, UpdateProductSchema, ProductWithRates, BatchProductSchema, ReconciliationData } from './types';
+import { productSchema, reconciliationDataSchema } from './types';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 
-const SHEET_NAME = 'Rate Record Live Data';
+const SHEET_NAME = 'Ledger Reconciliation Report';
 
 type ProductFormData = z.infer<typeof productSchema>;
 
@@ -130,6 +130,8 @@ export async function getAllProductsWithRatesAction(): Promise<ProductWithRates[
   }
 }
 
+// --- Sheet Export/Import Logic ---
+
 /**
  * Convert in-memory product+rates to rows usable by Google Sheets.
  */
@@ -176,11 +178,11 @@ function convertDataForSheet(allProductsWithRates: ProductWithRates[]): (string 
  * Find the spreadsheet by name or create it.
  * Returns spreadsheetId & webViewLink.
  */
-async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheetId: string; spreadsheetUrl: string }> {
+async function findOrCreateSheet(drive: any, sheets: any, name: string): Promise<{ spreadsheetId: string; spreadsheetUrl: string }> {
   const escapeForQuery = (s: string) => s.replace(/'/g, "\\'");
 
   const searchResponse = await drive.files.list({
-    q: `name='${escapeForQuery(SHEET_NAME)}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+    q: `name='${escapeForQuery(name)}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
     fields: 'files(id, webViewLink)',
   });
 
@@ -192,7 +194,7 @@ async function findOrCreateSheet(drive: any, sheets: any): Promise<{ spreadsheet
   }
 
   const createResponse = await sheets.spreadsheets.create({
-    requestBody: { properties: { title: SHEET_NAME } },
+    requestBody: { properties: { title: name } },
     fields: 'spreadsheetId,spreadsheetUrl',
   });
 
@@ -219,7 +221,7 @@ export async function exportToGoogleSheetAction(accessToken: string) {
     const drive = google.drive({ version: 'v3', auth: oAuth2Client });
     const sheets = google.sheets({ version: 'v4', auth: oAuth2Client });
 
-    const { spreadsheetId, spreadsheetUrl } = await findOrCreateSheet(drive, sheets);
+    const { spreadsheetId, spreadsheetUrl } = await findOrCreateSheet(drive, sheets, 'Rate Record Live Data');
 
     const meta = await sheets.spreadsheets.get({
       spreadsheetId,
@@ -305,7 +307,7 @@ export async function importFromGoogleSheetAction(accessToken: string) {
     const drive = google.drive({ version: 'v3', auth: oAuth2Client });
     const sheets = google.sheets({ version: 'v4', auth: oAuth2Client });
 
-    const { spreadsheetId } = await findOrCreateSheet(drive, sheets);
+    const { spreadsheetId } = await findOrCreateSheet(drive, sheets, 'Rate Record Live Data');
 
     const sheetDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -355,4 +357,89 @@ export async function importFromGoogleSheetAction(accessToken: string) {
   }
 }
 
+
+export async function writeToSheetAction(accessToken: string, data: ReconciliationData) {
+   if (!accessToken) {
+    return { success: false, message: 'Authentication token is missing.' };
+  }
+  if (!data) {
+    return { success: false, message: 'Reconciliation data is missing.' };
+  }
+
+  try {
+    const oAuth2Client = new OAuth2Client();
+    oAuth2Client.setCredentials({ access_token: accessToken });
+    const sheets = google.sheets({ version: 'v4', auth: oAuth2Client });
+
+    // 1. Create the spreadsheet
+    const spreadsheet = await sheets.spreadsheets.create({
+      requestBody: {
+        properties: { title: `${SHEET_NAME} - ${new Date().toLocaleString()}` },
+        sheets: [
+          { properties: { title: 'Matches' } },
+          { properties: { title: 'Discrepancies (Party A)' } },
+          { properties: { title: 'Discrepancies (Party B)' } },
+        ],
+      },
+    });
+
+    const spreadsheetId = spreadsheet.data.spreadsheetId!;
+    const sheetUrl = spreadsheet.data.spreadsheetUrl!;
+    const sheetIds = {
+        'Matches': spreadsheet.data.sheets![0].properties!.sheetId!,
+        'Discrepancies (Party A)': spreadsheet.data.sheets![1].properties!.sheetId!,
+        'Discrepancies (Party B)': spreadsheet.data.sheets![2].properties!.sheetId!,
+    };
+
+    const headers = ['Date', 'Description', 'Amount'];
     
+    type Transaction = { date: string; description: string; amount: number; };
+    const formatSheetData = (transactions: Transaction[]) => [
+      headers,
+      ...transactions.map(t => [t.date, t.description, t.amount])
+    ];
+
+    // 2. Prepare data for each sheet
+    const requests = [
+      {
+        range: 'Matches!A1',
+        values: formatSheetData(data.matches),
+      },
+      {
+        range: 'Discrepancies (Party A)!A1',
+        values: formatSheetData(data.partyADiscrepancies),
+      },
+      {
+        range: 'Discrepancies (Party B)!A1',
+        values: formatSheetData(data.partyBDiscrepancies),
+      },
+    ];
+
+    // 3. Write data to sheets
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: requests,
+      },
+    });
+    
+    // 4. Format sheets (bold header, freeze row, auto-resize)
+    const formattingRequests = Object.values(sheetIds).flatMap(sheetId => ([
+        { repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: 'userEnteredFormat.textFormat.bold' } },
+        { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } },
+        { autoResizeDimensions: { dimensions: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 3 } } },
+        { repeatCell: { range: { sheetId, startColumnIndex: 2, endColumnIndex: 3, startRowIndex: 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: '[$₹] #,##0.00' } } }, fields: 'userEnteredFormat.numberFormat' } }
+    ]));
+    
+     await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: formattingRequests },
+    });
+
+    return { success: true, sheetUrl };
+  } catch (error: any) {
+    console.error('writeToSheetAction Error:', error);
+    return { success: false, message: error.message || 'An error occurred while writing to Google Sheets.' };
+  }
+}
