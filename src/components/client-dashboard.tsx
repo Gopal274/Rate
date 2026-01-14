@@ -15,6 +15,7 @@ export default function ClientDashboard({ productsWithRates }: { productsWithRat
   const [openPartyAccordion, setOpenPartyAccordion] = useState<string | null>(null);
 
   const handlePartySelect = (partyName: string) => {
+    // Toggles the accordion: if the same party is clicked again, it closes, otherwise it opens the new one.
     setOpenPartyAccordion(prev => prev === partyName ? null : partyName);
   };
 
