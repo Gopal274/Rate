@@ -10,21 +10,8 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-
-// Schemas for the tool input
-const TransactionSchema = z.object({
-  date: z.string().describe('Transaction date (YYYY-MM-DD)'),
-  description: z.string().describe('Description or bill number'),
-  amount: z.number().describe('Transaction amount'),
-});
-
-export const ReconciliationDataSchema = z.object({
-  matches: z.array(TransactionSchema).describe('Transactions found in both ledgers.'),
-  partyADiscrepancies: z.array(TransactionSchema).describe("Transactions present in Party A's ledger but missing from Party B's."),
-  partyBDiscrepancies: z.array(TransactionSchema).describe("Transactions present in Party B's ledger but missing from Party A's."),
-});
-export type ReconciliationData = z.infer<typeof ReconciliationDataSchema>;
-
+import type { ReconciliationData } from '@/lib/types';
+import { reconciliationDataSchema } from '@/lib/types';
 
 // Schema for the main flow
 const ReconcileLedgersInputSchema = z.object({
@@ -34,7 +21,7 @@ const ReconcileLedgersInputSchema = z.object({
 export type ReconcileLedgersInput = z.infer<typeof ReconcileLedgersInputSchema>;
 
 // The output is now the structured JSON data itself.
-const ReconcileLedgersOutputSchema = ReconciliationDataSchema;
+const ReconcileLedgersOutputSchema = reconciliationDataSchema;
 export type ReconcileLedgersOutput = z.infer<typeof ReconcileLedgersOutputSchema>;
 
 // This is the prompt that instructs the AI on how to analyze the PDFs and what format to return the data in.
