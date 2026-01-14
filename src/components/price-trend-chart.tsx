@@ -37,11 +37,17 @@ export function PriceTrendChart({ productsWithRates }: PriceTrendChartProps) {
   const [selectedProductId, setSelectedProductId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    // Select the first product with rates by default
+    // Select a product with a trend by default
     if (!selectedProductId && productsWithRates.length > 0) {
-      const firstProductWithRates = productsWithRates.find(p => p.rates && p.rates.length > 0);
-      if (firstProductWithRates) {
-        setSelectedProductId(firstProductWithRates.id);
+      const firstProductWithTrend = productsWithRates.find(p => p.rates && p.rates.length > 1);
+      if (firstProductWithTrend) {
+        setSelectedProductId(firstProductWithTrend.id);
+      } else {
+        // Fallback to the first product with any rates
+        const firstProductWithAnyRate = productsWithRates.find(p => p.rates && p.rates.length > 0);
+        if (firstProductWithAnyRate) {
+            setSelectedProductId(firstProductWithAnyRate.id);
+        }
       }
     }
   }, [productsWithRates, selectedProductId]);

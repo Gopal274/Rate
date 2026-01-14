@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { safeToDate } from '@/lib/utils';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 interface GroupedProductViewProps {
   allProducts: ProductWithRates[];
@@ -63,6 +64,7 @@ const GroupedProductView: React.FC<GroupedProductViewProps> = ({ allProducts, op
             <CardDescription>A view of all your products, grouped by party name.</CardDescription>
         </CardHeader>
         <CardContent>
+          <TooltipProvider>
             <Accordion 
               type="single" 
               collapsible
@@ -77,10 +79,17 @@ const GroupedProductView: React.FC<GroupedProductViewProps> = ({ allProducts, op
                 return (
                 <AccordionItem value={partyName} key={partyName}>
                     <AccordionTrigger>
-                        <div className="flex items-center gap-4">
-                            <span className="font-semibold text-lg">{partyName}</span>
-                            <Badge variant="secondary">{productCount} product{productCount > 1 ? 's' : ''}</Badge>
-                        </div>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <div className="flex items-center gap-4 w-full overflow-hidden">
+                                  <span className="font-semibold text-lg truncate">{partyName}</span>
+                                  <Badge variant="secondary" className="flex-shrink-0">{productCount} product{productCount > 1 ? 's' : ''}</Badge>
+                              </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                              <p>{partyName}</p>
+                          </TooltipContent>
+                      </Tooltip>
                     </AccordionTrigger>
                     <AccordionContent>
                     <Table>
@@ -120,6 +129,7 @@ const GroupedProductView: React.FC<GroupedProductViewProps> = ({ allProducts, op
                 );
             })}
             </Accordion>
+          </TooltipProvider>
         </CardContent>
     </Card>
   );

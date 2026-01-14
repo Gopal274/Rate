@@ -68,10 +68,22 @@ export function PartyDistributionChart({ allProducts, onPartySelect }: PartyDist
                 axisLine={false}
                 interval={0}
                 tick={{ fontSize: 12, fill: 'hsl(var(--foreground))' }}
+                tickFormatter={(value) => value.length > 20 ? `${value.substring(0, 20)}...` : value}
             />
             <Tooltip
               cursor={{ fill: 'hsl(var(--accent))' }}
-              content={<ChartTooltipContent hideLabel />}
+              content={<ChartTooltipContent 
+                formatter={(value, name, props) => {
+                    const { payload } = props;
+                    return (
+                        <div className="flex flex-col">
+                            <span className="font-bold">{payload.partyName}</span>
+                            <span>{`${value} products`}</span>
+                        </div>
+                    )
+                }}
+                hideLabel 
+              />}
             />
             <Bar 
               dataKey="productCount" 
