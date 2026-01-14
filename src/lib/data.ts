@@ -16,6 +16,8 @@ import {
   orderBy,
   deleteDoc,
   writeBatch,
+  where,
+  limit,
 } from 'firebase/firestore';
 
 // IMPORTANT: Use the server-side initialization
@@ -40,19 +42,37 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
   const db = await getDb();
   const { name, unit, partyName, rate, gst, pageNo, billDate } = formData;
   
-  const productData: ProductCreationData = { name, unit, partyName };
+  // Check if a product with the same name and party name already exists.
+  const productsRef = collection(db, PRODUCTS_COLLECTION);
+  const q = query(productsRef, where('name', '==', name), where('partyName', '==', partyName), limit(1));
+  const querySnapshot = await getDocs(q);
 
+  let productId: string;
+  let productData: Omit<Product, 'id'>;
+
+  if (!querySnapshot.empty) {
+    // Product exists, use its ID and data
+    const existingDoc = querySnapshot.docs[0];
+    productId = existingDoc.id;
+    productData = existingDoc.data() as Omit<Product, 'id'>;
+  } else {
+    // Product doesn't exist, create it
+    const newProductData: ProductCreationData = { name, unit, partyName };
+    const newProductRef = await addDoc(collection(db, PRODUCTS_COLLECTION), newProductData);
+    productId = newProductRef.id;
+    productData = newProductData;
+  }
+
+  // Now, add the rate to the product (whether it's new or existing)
   const rateData = {
     rate,
     gst,
     pageNo,
     billDate: new Date(billDate),
-    createdAt: new Date(),
+    createdAt: new Date(), // This will be replaced by serverTimestamp, but good for return type
   };
-
-  const newProductRef = await addDoc(collection(db, PRODUCTS_COLLECTION), productData);
-
-  const newRateRef = await addDoc(collection(newProductRef, RATES_SUBCOLLECTION), {
+  
+  const newRateRef = await addDoc(collection(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION), {
       ...rateData,
       createdAt: serverTimestamp()
   });
@@ -60,7 +80,7 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
   // Return the product and rate shapes expected by the client
   return {
     product: {
-        id: newProductRef.id,
+        id: productId,
         ...productData,
     },
     rate: {
@@ -73,18 +93,38 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
 export const batchAddProducts = async (formData: BatchProductSchema): Promise<number> => {
     const db = await getDb();
     const { partyName, billDate, pageNo, products } = formData;
+    
+    let addedCount = 0;
+
+    // To avoid multiple queries for the same product in a batch, we can fetch once.
+    const existingProducts = await getAllProductsWithRates({ onlyLatestRate: true });
+    const productMap = new Map(existingProducts.map(p => [`${p.name.toLowerCase()}_${p.partyName.toLowerCase()}`, p.id]));
+    
     const batch = writeBatch(db);
     
     for (const product of products) {
-        const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
-        
-        batch.set(newProductRef, {
-            name: product.name,
-            unit: product.unit,
-            partyName: partyName,
-        });
+        const productKey = `${product.name.toLowerCase()}_${partyName.toLowerCase()}`;
+        const existingProductId = productMap.get(productKey);
 
-        const newRateRef = doc(collection(newProductRef, RATES_SUBCOLLECTION));
+        let targetProductId: string;
+
+        if (existingProductId) {
+            targetProductId = existingProductId;
+        } else {
+            // Product is new, create it in the batch
+            const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
+            batch.set(newProductRef, {
+                name: product.name,
+                unit: product.unit,
+                partyName: partyName,
+            });
+            targetProductId = newProductRef.id;
+            // Add to our map so subsequent items in the same batch can find it
+            productMap.set(productKey, targetProductId);
+        }
+
+        // Add the rate to the product (new or existing)
+        const newRateRef = doc(collection(db, PRODUCTS_COLLECTION, targetProductId, RATES_SUBCOLLECTION));
         batch.set(newRateRef, {
             rate: product.rate,
             gst: product.gst,
@@ -92,10 +132,11 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<nu
             billDate: new Date(billDate),
             createdAt: serverTimestamp(),
         });
+        addedCount++;
     }
 
     await batch.commit();
-    return products.length;
+    return addedCount;
 };
 
 
@@ -295,5 +336,3 @@ export async function importProductsAndRates(rows: any[][]) {
 
   return { added, updated, skipped };
 }
-
-    
