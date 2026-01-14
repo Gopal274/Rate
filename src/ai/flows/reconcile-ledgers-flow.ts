@@ -161,9 +161,7 @@ Do not summarize the results in text. The only output should be the result of ca
 
     const toolResponse = response.toolRequests[0];
     if (toolResponse?.name === 'writeReconciliationToSheet') {
-        const toolOutput = await toolResponse.execute({
-          auth: { accessToken: input.accessToken }
-        });
+        const toolOutput = await toolResponse.execute();
         return { sheetUrl: toolOutput.sheetUrl };
     }
     
@@ -173,5 +171,5 @@ Do not summarize the results in text. The only output should be the result of ca
 
 
 export async function reconcileLedgers(input: ReconcileLedgersInput): Promise<ReconcileLedgersOutput> {
-  return reconcileLedgersFlow(input);
+  return reconcileLedgersFlow(input, { auth: { accessToken: input.accessToken } });
 }
