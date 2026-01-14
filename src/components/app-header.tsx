@@ -77,6 +77,9 @@ export default function AppHeader() {
                 <Link href="/dashboard" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
                     Dashboard
                 </Link>
+                <Link href="/reconciliation" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                    Reconciliation
+                </Link>
             </nav>
             <ThemeToggle />
             {user && <UserNav />}
