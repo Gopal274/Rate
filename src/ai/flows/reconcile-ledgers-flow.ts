@@ -171,5 +171,6 @@ Do not summarize the results in text. The only output should be the result of ca
 
 
 export async function reconcileLedgers(input: ReconcileLedgersInput): Promise<ReconcileLedgersOutput> {
+  // Correctly pass the accessToken in the `auth` property of the context object.
   return reconcileLedgersFlow(input, { auth: { accessToken: input.accessToken } });
 }
