@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -47,7 +46,7 @@ export function Combobox({
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
 
-  const selectedOption = options.find((option) => option.value.toLowerCase() === value.toLowerCase())
+  const selectedOption = options.find((option) => option.value.toLowerCase() === value?.toLowerCase())
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -66,7 +65,6 @@ export function Combobox({
         <Command>
           <CommandInput
             placeholder={searchPlaceholder}
-            value={value}
             onValueChange={onChange}
           />
           <CommandList>
@@ -78,15 +76,14 @@ export function Combobox({
                         key={option.value}
                         value={option.value}
                         onSelect={(currentValue) => {
-                            const newValue = currentValue.toLowerCase() === value.toLowerCase() ? "" : option.value
-                            onChange(newValue)
+                            onChange(option.value)
                             setOpen(false)
                         }}
                         >
                         <Check
                             className={cn(
                             "mr-2 h-4 w-4",
-                            value.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
+                            value?.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
                             )}
                         />
                         {option.label}
