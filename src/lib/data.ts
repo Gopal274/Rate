@@ -42,7 +42,6 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
   const db = await getDb();
   const { name, unit, partyName, rate, gst, pageNo, billDate } = formData;
   
-  // Check if a product with the same name and party name already exists.
   const productsRef = collection(db, PRODUCTS_COLLECTION);
   const q = query(productsRef, where('name', '==', name), where('partyName', '==', partyName), limit(1));
   const querySnapshot = await getDocs(q);
@@ -51,10 +50,23 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
   let productData: Omit<Product, 'id'>;
 
   if (!querySnapshot.empty) {
-    // Product exists, use its ID and data
     const existingDoc = querySnapshot.docs[0];
     productId = existingDoc.id;
     productData = existingDoc.data() as Omit<Product, 'id'>;
+
+    // Product exists, check if the rate is a duplicate
+    const existingRates = await getProductRates(productId);
+    const newBillDate = new Date(billDate);
+    const isDuplicateRate = existingRates.some(r => 
+        r.rate === rate && 
+        r.gst === gst && 
+        new Date(r.billDate).toDateString() === newBillDate.toDateString()
+    );
+
+    if (isDuplicateRate) {
+        throw new Error(`This rate already exists for ${name} from ${partyName}.`);
+    }
+
   } else {
     // Product doesn't exist, create it
     const newProductData: ProductCreationData = { name, unit, partyName };
@@ -63,13 +75,13 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
     productData = newProductData;
   }
 
-  // Now, add the rate to the product (whether it's new or existing)
+  // Add the new rate
   const rateData = {
     rate,
     gst,
     pageNo,
     billDate: new Date(billDate),
-    createdAt: new Date(), // This will be replaced by serverTimestamp, but good for return type
+    createdAt: new Date(),
   };
   
   const newRateRef = await addDoc(collection(db, PRODUCTS_COLLECTION, productId, RATES_SUBCOLLECTION), {
@@ -77,39 +89,44 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
       createdAt: serverTimestamp()
   });
 
-  // Return the product and rate shapes expected by the client
   return {
-    product: {
-        id: productId,
-        ...productData,
-    },
-    rate: {
-        id: newRateRef.id,
-        ...rateData,
-    }
+    product: { id: productId, ...productData },
+    rate: { id: newRateRef.id, ...rateData }
   };
 };
 
 export const batchAddProducts = async (formData: BatchProductSchema): Promise<number> => {
     const db = await getDb();
     const { partyName, billDate, pageNo, products } = formData;
+    const batchBillDate = new Date(billDate);
     
     let addedCount = 0;
 
-    // To avoid multiple queries for the same product in a batch, we can fetch once.
-    const existingProducts = await getAllProductsWithRates({ onlyLatestRate: true });
-    const productMap = new Map(existingProducts.map(p => [`${p.name.toLowerCase()}_${p.partyName.toLowerCase()}`, p.id]));
+    const existingProducts = await getAllProductsWithRates({ onlyLatestRate: false });
+    const productMap = new Map(existingProducts.map(p => {
+        const key = `${p.name.toLowerCase()}_${p.partyName.toLowerCase()}`;
+        return [key, { id: p.id, rates: p.rates }];
+    }));
     
     const batch = writeBatch(db);
     
     for (const product of products) {
         const productKey = `${product.name.toLowerCase()}_${partyName.toLowerCase()}`;
-        const existingProductId = productMap.get(productKey);
+        const existingProductInfo = productMap.get(productKey);
 
         let targetProductId: string;
 
-        if (existingProductId) {
-            targetProductId = existingProductId;
+        if (existingProductInfo) {
+            targetProductId = existingProductInfo.id;
+            // Check for duplicate rate within existing product
+            const isDuplicateRate = existingProductInfo.rates.some(r => 
+                r.rate === product.rate && 
+                r.gst === product.gst && 
+                new Date(r.billDate).toDateString() === batchBillDate.toDateString()
+            );
+            if (isDuplicateRate) {
+                continue; // Skip this product entry entirely
+            }
         } else {
             // Product is new, create it in the batch
             const newProductRef = doc(collection(db, PRODUCTS_COLLECTION));
@@ -119,8 +136,7 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<nu
                 partyName: partyName,
             });
             targetProductId = newProductRef.id;
-            // Add to our map so subsequent items in the same batch can find it
-            productMap.set(productKey, targetProductId);
+            productMap.set(productKey, { id: targetProductId, rates: [] }); // Add to map for subsequent items
         }
 
         // Add the rate to the product (new or existing)
@@ -129,7 +145,7 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<nu
             rate: product.rate,
             gst: product.gst,
             pageNo: pageNo,
-            billDate: new Date(billDate),
+            billDate: batchBillDate,
             createdAt: serverTimestamp(),
         });
         addedCount++;
@@ -201,8 +217,20 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
 
 export const addRate = async (productId: string, rate: number, billDate: Date, pageNo: number, gst: number): Promise<Rate> => {
     const db = await getDb();
-    const productRef = doc(db, PRODUCTS_COLLECTION, productId);
     
+    // Check for duplicate rate before adding
+    const existingRates = await getProductRates(productId);
+    const isDuplicateRate = existingRates.some(r => 
+        r.rate === rate && 
+        r.gst === gst && 
+        new Date(r.billDate).toDateString() === billDate.toDateString()
+    );
+
+    if (isDuplicateRate) {
+        throw new Error('This exact rate already exists for this product on this date.');
+    }
+
+    const productRef = doc(db, PRODUCTS_COLLECTION, productId);
     const newRateData = {
         rate,
         gst,
@@ -307,6 +335,7 @@ export async function importProductsAndRates(rows: any[][]) {
       const rateAlreadyExists = existingProduct.rates.some(existingRate => {
         const existingBillDate = new Date(existingRate.billDate);
         return existingRate.rate === rate &&
+               existingRate.gst === gst &&
                existingBillDate.toDateString() === billDate.toDateString();
       });
 
@@ -317,6 +346,8 @@ export async function importProductsAndRates(rows: any[][]) {
         const newRateRef = doc(collection(db, PRODUCTS_COLLECTION, existingProduct.id, RATES_SUBCOLLECTION));
         batch.set(newRateRef, { rate, gst, pageNo, billDate, createdAt: serverTimestamp() });
         updated++;
+        // also update in-memory map to prevent duplicates within the same batch run
+        existingProduct.rates.push({ id: newRateRef.id, rate, gst, pageNo, billDate, createdAt: new Date() });
       }
     } else {
       // 4. New product: Add product and its first rate.
