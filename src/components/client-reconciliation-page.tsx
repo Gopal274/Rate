@@ -17,9 +17,11 @@ import { useToast } from '@/hooks/use-toast';
 import { reconcileLedgers } from '@/ai/flows/reconcile-ledgers-flow';
 import type { ReconciliationData } from '@/lib/types';
 import { writeToSheetAction } from '@/lib/actions';
-import { Loader, Upload, FileText, CheckCircle, ExternalLink, Bot, Table, ListChecks, MessageSquare } from 'lucide-react';
+import { Loader, Upload, FileText, CheckCircle, ExternalLink, Bot, Table, ListChecks, MessageSquare, AlertTriangle } from 'lucide-react';
 import { useFirebase, useUser } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table as UiTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const fileToDataURI = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -31,6 +33,35 @@ const fileToDataURI = (file: File): Promise<string> => {
 };
 
 type ProcessingState = 'idle' | 'analyzing' | 'writing_sheet' | 'done' | 'error';
+
+
+const TransactionTable = ({ transactions }: { transactions: { date: string; description: string; amount: number; }[] }) => {
+    if (transactions.length === 0) {
+        return <p className="text-sm text-muted-foreground text-center py-4">No transactions found.</p>;
+    }
+    return (
+        <div className="rounded-md border">
+            <UiTable>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {transactions.map((t, index) => (
+                        <TableRow key={index}>
+                            <TableCell>{t.date}</TableCell>
+                            <TableCell>{t.description}</TableCell>
+                            <TableCell className="text-right font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(t.amount)}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </UiTable>
+        </div>
+    );
+};
 
 
 export default function ClientReconciliationPage() {
@@ -78,7 +109,6 @@ export default function ClientReconciliationPage() {
 
         if (result) {
             setReconciliationData(result);
-            // AI analysis is done, move to the next logical step
             setProcessingState('writing_sheet'); 
         } else {
              throw new Error("AI analysis returned no data.");
@@ -119,7 +149,7 @@ export default function ClientReconciliationPage() {
              if (authError.code === 'auth/popup-blocked') {
                 throw new Error("Popup blocked by browser. Please allow popups for this site and try again.");
             } else if (authError.code === 'auth/cancelled-popup-request') {
-                return; // User cancelled, so we just stop.
+                return;
             }
              else {
                 throw new Error("Google Authentication failed. Please try again.");
@@ -183,13 +213,79 @@ export default function ClientReconciliationPage() {
   const isAnalyzing = processingState === 'analyzing';
   const isProcessing = isAnalyzing || processingState === 'writing_sheet';
 
+  if (processingState === 'writing_sheet' || processingState === 'done') {
+      return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Reconciliation Results</CardTitle>
+                <CardDescription>
+                    {reconciliationData?.summary || "Summary of the reconciliation process."}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Tabs defaultValue="matches" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="matches">
+                            Matches ({reconciliationData?.matches.length || 0})
+                        </TabsTrigger>
+                        <TabsTrigger value="partyA">
+                            Party A Discrepancies ({reconciliationData?.partyADiscrepancies.length || 0})
+                        </TabsTrigger>
+                        <TabsTrigger value="partyB">
+                            Party B Discrepancies ({reconciliationData?.partyBDiscrepancies.length || 0})
+                        </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="matches" className="mt-4">
+                        <TransactionTable transactions={reconciliationData?.matches || []} />
+                    </TabsContent>
+                    <TabsContent value="partyA" className="mt-4">
+                        <TransactionTable transactions={reconciliationData?.partyADiscrepancies || []} />
+                    </TabsContent>
+                    <TabsContent value="partyB" className="mt-4">
+                        <TransactionTable transactions={reconciliationData?.partyBDiscrepancies || []} />
+                    </TabsContent>
+                </Tabs>
+            </CardContent>
+             <CardFooter className="flex-col items-stretch space-y-4 pt-6">
+                {processingState === 'done' && resultUrl ? (
+                     <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-900/20 space-y-4">
+                        <div className="flex items-center">
+                            <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+                            <div className="flex-grow">
+                                <p className="font-semibold text-green-800 dark:text-green-300">Sheet Created!</p>
+                                <p className="text-sm text-green-700 dark:text-green-400">Your report is ready in Google Sheets.</p>
+                            </div>
+                            <Button asChild variant="outline" size="sm">
+                                <a href={resultUrl} target="_blank" rel="noopener noreferrer">
+                                    View Sheet <ExternalLink className="ml-2 h-4 w-4" />
+                                </a>
+                            </Button>
+                        </div>
+                         <Button onClick={handleReset} variant="secondary" className="w-full">Start New Reconciliation</Button>
+                    </div>
+                ) : (
+                    <>
+                    <Button onClick={handleSheetCreation} className="w-full">
+                        <Table className="mr-2 h-4 w-4" />
+                        Create Google Sheet Report
+                    </Button>
+                     <Button onClick={handleReset} variant="secondary" className="w-full">Start New Reconciliation</Button>
+                    </>
+                )}
+
+             </CardFooter>
+        </Card>
+      )
+  }
+
+
   return (
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader>
           <CardTitle>AI Ledger Reconciliation</CardTitle>
           <CardDescription>
-            Upload two ledger PDFs. The AI will compare them and generate a Google Sheet report.
+            Upload two ledger PDFs. The AI will compare them and generate a report.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -208,49 +304,17 @@ export default function ClientReconciliationPage() {
                 <div className="p-4 border rounded-lg bg-secondary/50 text-center">
                     <div className="flex items-center justify-center text-primary font-semibold mb-3">
                         <Loader className="mr-2 h-4 w-4 animate-spin" />
-                        AI Analyzing Documents... Please wait.
+                        AI Analyzing Documents... Please wait. This may take a minute.
                     </div>
                 </div>
             )}
-           
-            {processingState === 'writing_sheet' && reconciliationData && (
-                 <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20 space-y-4">
-                    <div className="flex items-center">
-                        <ListChecks className="h-5 w-5 text-blue-600 mr-3" />
-                        <div>
-                            <p className="font-semibold text-blue-800 dark:text-blue-300">Analysis Complete</p>
-                            <p className="text-sm text-blue-700 dark:text-blue-400">{reconciliationData.summary}</p>
-                        </div>
-                    </div>
-                    <Button onClick={handleSheetCreation} className="w-full">
-                        <Table className="mr-2 h-4 w-4" />
-                        Create Google Sheet Report
-                    </Button>
-                     <Button onClick={handleReset} variant="secondary" className="w-full">Start New Reconciliation</Button>
-                </div>
-            )}
-
-            {processingState === 'done' && resultUrl && (
-                <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-900/20 space-y-4">
-                    <div className="flex items-center">
-                        <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
-                        <div className="flex-grow">
-                            <p className="font-semibold text-green-800 dark:text-green-300">Reconciliation Complete!</p>
-                            <p className="text-sm text-green-700 dark:text-green-400">Your report is ready in Google Sheets.</p>
-                        </div>
-                        <Button asChild variant="outline" size="sm">
-                            <a href={resultUrl} target="_blank" rel="noopener noreferrer">
-                                View Sheet <ExternalLink className="ml-2 h-4 w-4" />
-                            </a>
-                        </Button>
-                    </div>
-                     <Button onClick={handleReset} variant="secondary" className="w-full">Start New Reconciliation</Button>
-                </div>
-            )}
-            
+                       
             {processingState === 'error' && (
                  <div className="p-4 border rounded-lg bg-destructive/10 text-destructive space-y-4">
-                    <p className="font-semibold text-center">An Error Occurred</p>
+                    <div className="flex items-center justify-center">
+                      <AlertTriangle className="mr-3 h-5 w-5" />
+                      <p className="font-semibold text-center">An Error Occurred</p>
+                    </div>
                     <p className="text-sm border bg-background/50 p-2 rounded-md">{errorMessage}</p>
                     <Button onClick={handleReset} variant="destructive" className="w-full">Try Again</Button>
                  </div>
