@@ -68,13 +68,13 @@ export function PriceTrendChart({ productsWithRates }: PriceTrendChartProps) {
   }, [selectedProduct]);
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>Product Price Trend</CardTitle>
         <CardDescription>View the price history of a selected product.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="flex-grow flex flex-col">
+        <div className="space-y-4 flex-grow flex flex-col">
             <Select onValueChange={setSelectedProductId} value={selectedProductId ?? undefined}>
                 <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a product" />
@@ -91,9 +91,9 @@ export function PriceTrendChart({ productsWithRates }: PriceTrendChartProps) {
                 </SelectContent>
             </Select>
 
-            <div className="h-64 w-full">
+            <div className="flex-grow w-full">
             {chartData.length > 1 ? (
-                <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                <ChartContainer config={chartConfig} className="min-h-[150px] w-full h-full">
                     <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                         data={chartData}

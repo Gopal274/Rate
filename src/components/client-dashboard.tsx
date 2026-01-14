@@ -8,6 +8,7 @@ import { PartyDistributionChart } from '@/components/party-distribution-chart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { SummaryCards } from './summary-cards';
 import { PriceTrendChart } from './price-trend-chart';
+import { PriceEstimator } from './price-estimator';
 
 export default function ClientDashboard({ productsWithRates }: { productsWithRates: ProductWithRates[] }) {
   const [openPartyAccordion, setOpenPartyAccordion] = useState<string | null>(null);
@@ -29,8 +30,9 @@ export default function ClientDashboard({ productsWithRates }: { productsWithRat
               <PartyDistributionChart allProducts={productsWithRates} onPartySelect={handlePartySelect} />
           </CardContent>
         </Card>
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 grid grid-rows-2 gap-6">
           <PriceTrendChart productsWithRates={productsWithRates} />
+          <PriceEstimator productsWithRates={productsWithRates} />
         </div>
       </div>
       <GroupedProductView allProducts={productsWithRates} openParty={openPartyAccordion} onOpenChange={setOpenPartyAccordion}/>
