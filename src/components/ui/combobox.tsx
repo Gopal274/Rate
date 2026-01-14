@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -8,8 +9,8 @@ import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
+  CommandGroup,
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
@@ -18,6 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { ScrollArea } from "./scroll-area"
 
 export type ComboboxOption = {
   value: string
@@ -54,41 +56,43 @@ export function Combobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between", !value && "text-muted-foreground", className)}
+          className={cn("w-full justify-between font-normal", !value && "text-muted-foreground", className)}
         >
-          {selectedOption ? selectedOption.label : placeholder}
+          {selectedOption ? selectedOption.label : (value || placeholder)}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
-          <CommandInput 
-            placeholder={searchPlaceholder} 
+          <CommandInput
+            placeholder={searchPlaceholder}
             value={value}
-            onValueChange={(searchValue) => onChange(searchValue)}
+            onValueChange={onChange}
           />
           <CommandList>
             <CommandEmpty>{emptyPlaceholder}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.value}
-                  onSelect={(currentValue) => {
-                    const newValue = currentValue.toLowerCase() === value.toLowerCase() ? "" : currentValue
-                    onChange(newValue)
-                    setOpen(false)
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
+                <ScrollArea className="max-h-60">
+                    {options.map((option) => (
+                        <CommandItem
+                        key={option.value}
+                        value={option.value}
+                        onSelect={(currentValue) => {
+                            const newValue = currentValue.toLowerCase() === value.toLowerCase() ? "" : option.value
+                            onChange(newValue)
+                            setOpen(false)
+                        }}
+                        >
+                        <Check
+                            className={cn(
+                            "mr-2 h-4 w-4",
+                            value.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
+                            )}
+                        />
+                        {option.label}
+                        </CommandItem>
+                    ))}
+                </ScrollArea>
             </CommandGroup>
           </CommandList>
         </Command>
