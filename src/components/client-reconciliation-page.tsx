@@ -80,17 +80,27 @@ export default function ClientReconciliationPage() {
         setProcessingState('writing_sheet');
         toast({ title: 'Step 2: Writing to Google Sheet...', description: 'AI analysis complete. Now creating your report.' });
 
-        const provider = new GoogleAuthProvider();
-        provider.addScope('https://www.googleapis.com/auth/drive.file');
-        provider.addScope('https://www.googleapis.com/auth/spreadsheets');
-        
-        const result = await signInWithPopup(auth, provider);
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        const accessToken = credential?.accessToken;
+        let accessToken;
+        try {
+            const provider = new GoogleAuthProvider();
+            provider.addScope('https://www.googleapis.com/auth/drive.file');
+            provider.addScope('https://www.googleapis.com/auth/spreadsheets');
+            
+            const result = await signInWithPopup(auth, provider);
+            const credential = GoogleAuthProvider.credentialFromResult(result);
+            accessToken = credential?.accessToken;
 
-        if (!accessToken) {
-            throw new Error("Could not retrieve a fresh access token from Google.");
+            if (!accessToken) {
+                throw new Error("Could not retrieve a fresh access token from Google.");
+            }
+        } catch (authError: any) {
+             if (authError.code === 'auth/popup-blocked') {
+                throw new Error("Popup blocked by browser. Please allow popups for this site and try again.");
+            } else {
+                throw new Error("Google Authentication failed. Please try again.");
+            }
         }
+
 
         const sheetResult = await writeToSheetAction(accessToken, jsonData);
 
