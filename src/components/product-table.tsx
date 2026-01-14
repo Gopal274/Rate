@@ -901,96 +901,96 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             ) : (
                 <div className="rounded-md border relative h-[60vh] overflow-auto">
                     <Table>
-                    <TableHeader className="sticky top-0 bg-background z-10">
-                        {table.getHeaderGroups().map((headerGroup) => (
-                        <TableRow key={headerGroup.id}>
-                            {headerGroup.headers.map((header) => {
-                            return (
-                                <TableHead key={header.id} style={{ width: header.getSize() }}>
-                                {header.isPlaceholder
-                                    ? null
-                                    : flexRender(
-                                        header.column.columnDef.header,
-                                        header.getContext()
-                                    )}
-                                </TableHead>
-                            );
-                            })}
-                        </TableRow>
-                        ))}
-                    </TableHeader>
-                    <TableBody>
-                        {rows.length > 0 ? (
-                        rows.map((row) => {
-                            const isOpen = openCollapsibles.has(row.original.id);
-                            const hasHistory = row.original.rates.length > 1;
-                            return (
-                            <React.Fragment key={`product-${row.original.id}`}>
-                                <TableRow
-                                key={`main-${row.original.id}`}
-                                data-state={row.getIsSelected() && 'selected'}
-                                className={cn(
-                                    "transition-colors duration-200",
-                                    hasHistory && "cursor-pointer hover:bg-muted/50"
-                                )}
-                                onClick={() => hasHistory && table.options.meta?.toggleCollapsible(row.original.id)}
-                                >
-                                {row.getVisibleCells().map((cell) => (
-                                    <TableCell key={cell.id} className='whitespace-nowrap'>
-                                    {flexRender(
-                                        cell.column.columnDef.cell,
-                                        cell.getContext()
-                                    )}
-                                    </TableCell>
-                                ))}
-                                </TableRow>
-                                {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
-                                const finalRate = (rate.rate as number) * (1 + (rate.gst as number) / 100);
+                        <TableHeader className="sticky top-0 bg-background z-10">
+                            {table.getHeaderGroups().map((headerGroup) => (
+                            <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                                {headerGroup.headers.map((header) => {
                                 return (
-                                    <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/30 hover:bg-muted/60">
-                                    <TableCell className='whitespace-nowrap'></TableCell>
-                                    <TableCell className='whitespace-nowrap'></TableCell>
-                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                        {format(safeToDate(rate.createdAt), 'dd/MM/yy, h:mm a')}
-                                    </TableCell>
-                                    <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(rate.rate as number)}</TableCell>
-                                    <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
-                                    <TableCell className='text-center whitespace-nowrap'>{rate.gst}%</TableCell>
-                                    <TableCell className="text-right font-bold whitespace-nowrap">{formatCurrency(finalRate)}</TableCell>
-                                    <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
-                                    <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
-                                    <TableCell className='whitespace-nowrap'>{format(safeToDate(rate.billDate), 'dd/MM/yy')}</TableCell>
-                                    <TableCell className="no-print whitespace-nowrap">
-                                        <TooltipProvider>
-                                        <div className="flex items-center justify-center">
-                                            <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate: rate as Rate }); }}>
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Delete This Rate Entry</TooltipContent>
-                                            </Tooltip>
-                                        </div>
-                                        </TooltipProvider>
-                                    </TableCell>
-                                    </TableRow>
+                                    <TableHead key={header.id} style={{ width: header.getSize() }}>
+                                    {header.isPlaceholder
+                                        ? null
+                                        : flexRender(
+                                            header.column.columnDef.header,
+                                            header.getContext()
+                                        )}
+                                    </TableHead>
                                 );
                                 })}
-                            </React.Fragment>
-                            );
-                        })
-                        ) : (
-                        <TableRow>
-                            <TableCell
-                            colSpan={columns.length}
-                            className="h-24 text-center"
-                            >
-                            No products found. Adjust your filters or add a product to get started.
-                            </TableCell>
-                        </TableRow>
-                        )}
-                    </TableBody>
+                            </TableRow>
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {rows.length > 0 ? (
+                            rows.map((row) => {
+                                const isOpen = openCollapsibles.has(row.original.id);
+                                const hasHistory = row.original.rates.length > 1;
+                                return (
+                                <React.Fragment key={`product-${row.original.id}`}>
+                                    <TableRow
+                                    key={`main-${row.original.id}`}
+                                    data-state={row.getIsSelected() && 'selected'}
+                                    className={cn(
+                                        "transition-colors duration-200",
+                                        hasHistory && "cursor-pointer hover:bg-muted/50"
+                                    )}
+                                    onClick={() => hasHistory && table.options.meta?.toggleCollapsible(row.original.id)}
+                                    >
+                                    {row.getVisibleCells().map((cell) => (
+                                        <TableCell key={cell.id} className='whitespace-nowrap'>
+                                        {flexRender(
+                                            cell.column.columnDef.cell,
+                                            cell.getContext()
+                                        )}
+                                        </TableCell>
+                                    ))}
+                                    </TableRow>
+                                    {isOpen && hasHistory && row.original.rates.slice(1).map((rate) => {
+                                    const finalRate = (rate.rate as number) * (1 + (rate.gst as number) / 100);
+                                    return (
+                                        <TableRow key={`${row.original.id}-${rate.id}`} className="bg-muted/30 hover:bg-muted/60">
+                                        <TableCell className='whitespace-nowrap'></TableCell>
+                                        <TableCell className='whitespace-nowrap'></TableCell>
+                                        <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                            {format(safeToDate(rate.createdAt), 'dd/MM/yy, h:mm a')}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(rate.rate as number)}</TableCell>
+                                        <TableCell className='whitespace-nowrap'>{row.original.unit}</TableCell>
+                                        <TableCell className='text-center whitespace-nowrap'>{rate.gst}%</TableCell>
+                                        <TableCell className="text-right font-bold whitespace-nowrap">{formatCurrency(finalRate)}</TableCell>
+                                        <TableCell className='whitespace-nowrap'>{row.original.partyName}</TableCell>
+                                        <TableCell className='whitespace-nowrap'>{rate.pageNo}</TableCell>
+                                        <TableCell className='whitespace-nowrap'>{format(safeToDate(rate.billDate), 'dd/MM/yy')}</TableCell>
+                                        <TableCell className="no-print whitespace-nowrap">
+                                            <TooltipProvider>
+                                            <div className="flex items-center justify-center">
+                                                <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 no-print" onClick={(e) => { e.stopPropagation(); setDeletingRateInfo({ product: row.original, rate: rate as Rate }); }}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Delete This Rate Entry</TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                            </TooltipProvider>
+                                        </TableCell>
+                                        </TableRow>
+                                    );
+                                    })}
+                                </React.Fragment>
+                                );
+                            })
+                            ) : (
+                            <TableRow>
+                                <TableCell
+                                colSpan={columns.length}
+                                className="h-24 text-center"
+                                >
+                                No products found. Adjust your filters or add a product to get started.
+                                </TableCell>
+                            </TableRow>
+                            )}
+                        </TableBody>
                     </Table>
                 </div>
             )}
