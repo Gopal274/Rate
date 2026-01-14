@@ -141,29 +141,25 @@ const reconcileLedgersFlow = ai.defineFlow(
     outputSchema: ReconcileLedgersOutputSchema,
   },
   async (input) => {
-    const model = ai.model('googleai/gemini-1.5-pro');
+    const response = await ai.generate({
+      model: 'googleai/gemini-1.5-pro',
+      prompt: [
+          {text: `You are an expert accountant. Your task is to reconcile two ledgers from Party A and Party B.
+      
+Carefully analyze the transactions in both PDF documents provided. Identify which transactions match, and which are present in one ledger but not the other.
 
-    const response = await model.generate({
-      prompt: `You are an expert accountant. Your task is to reconcile two ledgers from Party A and Party B.
-      
-      Carefully analyze the transactions in both PDF documents provided. Identify which transactions match, and which are present in one ledger but not the other.
-      
-      A transaction is defined by its date, description/bill number, and amount. A match requires all three fields to be identical.
-      
-      Once you have completed your analysis, you MUST use the "writeReconciliationToSheet" tool to output the results into a Google Sheet.
-      
-      Do not summarize the results in text. The only output should be the result of calling the tool.
-      
-      Party A Ledger: {{media url=partyALedgerPdf}}
-      Party B Ledger: {{media url=partyBLedgerPdf}}
-      `,
-      promptData: {
-        partyALedgerPdf: input.partyALedgerPdf,
-        partyBLedgerPdf: input.partyBLedgerPdf,
-      },
+A transaction is defined by its date, description/bill number, and amount. A match requires all three fields to be identical.
+
+Once you have completed your analysis, you MUST use the "writeReconciliationToSheet" tool to output the results into a Google Sheet.
+
+Do not summarize the results in text. The only output should be the result of calling the tool.
+`},
+        {media: {url: input.partyALedgerPdf}},
+        {media: {url: input.partyBLedgerPdf}},
+      ],
       tools: [writeReconciliationToSheet],
       // Pass the access token in the context for the tool to use.
-      context: { accessToken: input.accessToken }
+      context: { auth: { accessToken: input.accessToken } }
     });
 
     const toolResponse = response.toolRequests[0];
