@@ -20,6 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "./scroll-area"
+import { Input } from "./input";
 
 export type ComboboxOption = {
   value: string
@@ -45,53 +46,62 @@ export function Combobox({
   emptyPlaceholder = "Nothing found.",
   className,
 }: ComboboxProps) {
-  const [open, setOpen] = React.useState(false)
-
-  const selectedOption = options.find((option) => option.value.toLowerCase() === value?.toLowerCase())
+  const [open, setOpen] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
+      <div className="relative">
+        <Input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className={cn("w-full pr-8", className)}
           aria-expanded={open}
-          className={cn("w-full justify-between font-normal", !value && "text-muted-foreground", className)}
-        >
-          {selectedOption ? selectedOption.label : (value || placeholder)}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command
-          filter={(searchValue, itemValue) => {
-            return itemValue.toLowerCase().includes(searchValue.toLowerCase())
-          }}
-        >
-          <CommandInput
-            placeholder={searchPlaceholder}
-            onValueChange={onChange}
-          />
+        />
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-1/2 right-1 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => setOpen((prev) => !prev)}
+          >
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+            <span className="sr-only">Toggle suggestions</span>
+          </Button>
+        </PopoverTrigger>
+      </div>
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()} // prevent focus steal
+      >
+        <Command>
+          {/* We don't need a visible search input inside the popover anymore */}
           <CommandList>
             <CommandEmpty>{emptyPlaceholder}</CommandEmpty>
             <CommandGroup>
                 <ScrollArea className="max-h-60">
-                    {options.map((option) => (
+                    {options
+                        .filter(option => option.label.toLowerCase().includes(value?.toLowerCase() ?? ''))
+                        .map((option) => (
                         <CommandItem
-                        key={option.value}
-                        value={option.value}
-                        onSelect={(currentValue) => {
-                            onChange(option.value)
-                            setOpen(false)
-                        }}
+                            key={option.value}
+                            value={option.value}
+                            onSelect={() => {
+                                onChange(option.value);
+                                setOpen(false);
+                                inputRef.current?.blur();
+                            }}
                         >
-                        <Check
-                            className={cn(
-                            "mr-2 h-4 w-4",
-                            value?.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
-                            )}
-                        />
-                        {option.label}
+                            <Check
+                                className={cn(
+                                "mr-2 h-4 w-4",
+                                value?.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
+                                )}
+                            />
+                            {option.label}
                         </CommandItem>
                     ))}
                 </ScrollArea>
