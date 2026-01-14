@@ -1,4 +1,5 @@
 
+
 import { z } from "zod";
 
 const billDateSchema = z.string().refine((val) => !isNaN(Date.parse(val)), {
@@ -62,6 +63,7 @@ const transactionSchema = z.object({
 });
 
 export const reconciliationDataSchema = z.object({
+  summary: z.string().describe("A brief, one-sentence summary of the findings."),
   matches: z.array(transactionSchema).describe('Transactions found in both ledgers.'),
   partyADiscrepancies: z.array(transactionSchema).describe("Transactions present in Party A's ledger but missing from Party B's."),
   partyBDiscrepancies: z.array(transactionSchema).describe("Transactions present in Party B's ledger but missing from Party A's."),
@@ -88,3 +90,5 @@ export type Rate = {
 };
 
 export type ProductWithRates = Product & { rates: Rate[] };
+
+    

@@ -16,9 +16,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { reconcileLedgers, type ReconciliationData } from '@/ai/flows/reconcile-ledgers-flow';
 import { writeToSheetAction } from '@/lib/actions';
-import { Loader, Upload, FileText, CheckCircle, ExternalLink, Bot, Table } from 'lucide-react';
+import { Loader, Upload, FileText, CheckCircle, ExternalLink, Bot, Table, MessageSquare, ListChecks } from 'lucide-react';
 import { useFirebase, useUser } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const fileToDataURI = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -38,6 +39,8 @@ export default function ClientReconciliationPage() {
   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [reconciliationData, setReconciliationData] = useState<ReconciliationData | null>(null);
+  const [progressMessages, setProgressMessages] = useState<string[]>([]);
   
   const { toast } = useToast();
   const { auth } = useFirebase();
@@ -50,9 +53,11 @@ export default function ClientReconciliationPage() {
     setProcessingState('idle');
     setResultUrl(null);
     setErrorMessage(null);
+    setReconciliationData(null);
+    setProgressMessages([]);
   }
 
-  const handleSubmit = async () => {
+  const handleAnalysis = async () => {
     if (!user || !auth || !partyAPdf || !partyBPdf) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please sign in and select both PDF files.' });
         return;
@@ -61,25 +66,49 @@ export default function ClientReconciliationPage() {
     setProcessingState('analyzing');
     setResultUrl(null);
     setErrorMessage(null);
+    setProgressMessages([]);
+    setReconciliationData(null);
     
     try {
-        // Step 1: AI Analysis
-        toast({ title: 'Step 1: Analyzing Ledgers...', description: 'The AI is comparing the documents. This may take a moment.' });
-        
         const [partyADataUri, partyBDataUri] = await Promise.all([
             fileToDataURI(partyAPdf),
             fileToDataURI(partyBPdf)
         ]);
 
-        const jsonData = await reconcileLedgers({
+        const stream = await reconcileLedgers({
             partyALedgerPdf: partyADataUri,
             partyBLedgerPdf: partyBDataUri,
         });
+        
+        for await (const chunk of stream) {
+            if (chunk.progress) {
+                setProgressMessages(prev => [...prev, chunk.progress]);
+            }
+            if (chunk.result) {
+                setReconciliationData(chunk.result);
+                // AI analysis is done, move to the next logical step
+                setProcessingState('writing_sheet'); 
+            }
+        }
 
-        // Step 2: Get fresh auth token and write to sheet
-        setProcessingState('writing_sheet');
-        toast({ title: 'Step 2: Writing to Google Sheet...', description: 'AI analysis complete. Now creating your report.' });
+    } catch (error: any) {
+        console.error("Reconciliation Analysis Error:", error);
+        const friendlyMessage = error.message || 'The AI failed to analyze the documents.';
+        setErrorMessage(friendlyMessage);
+        setProcessingState('error');
+        toast({ variant: 'destructive', title: 'Analysis Failed', description: friendlyMessage });
+    }
+  }
 
+  const handleSheetCreation = async () => {
+     if (!auth || !reconciliationData) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Analysis data is missing or you are not signed in.' });
+        return;
+    }
+
+    toast({ title: 'Creating Google Sheet...', description: 'Now creating your report.' });
+
+    try {
         let accessToken;
         try {
             const provider = new GoogleAuthProvider();
@@ -101,8 +130,7 @@ export default function ClientReconciliationPage() {
             }
         }
 
-
-        const sheetResult = await writeToSheetAction(accessToken, jsonData);
+        const sheetResult = await writeToSheetAction(accessToken, reconciliationData);
 
         if (sheetResult.success && sheetResult.sheetUrl) {
             setResultUrl(sheetResult.sheetUrl);
@@ -113,10 +141,10 @@ export default function ClientReconciliationPage() {
         }
 
     } catch (error: any) {
-        console.error("Reconciliation Error:", error);
-        setErrorMessage(error.message || 'Failed to process ledgers.');
+         console.error("Sheet Creation Error:", error);
+        setErrorMessage(error.message || 'Failed to create Google Sheet.');
         setProcessingState('error');
-        toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to process ledgers.' });
+        toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to create Google Sheet.' });
     }
   }
 
@@ -156,7 +184,8 @@ export default function ClientReconciliationPage() {
     </div>
   );
   
-  const isProcessing = processingState === 'analyzing' || processingState === 'writing_sheet';
+  const isAnalyzing = processingState === 'analyzing';
+  const isProcessing = isAnalyzing || processingState === 'writing_sheet';
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -164,7 +193,7 @@ export default function ClientReconciliationPage() {
         <CardHeader>
           <CardTitle>AI Ledger Reconciliation</CardTitle>
           <CardDescription>
-            Upload two ledger PDFs. The AI will compare them and generate a Google Sheet with matching and discrepant transactions.
+            Upload two ledger PDFs. The AI will compare them, show its work, and generate a Google Sheet report.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -173,21 +202,49 @@ export default function ClientReconciliationPage() {
         </CardContent>
         <CardFooter className="flex-col items-stretch space-y-4">
             {processingState === 'idle' && (
-                 <Button onClick={handleSubmit} disabled={!partyAPdf || !partyBPdf || !user}>
-                    Reconcile Ledgers
+                 <Button onClick={handleAnalysis} disabled={!partyAPdf || !partyBPdf || !user}>
+                    <Bot className="mr-2 h-4 w-4" />
+                    Analyze Ledgers
                 </Button>
             )}
 
-            {isProcessing && (
-                <div className="flex flex-col items-center justify-center p-4 border rounded-lg bg-secondary/50 text-center">
-                    <div className="flex items-center text-primary font-semibold">
+            {isAnalyzing && (
+                <div className="p-4 border rounded-lg bg-secondary/50 text-center">
+                    <div className="flex items-center text-primary font-semibold mb-3">
                         <Loader className="mr-2 h-4 w-4 animate-spin" />
-                         {processingState === 'analyzing' ? 'Step 1 of 2: AI Analyzing Documents...' : 'Step 2 of 2: Creating Google Sheet...'}
+                        AI Analyzing Documents...
                     </div>
-                     <p className="text-sm text-muted-foreground mt-2">This may take up to a minute. Please don't close this page.</p>
+                     <ScrollArea className="h-40 text-left border bg-background rounded-md p-2">
+                        <div className="space-y-2 text-sm text-muted-foreground">
+                            {progressMessages.map((msg, index) => (
+                                <div key={index} className="flex items-start gap-2">
+                                    <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                    <span>{msg}</span>
+                                </div>
+                            ))}
+                            {progressMessages.length === 0 && <p>Starting analysis...</p>}
+                        </div>
+                    </ScrollArea>
                 </div>
             )}
            
+            {processingState === 'writing_sheet' && reconciliationData && (
+                 <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20 space-y-4">
+                    <div className="flex items-center">
+                        <ListChecks className="h-5 w-5 text-blue-600 mr-3" />
+                        <div>
+                            <p className="font-semibold text-blue-800 dark:text-blue-300">Analysis Complete</p>
+                            <p className="text-sm text-blue-700 dark:text-blue-400">{reconciliationData.summary}</p>
+                        </div>
+                    </div>
+                    <Button onClick={handleSheetCreation} className="w-full">
+                        <Table className="mr-2 h-4 w-4" />
+                        Create Google Sheet Report
+                    </Button>
+                     <Button onClick={handleReset} variant="secondary" className="w-full">Start New Reconciliation</Button>
+                </div>
+            )}
+
             {processingState === 'done' && resultUrl && (
                 <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-900/20 space-y-4">
                     <div className="flex items-center">
@@ -218,3 +275,5 @@ export default function ClientReconciliationPage() {
     </div>
   );
 }
+
+    
