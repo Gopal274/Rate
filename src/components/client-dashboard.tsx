@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { SummaryCards } from './summary-cards';
 import { PriceTrendChart } from './price-trend-chart';
 import { PriceEstimator } from './price-estimator';
+import { QuantityCalculator } from './quantity-calculator';
 
 export default function ClientDashboard({ productsWithRates }: { productsWithRates: ProductWithRates[] }) {
   const [openPartyAccordion, setOpenPartyAccordion] = useState<string | null>(null);
@@ -30,7 +31,8 @@ export default function ClientDashboard({ productsWithRates }: { productsWithRat
               <PartyDistributionChart allProducts={productsWithRates} onPartySelect={handlePartySelect} />
           </CardContent>
         </Card>
-        <div className="lg:col-span-3 grid grid-rows-2 gap-6">
+        <div className="lg:col-span-3 grid grid-rows-3 gap-6">
+          <QuantityCalculator productsWithRates={productsWithRates} />
           <PriceTrendChart productsWithRates={productsWithRates} />
           <PriceEstimator productsWithRates={productsWithRates} />
         </div>
