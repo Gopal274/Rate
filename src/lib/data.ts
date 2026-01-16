@@ -54,18 +54,15 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
     productId = existingDoc.id;
     productData = existingDoc.data() as Omit<Product, 'id'>;
 
-    // Product exists, check if the rate is a duplicate
+    // Product exists, check if the rate is a duplicate based on rate and GST
     const existingRates = await getProductRates(productId);
-    const newBillDate = new Date(billDate);
     const isDuplicateRate = existingRates.some(r => 
         r.rate === rate && 
-        r.gst === gst && 
-        r.pageNo === pageNo &&
-        new Date(r.billDate).toDateString() === newBillDate.toDateString()
+        r.gst === gst
     );
 
     if (isDuplicateRate) {
-        throw new Error(`This exact rate for ${name} from this bill page already exists.`);
+        throw new Error(`This rate (${rate} + ${gst}% GST) for '${name}' from '${partyName}' has already been recorded.`);
     }
 
   } else {
@@ -99,7 +96,6 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
 export const batchAddProducts = async (formData: BatchProductSchema): Promise<{ addedCount: number; skippedCount: number }> => {
     const db = await getDb();
     const { partyName, billDate, pageNo, products } = formData;
-    const batchBillDate = new Date(billDate);
     
     let addedCount = 0;
     let skippedCount = 0;
@@ -120,12 +116,10 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<{ 
 
         if (existingProductInfo) {
             targetProductId = existingProductInfo.id;
-            // Check for duplicate rate within existing product
+            // Check for duplicate rate within existing product based on rate and GST
             const isDuplicateRate = existingProductInfo.rates.some(r => 
                 r.rate === product.rate && 
-                r.gst === product.gst && 
-                r.pageNo === pageNo &&
-                new Date(r.billDate).toDateString() === batchBillDate.toDateString()
+                r.gst === product.gst
             );
             if (isDuplicateRate) {
                 skippedCount++; // Increment skipped count
@@ -150,7 +144,7 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<{ 
             rate: product.rate,
             gst: product.gst,
             pageNo: pageNo,
-            billDate: batchBillDate,
+            billDate: new Date(billDate),
             createdAt: serverTimestamp(),
         });
         addedCount++;
@@ -223,17 +217,15 @@ export const getProductRates = async (productId: string): Promise<Rate[]> => {
 export const addRate = async (productId: string, rate: number, billDate: Date, pageNo: number, gst: number): Promise<Rate> => {
     const db = await getDb();
     
-    // Check for duplicate rate before adding
+    // Check for duplicate rate based on rate and GST before adding
     const existingRates = await getProductRates(productId);
     const isDuplicateRate = existingRates.some(r => 
         r.rate === rate && 
-        r.gst === gst && 
-        r.pageNo === pageNo &&
-        new Date(r.billDate).toDateString() === billDate.toDateString()
+        r.gst === gst
     );
 
     if (isDuplicateRate) {
-        throw new Error('This exact rate from this bill page already exists for this product.');
+        throw new Error('This rate for this product has already been recorded.');
     }
 
     const productRef = doc(db, PRODUCTS_COLLECTION, productId);
@@ -339,11 +331,8 @@ export async function importProductsAndRates(rows: any[][]) {
     if (existingProduct) {
       // 3. Product exists: Check if this specific rate already exists in history.
       const rateAlreadyExists = existingProduct.rates.some(existingRate => {
-        const existingBillDate = new Date(existingRate.billDate);
         return existingRate.rate === rate &&
-               existingRate.gst === gst &&
-               existingRate.pageNo === pageNo &&
-               existingBillDate.toDateString() === billDate.toDateString();
+               existingRate.gst === gst;
       });
 
       if (rateAlreadyExists) {
