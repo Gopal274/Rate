@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
@@ -31,6 +32,39 @@ export function ThemeToggle() {
         <DropdownMenuItem onClick={() => setTheme("dark")}>
           Dark
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setTheme("monokai")}>
+          Monokai
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("dracula")}>
+          Dracula
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("nord")}>
+          Nord
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("gruvbox-dark")}>
+          Gruvbox Dark
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("cobalt2")}>
+          Cobalt2
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setTheme("solarized-light")}>
+          Solarized Light
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("github-light")}>
+          GitHub Light
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("gruvbox-light")}>
+          Gruvbox Light
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("ayu-light")}>
+          Ayu Light
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("one-light")}>
+          One Light
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => setTheme("system")}>
           System
         </DropdownMenuItem>
