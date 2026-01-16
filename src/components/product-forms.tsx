@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -52,11 +53,11 @@ import { Separator } from './ui/separator';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 
-const getInitialAddFormValues = () => {
+const getInitialAddFormValues = (prefilledPartyName?: string) => {
     return {
         name: '',
         unit: 'piece',
-        partyName: '',
+        partyName: prefilledPartyName || '',
         rate: '' as any,
         gst: '' as any,
         pageNo: '' as any,
@@ -84,49 +85,36 @@ export function ProductFormDialog({
   partyNameOptions,
   unitOptions,
   children,
+  prefilledPartyName,
 }: {
-  product?: ProductWithRates; // Expect ProductWithRates for editing
-  isOpen?: boolean;
-  setIsOpen?: (open: boolean) => void;
+  product?: ProductWithRates;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
   partyNameOptions: string[];
   unitOptions: string[];
   children?: React.ReactNode;
+  prefilledPartyName?: string;
 }) {
   const isEditing = !!product;
   const formSchema = isEditing ? updateProductSchema : productSchema;
   
   const form = useForm({
     resolver: zodResolver(formSchema),
-    defaultValues: isEditing ? getInitialEditFormValues(product!) : getInitialAddFormValues(),
+    defaultValues: isEditing ? getInitialEditFormValues(product!) : getInitialAddFormValues(prefilledPartyName),
   });
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isDialogOpen, setIsDialogOpen] = React.useState(!!isOpen);
 
   React.useEffect(() => {
-    setIsDialogOpen(!!isOpen);
-  }, [isOpen]);
-  
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-        form.reset(isEditing ? getInitialEditFormValues(product!) : getInitialAddFormValues());
+    if (isOpen) {
+        form.reset(isEditing ? getInitialEditFormValues(product!) : getInitialAddFormValues(prefilledPartyName));
     }
-    if (setIsOpen) {
-      setIsOpen(open);
-    } else {
-      setIsDialogOpen(open);
-    }
-  };
-
-  React.useEffect(() => {
-    form.reset(isEditing ? getInitialEditFormValues(product!) : getInitialAddFormValues());
-  }, [product, form, isEditing]);
+  }, [isOpen, product, isEditing, prefilledPartyName, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     
     if (isEditing) {
-      // The product should have a latest rate to be editable, so we can assert non-null
       const latestRateId = product!.rates[0]!.id;
       const result = await updateProductAction(product.id, latestRateId, values as UpdateProductSchema);
       if (result.success) {
@@ -143,14 +131,12 @@ export function ProductFormDialog({
       }
     }
     setIsSubmitting(false);
-    handleOpenChange(false);
+    setIsOpen(false);
   }
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={handleOpenChange}>
-        <DialogTrigger asChild>
-          {children}
-        </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{product ? 'Edit Product' : 'Add Product'}</DialogTitle>
@@ -725,3 +711,5 @@ export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, uni
         </Dialog>
     )
 }
+
+    

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -169,6 +170,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const [activeSort, setActiveSort] = usePersistentState<SortDirection>('product-table-sort-v3', 'default');
   const [viewMode, setViewMode] = usePersistentState<ViewMode>('product-table-view-mode', 'table');
 
+  const [isAddSingleDialogOpen, setIsAddSingleDialogOpen] = React.useState(false);
+  const [prefilledPartyName, setPrefilledPartyName] = React.useState<string | undefined>(undefined);
   const [isBatchAddOpen, setIsBatchAddOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
@@ -492,6 +495,32 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
           </div>
         )
       },
+      cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 text-muted-foreground"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setPrefilledPartyName(row.original.partyName);
+                            setIsAddSingleDialogOpen(true);
+                        }}
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Add Product to {row.original.partyName}</p>
+                    </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <span>{row.original.partyName}</span>
+          </div>
+      ),
       enableSorting: false,
       filterFn: multiSelectFilterFn,
     },
@@ -795,9 +824,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 </DropdownMenu>
                 
                 { user && 
-                    <Button onClick={() => setIsBatchAddOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Products
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => { setPrefilledPartyName(undefined); setIsAddSingleDialogOpen(true); }}>
+                        <Plus className="mr-2 h-4 w-4" /> Add Product
                     </Button>
+                    <Button onClick={() => setIsBatchAddOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" /> Add Batch
+                    </Button>
+                  </div>
                 }
                 </div>
             </div>
@@ -816,7 +850,32 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                       <Card key={product.id} className="flex flex-col">
                         <CardHeader className="pb-4">
                           <CardTitle className="text-lg">{product.name}</CardTitle>
-                          <CardDescription>{product.partyName}</CardDescription>
+                          <CardDescription>
+                            <div className="flex items-center gap-2 -ml-2">
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-6 w-6 text-muted-foreground"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setPrefilledPartyName(product.partyName);
+                                                setIsAddSingleDialogOpen(true);
+                                            }}
+                                        >
+                                            <PlusCircle className="h-4 w-4" />
+                                        </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Add Product to {product.partyName}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <span>{product.partyName}</span>
+                            </div>
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow space-y-4">
                             <div className="flex justify-between items-baseline">
@@ -1008,7 +1067,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
             </CardContent>
       </Card>
     </div>
-    
+        
+        <ProductFormDialog
+            isOpen={isAddSingleDialogOpen}
+            setIsOpen={setIsAddSingleDialogOpen}
+            partyNameOptions={partyNameOptions}
+            unitOptions={unitOptions}
+            prefilledPartyName={prefilledPartyName}
+        />
         {editingProduct && (
           <ProductFormDialog
             product={editingProduct}
