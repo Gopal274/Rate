@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Moon, Sun } from "lucide-react"
+import { Moon, Sun, Check } from "lucide-react"
 import { useTheme } from "next-themes"
 
 import { Button } from "@/components/ui/button"
@@ -14,9 +14,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
 
 export function ThemeToggle() {
-  const { setTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
+
+  const MenuItem = ({ themeName, displayName }: { themeName: string, displayName: string }) => (
+    <DropdownMenuItem onClick={() => setTheme(themeName)}>
+      <Check className={cn("mr-2 h-4 w-4", theme === themeName ? "opacity-100" : "opacity-0")} />
+      {displayName}
+    </DropdownMenuItem>
+  );
 
   return (
     <DropdownMenu>
@@ -29,65 +37,29 @@ export function ThemeToggle() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Light Themes</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          Default Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-minimal-light")}>
-          Minimal Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-neumorphism")}>
-          Neumorphism
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-retro-vintage")}>
-          Retro / Vintage
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-material-design")}>
-          Material Design
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-y2k")}>
-          Y2K Aesthetic
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-nature-earthy")}>
-          Nature / Earthy
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-corporate")}>
-          Corporate
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-cartoon")}>
-          Cartoon / Playful
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-monochrome-blue")}>
-          Monochrome Blue
-        </DropdownMenuItem>
+        <MenuItem themeName="light" displayName="Default Light" />
+        <MenuItem themeName="theme-minimal-light" displayName="Minimal Light" />
+        <MenuItem themeName="theme-neumorphism" displayName="Neumorphism" />
+        <MenuItem themeName="theme-retro-vintage" displayName="Retro / Vintage" />
+        <MenuItem themeName="theme-material-design" displayName="Material Design" />
+        <MenuItem themeName="theme-y2k" displayName="Y2K Aesthetic" />
+        <MenuItem themeName="theme-nature-earthy" displayName="Nature / Earthy" />
+        <MenuItem themeName="theme-corporate" displayName="Corporate" />
+        <MenuItem themeName="theme-cartoon" displayName="Cartoon / Playful" />
+        <MenuItem themeName="theme-monochrome-blue" displayName="Monochrome Blue" />
 
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Dark Themes</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Default Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-minimal-dark")}>
-          Minimal Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-glassmorphism")}>
-          Glassmorphism
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-cyberpunk")}>
-          Cyberpunk / Neon
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-sci-fi")}>
-          Futuristic Sci-Fi
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-luxury")}>
-          Luxury / Premium
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("theme-gradient-modern")}>
-          Gradient Modern
-        </DropdownMenuItem>
+        <MenuItem themeName="dark" displayName="Default Dark" />
+        <MenuItem themeName="theme-minimal-dark" displayName="Minimal Dark" />
+        <MenuItem themeName="theme-glassmorphism" displayName="Glassmorphism" />
+        <MenuItem themeName="theme-cyberpunk" displayName="Cyberpunk / Neon" />
+        <MenuItem themeName="theme-sci-fi" displayName="Futuristic Sci-Fi" />
+        <MenuItem themeName="theme-luxury" displayName="Luxury / Premium" />
+        <MenuItem themeName="theme-gradient-modern" displayName="Gradient Modern" />
 
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          System
-        </DropdownMenuItem>
+        <MenuItem themeName="system" displayName="System" />
       </DropdownMenuContent>
     </DropdownMenu>
   )

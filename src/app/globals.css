@@ -276,6 +276,7 @@ body {
     --border: 40 25% 80%;
     --input: 40 25% 80%;
     --ring: 90 30% 35%;
+    --radius: 0.5rem;
   }
 
   /* 10. Corporate Professional */
