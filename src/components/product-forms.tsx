@@ -60,6 +60,7 @@ const getInitialAddFormValues = (prefilledPartyName?: string) => {
         partyName: prefilledPartyName || '',
         rate: '' as any,
         gst: '' as any,
+        finalRate: '' as any,
         pageNo: '' as any,
         billDate: format(new Date(), 'yyyy-MM-dd'),
     };
@@ -67,12 +68,17 @@ const getInitialAddFormValues = (prefilledPartyName?: string) => {
 
 const getInitialEditFormValues = (product: ProductWithRates) => {
     const latestRate = product.rates[0];
+    const baseRate = latestRate?.rate ?? ('' as any);
+    const gst = latestRate?.gst ?? ('' as any);
+    const finalRate = baseRate !== '' && gst !== '' ? baseRate * (1 + gst / 100) : ('' as any);
+
     return {
         name: product.name,
         unit: product.unit,
         partyName: product.partyName,
-        rate: latestRate?.rate ?? ('' as any),
-        gst: latestRate?.gst ?? ('' as any),
+        rate: baseRate,
+        gst: gst,
+        finalRate: finalRate ? parseFloat(finalRate.toFixed(2)) : ('' as any),
         pageNo: latestRate?.pageNo ?? ('' as any),
         billDate: latestRate ? format(safeToDate(latestRate.billDate), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
     };
@@ -104,6 +110,35 @@ export function ProductFormDialog({
   });
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const { setValue, getValues } = form;
+
+  const handleRateChange = (newRate: number, field: 'rate' | 'finalRate') => {
+      const currentGst = getValues('gst') || 0;
+      
+      if (field === 'rate') {
+          setValue('rate', newRate, { shouldValidate: true });
+          if (currentGst >= 0) {
+              const newFinalRate = newRate * (1 + currentGst / 100);
+              setValue('finalRate', parseFloat(newFinalRate.toFixed(2)), { shouldValidate: true });
+          }
+      } else if (field === 'finalRate') {
+          setValue('finalRate', newRate, { shouldValidate: true });
+          if (currentGst >= 0) {
+              const newBaseRate = newRate / (1 + currentGst / 100);
+              setValue('rate', parseFloat(newBaseRate.toFixed(2)), { shouldValidate: true });
+          }
+      }
+  };
+  
+  const handleGstChange = (newGst: number) => {
+    setValue('gst', newGst, { shouldValidate: true });
+    const currentRate = getValues('rate');
+    if (typeof currentRate === 'number' && newGst >= 0) {
+        const newFinalRate = currentRate * (1 + newGst / 100);
+        setValue('finalRate', parseFloat(newFinalRate.toFixed(2)), { shouldValidate: true });
+    }
+  }
+
 
   React.useEffect(() => {
     if (isOpen) {
@@ -198,32 +233,40 @@ export function ProductFormDialog({
                 control={form.control}
                 name="rate"
                 render={({ field }) => (
-                    <FormItem><FormLabel>{isEditing ? 'Latest Rate' : 'Initial Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>{isEditing ? 'Latest Base Rate' : 'Initial Base Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'rate')} /></FormControl><FormMessage /></FormItem>
                 )}
             />
-            <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="gst" render={({ field }) => (
-                    <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+             <FormField control={form.control} name="gst" render={({ field }) => (
+                <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+            )}
+            />
+            <FormField
+                control={form.control}
+                name="finalRate"
+                render={({ field }) => (
+                    <FormItem><FormLabel>{isEditing ? 'Latest Final Rate' : 'Initial Final Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Auto-calculated" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'finalRate')} /></FormControl><FormMessage /></FormItem>
                 )}
-                />
+            />
+            
+            <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="pageNo" render={({ field }) => (
                     <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                 )}
                 />
+                 <FormField
+                    control={form.control}
+                    name="billDate"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                        <FormLabel>Bill Date</FormLabel>
+                        <FormControl>
+                                <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
             </div>
-              <FormField
-                control={form.control}
-                name="billDate"
-                render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                    <FormLabel>Bill Date</FormLabel>
-                    <FormControl>
-                            <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
             
             <DialogFooter>
               <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
