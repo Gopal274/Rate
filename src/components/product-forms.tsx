@@ -56,21 +56,21 @@ import { ScrollArea } from './ui/scroll-area';
 const getInitialAddFormValues = (prefilledPartyName?: string) => {
     return {
         name: '',
-        unit: 'piece',
+        unit: '',
         partyName: prefilledPartyName || '',
-        rate: '' as any,
-        gst: '' as any,
-        finalRate: '' as any,
-        pageNo: '' as any,
+        rate: undefined,
+        gst: undefined,
+        finalRate: undefined,
+        pageNo: undefined,
         billDate: format(new Date(), 'yyyy-MM-dd'),
     };
 };
 
 const getInitialEditFormValues = (product: ProductWithRates) => {
     const latestRate = product.rates[0];
-    const baseRate = latestRate?.rate ?? ('' as any);
-    const gst = latestRate?.gst ?? ('' as any);
-    const finalRate = baseRate !== '' && gst !== '' ? baseRate * (1 + gst / 100) : ('' as any);
+    const baseRate = latestRate?.rate;
+    const gst = latestRate?.gst;
+    const finalRate = (baseRate !== undefined && gst !== undefined) ? baseRate * (1 + gst / 100) : undefined;
 
     return {
         name: product.name,
@@ -78,8 +78,8 @@ const getInitialEditFormValues = (product: ProductWithRates) => {
         partyName: product.partyName,
         rate: baseRate,
         gst: gst,
-        finalRate: finalRate ? parseFloat(finalRate.toFixed(2)) : ('' as any),
-        pageNo: latestRate?.pageNo ?? ('' as any),
+        finalRate: finalRate ? parseFloat(finalRate.toFixed(2)) : undefined,
+        pageNo: latestRate?.pageNo,
         billDate: latestRate ? format(safeToDate(latestRate.billDate), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
     };
 };
@@ -112,29 +112,30 @@ export function ProductFormDialog({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { setValue, getValues } = form;
 
-  const handleRateChange = (newRate: number, field: 'rate' | 'finalRate') => {
-      const currentGst = getValues('gst') || 0;
+  const handleRateChange = (newValue: string, field: 'rate' | 'finalRate') => {
+      const numValue = newValue === '' ? undefined : parseFloat(newValue);
+      setValue(field, numValue, { shouldValidate: true });
       
-      if (field === 'rate') {
-          setValue('rate', newRate, { shouldValidate: true });
-          if (currentGst >= 0) {
-              const newFinalRate = newRate * (1 + currentGst / 100);
+      const currentGst = getValues('gst');
+      
+      if (numValue !== undefined && currentGst !== undefined) {
+          if (field === 'rate') {
+              const newFinalRate = numValue * (1 + currentGst / 100);
               setValue('finalRate', parseFloat(newFinalRate.toFixed(2)), { shouldValidate: true });
-          }
-      } else if (field === 'finalRate') {
-          setValue('finalRate', newRate, { shouldValidate: true });
-          if (currentGst >= 0) {
-              const newBaseRate = newRate / (1 + currentGst / 100);
+          } else { // field === 'finalRate'
+              const newBaseRate = numValue / (1 + currentGst / 100);
               setValue('rate', parseFloat(newBaseRate.toFixed(2)), { shouldValidate: true });
           }
       }
   };
   
-  const handleGstChange = (newGst: number) => {
-    setValue('gst', newGst, { shouldValidate: true });
+  const handleGstChange = (newValue: string) => {
+    const numGst = newValue === '' ? undefined : parseFloat(newValue);
+    setValue('gst', numGst, { shouldValidate: true });
+
     const currentRate = getValues('rate');
-    if (typeof currentRate === 'number' && newGst >= 0) {
-        const newFinalRate = currentRate * (1 + newGst / 100);
+    if (currentRate !== undefined && numGst !== undefined) {
+        const newFinalRate = currentRate * (1 + numGst / 100);
         setValue('finalRate', parseFloat(newFinalRate.toFixed(2)), { shouldValidate: true });
     }
   }
@@ -233,14 +234,14 @@ export function ProductFormDialog({
                 control={form.control}
                 name="rate"
                 render={({ field }) => (
-                    <FormItem><FormLabel>{isEditing ? 'Latest Base Rate' : 'Initial Base Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'rate')} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>{isEditing ? 'Latest Base Rate' : 'Initial Base Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 120.50" {...field} value={field.value ?? ''} onChange={e => handleRateChange(e.target.value, 'rate')} /></FormControl><FormMessage /></FormItem>
                 )}
             />
              <FormField control={form.control} name="gst" render={({ field }) => (
                 <FormItem>
                     <FormLabel>GST (%)</FormLabel>
                     <FormControl>
-                        <Input type="number" step="0.01" placeholder="e.g. 5" list="gst-suggestions" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} />
+                        <Input type="number" step="0.01" placeholder="e.g. 5" list="gst-suggestions" {...field} value={field.value ?? ''} onChange={e => handleGstChange(e.target.value)} />
                     </FormControl>
                     <datalist id="gst-suggestions">
                         <option value="0" />
@@ -257,13 +258,13 @@ export function ProductFormDialog({
                 control={form.control}
                 name="finalRate"
                 render={({ field }) => (
-                    <FormItem><FormLabel>{isEditing ? 'Latest Final Rate' : 'Initial Final Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Auto-calculated" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'finalRate')} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>{isEditing ? 'Latest Final Rate' : 'Initial Final Rate'}</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Auto-calculated" {...field} value={field.value ?? ''} onChange={e => handleRateChange(e.target.value, 'finalRate')} /></FormControl><FormMessage /></FormItem>
                 )}
             />
             
             <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="pageNo" render={({ field }) => (
-                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                 )}
                 />
                  <FormField
@@ -315,7 +316,7 @@ export function AddRateDialog({
   const getInitialValues = (p: ProductWithRates | null) => {
     const latestRate = p?.rates[0];
     return {
-      rate: '' as any,
+      rate: undefined,
       billDate: format(new Date(), 'yyyy-MM-dd'),
       pageNo: latestRate?.pageNo,
       gst: latestRate?.gst,
@@ -368,7 +369,7 @@ export function AddRateDialog({
                 <FormItem>
                   <FormLabel>New Rate</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.01" placeholder="e.g. 125.00" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} />
+                    <Input type="number" step="0.01" placeholder="e.g. 125.00" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -381,7 +382,7 @@ export function AddRateDialog({
                     <FormItem>
                         <FormLabel>New GST (%)</FormLabel>
                         <FormControl>
-                            <Input type="number" placeholder="e.g. 5" list="gst-suggestions" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} />
+                            <Input type="number" placeholder="e.g. 5" list="gst-suggestions" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} />
                         </FormControl>
                         <datalist id="gst-suggestions">
                             <option value="0" />
@@ -398,7 +399,7 @@ export function AddRateDialog({
                 control={form.control}
                 name="pageNo"
                 render={({ field }) => (
-                    <FormItem><FormLabel>New Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>New Page No.</FormLabel><FormControl><Input type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                 )}
             />
             <FormField
@@ -556,33 +557,30 @@ const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
 function ProductSubForm({ index, remove, unitOptions }: { index: number; remove: (index: number) => void; unitOptions: string[]; }) {
   const { control, setValue, getValues } = useFormContext<BatchProductSchema>();
   
-  const rate = useWatch({ control, name: `products.${index}.rate` });
-  const gst = useWatch({ control, name: `products.${index}.gst` });
-  const finalRate = useWatch({ control, name: `products.${index}.finalRate` });
-
-  const handleRateChange = (newRate: number, field: 'rate' | 'finalRate') => {
-      const currentGst = getValues(`products.${index}.gst`) || 0;
+  const handleRateChange = (newValue: string, field: 'rate' | 'finalRate') => {
+      const numValue = newValue === '' ? undefined : parseFloat(newValue);
+      setValue(`products.${index}.${field}`, numValue, { shouldValidate: true });
       
-      if (field === 'rate') {
-          setValue(`products.${index}.rate`, newRate, { shouldValidate: true });
-          if (currentGst >= 0) {
-              const newFinalRate = newRate * (1 + currentGst / 100);
+      const currentGst = getValues(`products.${index}.gst`);
+      
+      if (numValue !== undefined && currentGst !== undefined) {
+          if (field === 'rate') {
+              const newFinalRate = numValue * (1 + currentGst / 100);
               setValue(`products.${index}.finalRate`, parseFloat(newFinalRate.toFixed(2)), { shouldValidate: true });
-          }
-      } else if (field === 'finalRate') {
-          setValue(`products.${index}.finalRate`, newRate, { shouldValidate: true });
-          if (currentGst >= 0) {
-              const newBaseRate = newRate / (1 + currentGst / 100);
+          } else { // field === 'finalRate'
+              const newBaseRate = numValue / (1 + currentGst / 100);
               setValue(`products.${index}.rate`, parseFloat(newBaseRate.toFixed(2)), { shouldValidate: true });
           }
       }
   };
   
-  const handleGstChange = (newGst: number) => {
-    setValue(`products.${index}.gst`, newGst, { shouldValidate: true });
+  const handleGstChange = (newValue: string) => {
+    const numGst = newValue === '' ? undefined : parseFloat(newValue);
+    setValue(`products.${index}.gst`, numGst, { shouldValidate: true });
+
     const currentRate = getValues(`products.${index}.rate`);
-    if (currentRate && newGst >= 0) {
-        const newFinalRate = currentRate * (1 + newGst / 100);
+    if (currentRate !== undefined && numGst !== undefined) {
+        const newFinalRate = currentRate * (1 + numGst / 100);
         setValue(`products.${index}.finalRate`, parseFloat(newFinalRate.toFixed(2)), { shouldValidate: true });
     }
   }
@@ -612,7 +610,7 @@ function ProductSubForm({ index, remove, unitOptions }: { index: number; remove:
             control={control}
             name={`products.${index}.rate`}
             render={({ field }) => (
-                <FormItem><FormLabel>Base Rate</FormLabel><FormControl><Input autoComplete="off" type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'rate')} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Base Rate</FormLabel><FormControl><Input autoComplete="off" type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(e.target.value, 'rate')} /></FormControl><FormMessage /></FormItem>
             )}
         />
         <FormField
@@ -622,7 +620,7 @@ function ProductSubForm({ index, remove, unitOptions }: { index: number; remove:
                 <FormItem>
                     <FormLabel>GST (%)</FormLabel>
                     <FormControl>
-                        <Input autoComplete="off" type="number" step="0.01" list="gst-suggestions-batch" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} />
+                        <Input autoComplete="off" type="number" step="0.01" list="gst-suggestions-batch" {...field} value={field.value ?? ''} onChange={e => handleGstChange(e.target.value)} />
                     </FormControl>
                     <FormMessage />
                 </FormItem>
@@ -632,7 +630,7 @@ function ProductSubForm({ index, remove, unitOptions }: { index: number; remove:
             control={control}
             name={`products.${index}.finalRate`}
             render={({ field }) => (
-                <FormItem><FormLabel>Final Rate</FormLabel><FormControl><Input autoComplete="off" type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(Number(e.target.value), 'finalRate')} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Final Rate</FormLabel><FormControl><Input autoComplete="off" type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleRateChange(e.target.value, 'finalRate')} /></FormControl><FormMessage /></FormItem>
             )}
         />
         <div className="md:col-span-3">
@@ -667,7 +665,7 @@ export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, uni
             partyName: '',
             pageNo: undefined,
             billDate: format(new Date(), 'yyyy-MM-dd'),
-            products: [{ name: '', unit: 'piece', rate: undefined, gst: undefined, finalRate: undefined }]
+            products: [{ name: '', unit: '', rate: undefined, gst: undefined, finalRate: undefined }]
         }
     });
 
@@ -693,7 +691,7 @@ export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, uni
                 partyName: '',
                 pageNo: undefined,
                 billDate: format(new Date(), 'yyyy-MM-dd'),
-                products: [{ name: '', unit: 'piece', rate: undefined, gst: undefined, finalRate: undefined }]
+                products: [{ name: '', unit: '', rate: undefined, gst: undefined, finalRate: undefined }]
             });
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -749,7 +747,7 @@ export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, uni
                                     control={form.control}
                                     name="pageNo"
                                     render={({ field }) => (
-                                        <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input autoComplete="off" type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Page No.</FormLabel><FormControl><Input autoComplete="off" type="number" placeholder="e.g. 42" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
                                     )}
                                 />
                                 <FormField
@@ -776,7 +774,7 @@ export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, uni
                                 variant="outline"
                                 size="sm"
                                 className="mt-2"
-                                onClick={() => append({ name: '', unit: 'piece', rate: undefined, gst: undefined, finalRate: undefined })}
+                                onClick={() => append({ name: '', unit: '', rate: undefined, gst: undefined, finalRate: undefined })}
                             >
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Add Product
