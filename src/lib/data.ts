@@ -60,11 +60,12 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
     const isDuplicateRate = existingRates.some(r => 
         r.rate === rate && 
         r.gst === gst && 
+        r.pageNo === pageNo &&
         new Date(r.billDate).toDateString() === newBillDate.toDateString()
     );
 
     if (isDuplicateRate) {
-        throw new Error(`This exact rate for ${name} already exists on this date.`);
+        throw new Error(`This exact rate for ${name} from this bill page already exists.`);
     }
 
   } else {
@@ -123,6 +124,7 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<{ 
             const isDuplicateRate = existingProductInfo.rates.some(r => 
                 r.rate === product.rate && 
                 r.gst === product.gst && 
+                r.pageNo === pageNo &&
                 new Date(r.billDate).toDateString() === batchBillDate.toDateString()
             );
             if (isDuplicateRate) {
@@ -226,11 +228,12 @@ export const addRate = async (productId: string, rate: number, billDate: Date, p
     const isDuplicateRate = existingRates.some(r => 
         r.rate === rate && 
         r.gst === gst && 
+        r.pageNo === pageNo &&
         new Date(r.billDate).toDateString() === billDate.toDateString()
     );
 
     if (isDuplicateRate) {
-        throw new Error('This exact rate already exists for this product on this date.');
+        throw new Error('This exact rate from this bill page already exists for this product.');
     }
 
     const productRef = doc(db, PRODUCTS_COLLECTION, productId);
@@ -339,6 +342,7 @@ export async function importProductsAndRates(rows: any[][]) {
         const existingBillDate = new Date(existingRate.billDate);
         return existingRate.rate === rate &&
                existingRate.gst === gst &&
+               existingRate.pageNo === pageNo &&
                existingBillDate.toDateString() === billDate.toDateString();
       });
 
