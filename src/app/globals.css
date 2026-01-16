@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -64,48 +65,48 @@ body {
 
   /* 1. Minimal Light */
   .theme-minimal-light {
-    --background: 220 20% 98%;
-    --foreground: 220 15% 25%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 25%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 25%;
-    --primary: 220 10% 45%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 15% 94%;
-    --secondary-foreground: 220 15% 25%;
-    --muted: 220 15% 94%;
-    --muted-foreground: 220 10% 65%;
-    --accent: 220 15% 90%;
-    --accent-foreground: 220 15% 25%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 15% 88%;
-    --input: 220 15% 88%;
-    --ring: 220 10% 45%;
+    --background: 240 10% 99%;
+    --foreground: 240 5% 35%;
+    --card: 240 10% 99%;
+    --card-foreground: 240 5% 35%;
+    --popover: 240 10% 99%;
+    --popover-foreground: 240 5% 35%;
+    --primary: 240 5% 45%;
+    --primary-foreground: 240 10% 99%;
+    --secondary: 240 5% 94%;
+    --secondary-foreground: 240 5% 35%;
+    --muted: 240 5% 94%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 5% 90%;
+    --accent-foreground: 240 5% 35%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5% 90%;
+    --input: 240 5% 90%;
+    --ring: 240 5% 45%;
     --radius: 0.5rem;
   }
 
   /* 2. Minimal Dark */
   .theme-minimal-dark {
-    --background: 220 20% 6%;
-    --foreground: 210 20% 94%;
-    --card: 220 20% 10%;
-    --card-foreground: 210 20% 94%;
-    --popover: 220 20% 6%;
-    --popover-foreground: 210 20% 94%;
+    --background: 220 15% 10%;
+    --foreground: 210 20% 88%;
+    --card: 220 15% 15%;
+    --card-foreground: 210 20% 88%;
+    --popover: 220 15% 10%;
+    --popover-foreground: 210 20% 88%;
     --primary: 180 100% 45%;
     --primary-foreground: 180 100% 10%;
-    --secondary: 220 20% 15%;
-    --secondary-foreground: 210 20% 94%;
-    --muted: 220 20% 15%;
-    --muted-foreground: 210 15% 65%;
+    --secondary: 220 15% 20%;
+    --secondary-foreground: 210 20% 88%;
+    --muted: 220 15% 20%;
+    --muted-foreground: 210 15% 60%;
     --accent: 180 100% 45%;
     --accent-foreground: 180 100% 10%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 20% 20%;
-    --input: 220 20% 15%;
+    --border: 220 15% 25%;
+    --input: 220 15% 20%;
     --ring: 180 100% 50%;
     --radius: 0.2rem;
   }
@@ -400,7 +401,7 @@ body {
 
   /* 15. Gradient Modern */
   .theme-gradient-modern {
-    --background: 260 50% 5%;
+    --background: 260 50% 8%; /* Fallback solid color for components */
     --foreground: 260 30% 95%;
     --card: 260 40% 12%;
     --card-foreground: 260 30% 95%;
@@ -419,7 +420,7 @@ body {
     --border: 260 30% 25%;
     --input: 260 30% 20%;
     --ring: 320 100% 60%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 }
 
@@ -430,4 +431,11 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+
+  body.theme-gradient-modern {
+    background-image: linear-gradient(to right top, hsl(260, 50%, 10%), hsl(320, 100%, 25%));
+    background-attachment: fixed;
+  }
 }
+
+    
