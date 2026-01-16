@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -26,44 +27,62 @@ export function ThemeToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Light Themes</DropdownMenuLabel>
         <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
+          Default Light
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("minimal-light")}>
+          Minimal Light
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("neumorphism")}>
+          Neumorphism
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("retro-vintage")}>
+          Retro / Vintage
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("material-design")}>
+          Material Design
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("y2k")}>
+          Y2K Aesthetic
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("nature-earthy")}>
+          Nature / Earthy
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("corporate")}>
+          Corporate
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("cartoon")}>
+          Cartoon / Playful
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("monochrome-blue")}>
+          Monochrome Blue
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Dark Themes</DropdownMenuLabel>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
+          Default Dark
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setTheme("monokai")}>
-          Monokai
+        <DropdownMenuItem onClick={() => setTheme("minimal-dark")}>
+          Minimal Dark
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dracula")}>
-          Dracula
+        <DropdownMenuItem onClick={() => setTheme("glassmorphism")}>
+          Glassmorphism
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("nord")}>
-          Nord
+        <DropdownMenuItem onClick={() => setTheme("cyberpunk")}>
+          Cyberpunk / Neon
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("gruvbox-dark")}>
-          Gruvbox Dark
+        <DropdownMenuItem onClick={() => setTheme("sci-fi")}>
+          Futuristic Sci-Fi
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("cobalt2")}>
-          Cobalt2
+        <DropdownMenuItem onClick={() => setTheme("luxury")}>
+          Luxury / Premium
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setTheme("solarized-light")}>
-          Solarized Light
+        <DropdownMenuItem onClick={() => setTheme("gradient-modern")}>
+          Gradient Modern
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("github-light")}>
-          GitHub Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("gruvbox-light")}>
-          Gruvbox Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("ayu-light")}>
-          Ayu Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("one-light")}>
-          One Light
-        </DropdownMenuItem>
+
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => setTheme("system")}>
           System
