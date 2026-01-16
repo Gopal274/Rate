@@ -47,18 +47,10 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { safeToDate, cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
-import { Combobox, type ComboboxOption } from './ui/combobox';
 
 const getInitialAddFormValues = () => {
     return {
@@ -96,8 +88,8 @@ export function ProductFormDialog({
   product?: ProductWithRates; // Expect ProductWithRates for editing
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
-  partyNameOptions: ComboboxOption[];
-  unitOptions: ComboboxOption[];
+  partyNameOptions: string[];
+  unitOptions: string[];
   children?: React.ReactNode;
 }) {
   const isEditing = !!product;
@@ -177,20 +169,20 @@ export function ProductFormDialog({
                 <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input placeholder="e.g. Basmati Rice" {...field} /></FormControl><FormMessage /></FormItem>
               )}
             />
-             <FormField
+            <FormField
               control={form.control}
               name="partyName"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Party Name</FormLabel>
-                  <Combobox
-                    options={partyNameOptions}
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder="Select or type party..."
-                    searchPlaceholder="Search party..."
-                    emptyPlaceholder="No party found. Type to create new."
-                  />
+                  <FormControl>
+                    <Input placeholder="e.g. Verma Traders" {...field} list="party-name-suggestions" />
+                  </FormControl>
+                  <datalist id="party-name-suggestions">
+                    {partyNameOptions.map((party) => (
+                      <option key={party} value={party} />
+                    ))}
+                  </datalist>
                   <FormMessage />
                 </FormItem>
               )}
@@ -199,16 +191,16 @@ export function ProductFormDialog({
               control={form.control}
               name="unit"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Unit</FormLabel>
-                  <Combobox
-                    options={unitOptions}
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder="Select or type unit..."
-                    searchPlaceholder="Search unit..."
-                    emptyPlaceholder="No unit found. Type to create new."
-                  />
+                  <FormControl>
+                    <Input placeholder="e.g., kg, piece" {...field} list="unit-suggestions" />
+                  </FormControl>
+                  <datalist id="unit-suggestions">
+                    {unitOptions.map((unit) => (
+                      <option key={unit} value={unit} />
+                    ))}
+                  </datalist>
                   <FormMessage />
                 </FormItem>
               )}
@@ -506,7 +498,7 @@ const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     }
 };
 
-function ProductSubForm({ index, remove, unitOptions }: { index: number; remove: (index: number) => void; unitOptions: ComboboxOption[]; }) {
+function ProductSubForm({ index, remove, unitOptions }: { index: number; remove: (index: number) => void; unitOptions: string[]; }) {
   const { control, setValue, getValues } = useFormContext<BatchProductSchema>();
   
   const rate = useWatch({ control, name: `products.${index}.rate` });
@@ -587,16 +579,16 @@ function ProductSubForm({ index, remove, unitOptions }: { index: number; remove:
               control={control}
               name={`products.${index}.unit`}
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Unit</FormLabel>
-                   <Combobox
-                    options={unitOptions}
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder="Select or type unit..."
-                    searchPlaceholder="Search unit..."
-                    emptyPlaceholder="No unit found. Type to create new."
-                  />
+                  <FormControl>
+                    <Input autoComplete="off" placeholder="e.g., kg, piece" {...field} list="batch-unit-suggestions" />
+                  </FormControl>
+                  <datalist id="batch-unit-suggestions">
+                    {unitOptions.map((unit) => (
+                      <option key={unit} value={unit} />
+                    ))}
+                  </datalist>
                   <FormMessage />
                 </FormItem>
               )}
@@ -606,7 +598,7 @@ function ProductSubForm({ index, remove, unitOptions }: { index: number; remove:
   )
 }
 
-export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, unitOptions }: { isOpen: boolean; setIsOpen: (open: boolean) => void; partyNameOptions: ComboboxOption[]; unitOptions: ComboboxOption[]; }) {
+export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, unitOptions }: { isOpen: boolean; setIsOpen: (open: boolean) => void; partyNameOptions: string[]; unitOptions: string[]; }) {
     const { toast } = useToast();
     const form = useForm<BatchProductSchema>({
         resolver: zodResolver(batchProductSchema),
@@ -667,17 +659,17 @@ export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, uni
                                     control={form.control}
                                     name="partyName"
                                     render={({ field }) => (
-                                        <FormItem className="flex flex-col">
-                                            <FormLabel>Party Name</FormLabel>
-                                            <Combobox
-                                                options={partyNameOptions}
-                                                value={field.value}
-                                                onChange={field.onChange}
-                                                placeholder="Select or type party..."
-                                                searchPlaceholder="Search party..."
-                                                emptyPlaceholder="No party found. Type to create new."
-                                            />
-                                            <FormMessage />
+                                        <FormItem>
+                                          <FormLabel>Party Name</FormLabel>
+                                          <FormControl>
+                                            <Input autoComplete="off" placeholder="e.g. Verma Traders" {...field} list="batch-party-name-suggestions" />
+                                          </FormControl>
+                                          <datalist id="batch-party-name-suggestions">
+                                            {partyNameOptions.map((party) => (
+                                              <option key={party} value={party} />
+                                            ))}
+                                          </datalist>
+                                          <FormMessage />
                                         </FormItem>
                                     )}
                                 />
