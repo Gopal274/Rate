@@ -237,7 +237,20 @@ export function ProductFormDialog({
                 )}
             />
              <FormField control={form.control} name="gst" render={({ field }) => (
-                <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                    <FormLabel>GST (%)</FormLabel>
+                    <FormControl>
+                        <Input type="number" step="0.01" placeholder="e.g. 5" list="gst-suggestions" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} />
+                    </FormControl>
+                    <datalist id="gst-suggestions">
+                        <option value="0" />
+                        <option value="5" />
+                        <option value="12" />
+                        <option value="18" />
+                        <option value="28" />
+                    </datalist>
+                    <FormMessage />
+                </FormItem>
             )}
             />
             <FormField
@@ -365,7 +378,20 @@ export function AddRateDialog({
                 control={form.control}
                 name="gst"
                 render={({ field }) => (
-                    <FormItem><FormLabel>New GST (%)</FormLabel><FormControl><Input type="number" placeholder="e.g. 5" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                        <FormLabel>New GST (%)</FormLabel>
+                        <FormControl>
+                            <Input type="number" placeholder="e.g. 5" list="gst-suggestions" {...field} value={field.value ?? ''} onChange={e => field.onChange(Number(e.target.value))} />
+                        </FormControl>
+                        <datalist id="gst-suggestions">
+                            <option value="0" />
+                            <option value="5" />
+                            <option value="12" />
+                            <option value="18" />
+                            <option value="28" />
+                        </datalist>
+                        <FormMessage />
+                    </FormItem>
                 )}
             />
             <FormField
@@ -593,7 +619,13 @@ function ProductSubForm({ index, remove, unitOptions }: { index: number; remove:
             control={control}
             name={`products.${index}.gst`}
             render={({ field }) => (
-                <FormItem><FormLabel>GST (%)</FormLabel><FormControl><Input autoComplete="off" type="number" step="0.01" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                    <FormLabel>GST (%)</FormLabel>
+                    <FormControl>
+                        <Input autoComplete="off" type="number" step="0.01" list="gst-suggestions-batch" {...field} value={field.value ?? ''} onChange={e => handleGstChange(Number(e.target.value))} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
             )}
         />
         <FormField
@@ -685,6 +717,13 @@ export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, uni
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
+                        <datalist id="gst-suggestions-batch">
+                            <option value="0" />
+                            <option value="5" />
+                            <option value="12" />
+                            <option value="18" />
+                            <option value="28" />
+                        </datalist>
                         <div className="p-4 border rounded-lg space-y-4">
                            <h3 className="font-semibold text-lg text-foreground">Common Bill Details</h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
