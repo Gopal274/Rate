@@ -55,23 +55,6 @@ export const batchProductSchema = z.object({
 export type BatchProductSchema = z.infer<typeof batchProductSchema>;
 
 
-// --- Reconciliation Schemas ---
-const transactionSchema = z.object({
-  date: z.string().describe('Transaction date (YYYY-MM-DD)'),
-  description: z.string().describe('Description or bill number'),
-  amount: z.number().describe('Transaction amount'),
-});
-
-export const reconciliationDataSchema = z.object({
-  summary: z.string().describe("A brief, one-sentence summary of the findings."),
-  matches: z.array(transactionSchema).describe('Transactions found in both ledgers.'),
-  partyADiscrepancies: z.array(transactionSchema).describe("Transactions present in Party A's ledger but missing from Party B's."),
-  partyBDiscrepancies: z.array(transactionSchema).describe("Transactions present in Party B's ledger but missing from Party A's."),
-});
-
-export type ReconciliationData = z.infer<typeof reconciliationDataSchema>;
-
-
 // This is the shape of the data in the database
 export type Product = {
   id: string;
