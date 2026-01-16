@@ -622,7 +622,11 @@ export function BatchAddProductDialog({ isOpen, setIsOpen, partyNameOptions, uni
         const result = await batchAddProductsAction(data);
         
         if(result.success) {
-            toast({ title: "Success!", description: `Successfully added ${result.count} products.` });
+            let description = `Successfully added ${result.added} products.`;
+            if (result.skipped > 0) {
+                description += ` Skipped ${result.skipped} duplicate entries.`;
+            }
+            toast({ title: "Success!", description });
             setIsOpen(false);
             form.reset({
                 partyName: '',

@@ -65,12 +65,12 @@ export async function addProductAction(formData: ProductFormData) {
 
 export async function batchAddProductsAction(formData: BatchProductSchema) {
     const result = await handleAction(async () => {
-        const count = await batchAddProductsToDb(formData);
-        return { count };
+        const counts = await batchAddProductsToDb(formData);
+        return { counts };
     }, mainPaths);
 
     if (result.success) {
-        return { success: true, count: result.data.count };
+        return { success: true, added: result.data.counts.addedCount, skipped: result.data.counts.skippedCount };
     }
     return { success: false, message: result.message };
 }

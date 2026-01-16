@@ -64,7 +64,7 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
     );
 
     if (isDuplicateRate) {
-        throw new Error(`This rate already exists for ${name} from ${partyName}.`);
+        throw new Error(`This exact rate for ${name} already exists on this date.`);
     }
 
   } else {
@@ -95,12 +95,13 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
   };
 };
 
-export const batchAddProducts = async (formData: BatchProductSchema): Promise<number> => {
+export const batchAddProducts = async (formData: BatchProductSchema): Promise<{ addedCount: number; skippedCount: number }> => {
     const db = await getDb();
     const { partyName, billDate, pageNo, products } = formData;
     const batchBillDate = new Date(billDate);
     
     let addedCount = 0;
+    let skippedCount = 0;
 
     const existingProducts = await getAllProductsWithRates({ onlyLatestRate: false });
     const productMap = new Map(existingProducts.map(p => {
@@ -125,6 +126,7 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<nu
                 new Date(r.billDate).toDateString() === batchBillDate.toDateString()
             );
             if (isDuplicateRate) {
+                skippedCount++; // Increment skipped count
                 continue; // Skip this product entry entirely
             }
         } else {
@@ -136,7 +138,8 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<nu
                 partyName: partyName,
             });
             targetProductId = newProductRef.id;
-            productMap.set(productKey, { id: targetProductId, rates: [] }); // Add to map for subsequent items
+            // Add to map for subsequent items in the same batch to avoid creating the same product multiple times
+            productMap.set(productKey, { id: targetProductId, rates: [] }); 
         }
 
         // Add the rate to the product (new or existing)
@@ -152,7 +155,7 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<nu
     }
 
     await batch.commit();
-    return addedCount;
+    return { addedCount, skippedCount };
 };
 
 
