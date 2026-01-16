@@ -108,7 +108,7 @@ body {
     --border: 220 20% 20%;
     --input: 220 20% 15%;
     --ring: 180 100% 50%;
-    --radius: 0.3rem;
+    --radius: 0.2rem;
   }
   
   /* 3. Neumorphism */
@@ -132,29 +132,31 @@ body {
     --border: 220 15% 90%;
     --input: 220 15% 90%;
     --ring: 220 10% 40%;
+    --radius: 0.75rem;
   }
   
   /* 4. Glassmorphism */
   .theme-glassmorphism {
     --background: 222 84% 5%;
     --foreground: 210 40% 98%;
-    --card: 217 33% 25%;
+    --card: 217 33% 25% / 0.8;
     --card-foreground: 210 40% 98%;
     --popover: 222 84% 5%;
     --popover-foreground: 210 40% 98%;
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217 33% 25%;
+    --secondary: 217 33% 25% / 0.5;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 25%;
+    --muted: 217 33% 25% / 0.5;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217 33% 25%;
+    --accent: 217 33% 25% / 0.5;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
     --border: 217 33% 35%;
-    --input: 217 33% 25%;
+    --input: 217 33% 25% / 0.5;
     --ring: 210 40% 98%;
+    --radius: 0.5rem;
   }
 
   /* 5. Cyberpunk / Neon */
@@ -178,6 +180,7 @@ body {
     --border: 255 50% 20%;
     --input: 255 50% 15%;
     --ring: 317 100% 54%;
+    --radius: 0.1rem;
   }
 
   /* 6. Retro / Vintage */
@@ -201,6 +204,7 @@ body {
     --border: 45 30% 85%;
     --input: 45 30% 85%;
     --ring: 180 25% 40%;
+    --radius: 0.1rem;
   }
 
   /* 7. Material Design */
@@ -420,4 +424,5 @@ body {
   }
 }
 
+    
     
