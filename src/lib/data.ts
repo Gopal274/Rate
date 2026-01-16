@@ -38,23 +38,40 @@ const RATES_SUBCOLLECTION = 'rates';
 // Type for product data used in creation, separating product and rate details
 type ProductCreationData = Omit<ProductSchema, 'rate' | 'gst' | 'pageNo' | 'billDate'>;
 
+// Helper for normalizing product names for matching
+const normalizeName = (name: string): string => {
+    if (!name) return '';
+    return name.toLowerCase().replace(/[\s\/-]/g, '');
+}
+
+
 export const addProduct = async (formData: ProductSchema): Promise<{product: Product, rate: Rate}> => {
   const db = await getDb();
   const { name, unit, partyName, rate, gst, pageNo, billDate } = formData;
   
+  // Fetch all products for the given party to check for normalized name
   const productsRef = collection(db, PRODUCTS_COLLECTION);
-  const q = query(productsRef, where('name', '==', name), where('partyName', '==', partyName), limit(1));
-  const querySnapshot = await getDocs(q);
+  const partyProductsQuery = query(productsRef, where('partyName', '==', partyName));
+  const partyProductsSnapshot = await getDocs(partyProductsQuery);
+  
+  const normalizedNewName = normalizeName(name);
+  let existingProductDoc = null;
+
+  for (const doc of partyProductsSnapshot.docs) {
+      if (normalizeName(doc.data().name) === normalizedNewName) {
+          existingProductDoc = doc;
+          break;
+      }
+  }
 
   let productId: string;
   let productData: Omit<Product, 'id'>;
 
-  if (!querySnapshot.empty) {
-    const existingDoc = querySnapshot.docs[0];
-    productId = existingDoc.id;
-    productData = existingDoc.data() as Omit<Product, 'id'>;
+  if (existingProductDoc) {
+    // Product exists, use its data but check for duplicate rate
+    productId = existingProductDoc.id;
+    productData = existingProductDoc.data() as Omit<Product, 'id'>;
 
-    // Product exists, check if the rate is a duplicate based on rate and GST
     const existingRates = await getProductRates(productId);
     const isDuplicateRate = existingRates.some(r => 
         r.rate === rate && 
@@ -62,11 +79,12 @@ export const addProduct = async (formData: ProductSchema): Promise<{product: Pro
     );
 
     if (isDuplicateRate) {
-        throw new Error(`This rate (${rate} + ${gst}% GST) for '${name}' from '${partyName}' has already been recorded.`);
+        // Use the existing product's name in the error message for clarity
+        throw new Error(`This rate (${rate} + ${gst}% GST) for '${productData.name}' from '${partyName}' has already been recorded.`);
     }
 
   } else {
-    // Product doesn't exist, create it
+    // Product doesn't exist, create it with the user-provided name
     const newProductData: ProductCreationData = { name, unit, partyName };
     const newProductRef = await addDoc(collection(db, PRODUCTS_COLLECTION), newProductData);
     productId = newProductRef.id;
@@ -102,14 +120,14 @@ export const batchAddProducts = async (formData: BatchProductSchema): Promise<{ 
 
     const existingProducts = await getAllProductsWithRates({ onlyLatestRate: false });
     const productMap = new Map(existingProducts.map(p => {
-        const key = `${p.name.toLowerCase()}_${p.partyName.toLowerCase()}`;
+        const key = `${normalizeName(p.name)}_${normalizeName(p.partyName)}`;
         return [key, { id: p.id, rates: p.rates }];
     }));
     
     const batch = writeBatch(db);
     
     for (const product of products) {
-        const productKey = `${product.name.toLowerCase()}_${partyName.toLowerCase()}`;
+        const productKey = `${normalizeName(product.name)}_${normalizeName(partyName)}`;
         const existingProductInfo = productMap.get(productKey);
 
         let targetProductId: string;
@@ -288,7 +306,7 @@ export async function importProductsAndRates(rows: any[][]) {
   // 1. Fetch all existing products and ALL their rates for efficient checking
   const existingProductsData = await getAllProductsWithRates({ onlyLatestRate: false });
   const productCheckMap: ProductCheckMap = existingProductsData.reduce((acc, p) => {
-    const key = `${p.name.toLowerCase()}_${p.partyName.toLowerCase()}`;
+    const key = `${normalizeName(p.name)}_${normalizeName(p.partyName)}`;
     acc[key] = { id: p.id, rates: p.rates };
     return acc;
   }, {} as ProductCheckMap);
@@ -325,7 +343,7 @@ export async function importProductsAndRates(rows: any[][]) {
       continue; 
     }
     
-    const productKey = `${name.toLowerCase()}_${partyName.toLowerCase()}`;
+    const productKey = `${normalizeName(name)}_${normalizeName(partyName)}`;
     const existingProduct = productCheckMap[productKey];
 
     if (existingProduct) {
