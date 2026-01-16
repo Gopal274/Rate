@@ -139,22 +139,22 @@ body {
   .theme-glassmorphism {
     --background: 222 84% 5%;
     --foreground: 210 40% 98%;
-    --card: 217 33% 15% / 0.8;
+    --card: 217 33% 15%;
     --card-foreground: 210 40% 98%;
     --popover: 222 84% 5%;
     --popover-foreground: 210 40% 98%;
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217 33% 25% / 0.5;
+    --secondary: 217 33% 25%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 25% / 0.5;
+    --muted: 217 33% 25%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217 33% 25% / 0.5;
+    --accent: 217 33% 25%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
     --border: 217 33% 35%;
-    --input: 217 33% 25% / 0.5;
+    --input: 217 33% 25%;
     --ring: 210 40% 98%;
     --radius: 0.5rem;
   }
@@ -324,6 +324,7 @@ body {
     --border: 215 30% 25%;
     --input: 215 30% 20%;
     --ring: 180 100% 50%;
+    --radius: 0rem;
   }
 
   /* 12. Cartoon / Playful */
@@ -427,3 +428,5 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+    
