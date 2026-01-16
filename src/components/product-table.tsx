@@ -789,12 +789,24 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 <CardDescription>Manage your products and their rates.</CardDescription>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap no-print">
-                <Input
-                    placeholder="Filter products..."
-                    value={globalFilterValue}
-                    onChange={(event) => setGlobalFilter(event.target.value)}
-                    className="max-w-xs"
-                />
+                <div className="relative max-w-xs w-full">
+                    <Input
+                        placeholder="Filter products..."
+                        value={globalFilterValue}
+                        onChange={(event) => setGlobalFilter(event.target.value)}
+                        className="w-full pr-8"
+                    />
+                    {globalFilterValue && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute h-7 w-7 right-1 top-1/2 -translate-y-1/2 text-muted-foreground"
+                            onClick={() => setGlobalFilter('')}
+                        >
+                            <XCircle className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
                 
                 {viewMode === 'card' && (
                    <MobileFilterSheet />
@@ -1120,4 +1132,5 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
 
