@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -31,31 +32,31 @@ export function ThemeToggle() {
         <DropdownMenuItem onClick={() => setTheme("light")}>
           Default Light
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("minimal-light")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-minimal-light")}>
           Minimal Light
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("neumorphism")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-neumorphism")}>
           Neumorphism
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("retro-vintage")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-retro-vintage")}>
           Retro / Vintage
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("material-design")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-material-design")}>
           Material Design
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("y2k")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-y2k")}>
           Y2K Aesthetic
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("nature-earthy")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-nature-earthy")}>
           Nature / Earthy
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("corporate")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-corporate")}>
           Corporate
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("cartoon")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-cartoon")}>
           Cartoon / Playful
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("monochrome-blue")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-monochrome-blue")}>
           Monochrome Blue
         </DropdownMenuItem>
 
@@ -64,22 +65,22 @@ export function ThemeToggle() {
         <DropdownMenuItem onClick={() => setTheme("dark")}>
           Default Dark
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("minimal-dark")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-minimal-dark")}>
           Minimal Dark
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("glassmorphism")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-glassmorphism")}>
           Glassmorphism
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("cyberpunk")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-cyberpunk")}>
           Cyberpunk / Neon
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("sci-fi")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-sci-fi")}>
           Futuristic Sci-Fi
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("luxury")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-luxury")}>
           Luxury / Premium
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("gradient-modern")}>
+        <DropdownMenuItem onClick={() => setTheme("theme-gradient-modern")}>
           Gradient Modern
         </DropdownMenuItem>
 
