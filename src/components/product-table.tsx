@@ -177,6 +177,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
   const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null);
   const [addingRateToProduct, setAddingRateToProduct] = React.useState<ProductWithRates | null>(null);
   const [deletingRateInfo, setDeletingRateInfo] = React.useState<{ product: Product; rate: Rate } | null>(null);
+  const [showAddToPartyButtons, setShowAddToPartyButtons] = React.useState(true);
   
 
   const { user } = useUser();
@@ -490,6 +491,14 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 <DropdownMenuItem onClick={() => column?.setFilterValue([])}>
                     <RotateCcw className="mr-2 h-4 w-4" /> Clear Filter
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                    checked={showAddToPartyButtons}
+                    onCheckedChange={setShowAddToPartyButtons}
+                    onSelect={(e) => e.preventDefault()}
+                >
+                    Show "Add to Party" buttons
+                </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -497,27 +506,29 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       },
       cell: ({ row }) => (
           <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-6 w-6 text-muted-foreground"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setPrefilledPartyName(row.original.partyName);
-                            setIsAddSingleDialogOpen(true);
-                        }}
-                      >
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Add Product to {row.original.partyName}</p>
-                    </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {showAddToPartyButtons && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-muted-foreground"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setPrefilledPartyName(row.original.partyName);
+                                setIsAddSingleDialogOpen(true);
+                            }}
+                        >
+                            <PlusCircle className="h-4 w-4" />
+                        </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Add Product to {row.original.partyName}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+              )}
               <span>{row.original.partyName}</span>
           </div>
       ),
@@ -604,7 +615,7 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
       },
       enableSorting: false,
     },
-  ], [openCollapsibles, uniquePartyNames, uniqueFirstLetters, activeSort]);
+  ], [openCollapsibles, uniquePartyNames, uniqueFirstLetters, activeSort, showAddToPartyButtons]);
 
   const table = useReactTable({
     data: sortedData,
@@ -825,11 +836,8 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                 
                 { user && 
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => { setPrefilledPartyName(undefined); setIsAddSingleDialogOpen(true); }}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Product
-                    </Button>
                     <Button onClick={() => setIsBatchAddOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Batch
+                        <Plus className="mr-2 h-4 w-4" /> Add Products
                     </Button>
                   </div>
                 }
@@ -852,27 +860,29 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
                           <CardTitle className="text-lg">{product.name}</CardTitle>
                           <CardDescription>
                             <div className="flex items-center gap-2 -ml-2">
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-6 w-6 text-muted-foreground"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setPrefilledPartyName(product.partyName);
-                                                setIsAddSingleDialogOpen(true);
-                                            }}
-                                        >
-                                            <PlusCircle className="h-4 w-4" />
-                                        </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Add Product to {product.partyName}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                {showAddToPartyButtons && (
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6 text-muted-foreground"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setPrefilledPartyName(product.partyName);
+                                                    setIsAddSingleDialogOpen(true);
+                                                }}
+                                            >
+                                                <PlusCircle className="h-4 w-4" />
+                                            </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Add Product to {product.partyName}</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )}
                                 <span>{product.partyName}</span>
                             </div>
                           </CardDescription>
@@ -1112,3 +1122,4 @@ export function ProductTable({ allProductsWithRates }: { allProductsWithRates: P
     </>
   );
 }
+
